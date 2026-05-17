@@ -1,6 +1,6 @@
 'use client'
 
-import { lazy, Suspense, useMemo, memo } from 'react'
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import {
   Film,
@@ -11,17 +11,10 @@ import {
   Users,
   TrendingUp,
   TrendingDown,
-  Play,
   Pause,
   Volume2,
   Settings,
   Maximize,
-  Headphones,
-  Shirt,
-  Coffee,
-  Sofa,
-  Dumbbell,
-  Car,
   ChevronDown,
   Eye as ViewIcon,
   Pencil,
@@ -29,8 +22,6 @@ import {
   Clock,
   HardDrive,
   Calendar,
-  ArrowUpRight,
-  MoreHorizontal,
 } from 'lucide-react'
 import {
   AreaChart,
