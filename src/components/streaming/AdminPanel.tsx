@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -32,6 +32,7 @@ import {
   Terminal,
 } from 'lucide-react'
 import { useAppStore, type AdminSection } from '@/lib/store'
+import { cachedFetch } from '@/lib/performance/api-cache'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { AdminDashboard } from './AdminDashboard'
 import { VideoManager } from './VideoManager'
@@ -262,7 +263,7 @@ interface SidebarNavItemProps {
   delay: number
 }
 
-function SidebarNavItem({
+const SidebarNavItem = memo(function SidebarNavItem({
   item,
   depth,
   activeSection,
@@ -418,7 +419,7 @@ function SidebarNavItem({
       </AnimatePresence>
     </div>
   )
-}
+})
 
 // ─── Main AdminPanel Component ────────────────────────────────────────────────
 
@@ -474,26 +475,15 @@ export function AdminPanel() {
   const fetchAdminData = useCallback(async () => {
     setDataLoading(true)
     try {
-      const [analyticsRes, videosRes, adsRes] = await Promise.all([
-        fetch('/api/analytics'),
-        fetch('/api/videos?limit=100'),
-        fetch('/api/ads'),
+      const [analyticsData, videosData, adsData] = await Promise.all([
+        cachedFetch('admin:analytics', () => fetch('/api/analytics').then(r => r.ok ? r.json() : null), 30_000),
+        cachedFetch('admin:videos', () => fetch('/api/videos?limit=100').then(r => r.ok ? r.json() : null), 60_000),
+        cachedFetch('admin:ads', () => fetch('/api/ads').then(r => r.ok ? r.json() : null), 120_000),
       ])
 
-      if (analyticsRes.ok) {
-        const analyticsData = await analyticsRes.json()
-        setDashboardData(analyticsData)
-      }
-
-      if (videosRes.ok) {
-        const videosData = await videosRes.json()
-        setAdminVideos(videosData.videos || [])
-      }
-
-      if (adsRes.ok) {
-        const adsData = await adsRes.json()
-        setAdminAds(adsData.ads || [])
-      }
+      if (analyticsData) setDashboardData(analyticsData)
+      if (videosData) setAdminVideos(videosData.videos || [])
+      if (adsData) setAdminAds(adsData.ads || [])
     } catch (err) {
       console.error('Error fetching admin data:', err)
     } finally {
@@ -855,6 +845,7 @@ export function AdminPanel() {
               <motion.aside
                 animate={{ width: adminSidebarCollapsed ? 64 : sidebarExpandedWidth }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
+                style={{ willChange: 'width' }}
                 className="relative flex flex-shrink-0 flex-col border-r border-xtube-border bg-[#0a0a0a] overflow-hidden"
               >
                 {/* Sidebar Header */}
@@ -1035,7 +1026,7 @@ export function AdminPanel() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.2 }}
+                      transition={{ duration: isTablet ? 0.1 : 0.2 }}
                     >
                       {renderContent()}
                     </motion.div>

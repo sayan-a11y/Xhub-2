@@ -47,6 +47,7 @@ import {
 import { useAppStore } from '@/lib/store'
 import { Comments } from '@/components/streaming/Comments'
 import { XtubeLogo } from '@/components/shared/XtubeLogo'
+import { usePageVisibility } from '@/lib/performance/hooks'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -173,6 +174,22 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
   const theaterMode = useAppStore((s) => s.theaterMode)
   const setTheaterMode = useAppStore((s) => s.setTheaterMode)
   const navigateToVideo = useAppStore((s) => s.navigateToVideo)
+
+  // Performance: pause video when page is hidden (saves CPU + bandwidth)
+  const isVisible = usePageVisibility()
+  const wasPlayingBeforeHidden = useRef(false)
+
+  useEffect(() => {
+    const vid = videoRef.current
+    if (!vid) return
+    if (!isVisible && !vid.paused) {
+      wasPlayingBeforeHidden.current = true
+      vid.pause()
+    } else if (isVisible && wasPlayingBeforeHidden.current) {
+      vid.play().catch(() => {})
+      wasPlayingBeforeHidden.current = false
+    }
+  }, [isVisible])
 
   // Video state
   const videoRef = useRef<HTMLVideoElement>(null)

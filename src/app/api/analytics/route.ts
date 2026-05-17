@@ -73,6 +73,8 @@ export async function GET() {
         count: c._count.id,
         views: c._sum.views || 0,
       })),
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
     })
   } catch (error) {
     console.error('Error fetching analytics:', error)

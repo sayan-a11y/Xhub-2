@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
       });
 
-      return NextResponse.json({ footerAds });
+      return NextResponse.json({ footerAds }, {
+        headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
+      });
     }
 
     // Default: fetch all footer ads (for admin panel)
@@ -47,7 +49,9 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ footerAds });
+    return NextResponse.json({ footerAds }, {
+      headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
+    });
   } catch (error) {
     console.error('Error fetching footer ads:', error);
     return NextResponse.json(

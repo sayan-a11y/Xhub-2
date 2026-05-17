@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { Sidebar } from '@/components/streaming/Sidebar'
@@ -10,12 +10,18 @@ import { HeroAdsSlider } from '@/components/streaming/HeroAdsSlider'
 import { FooterAds } from '@/components/streaming/FooterAds'
 import { CategorySection } from '@/components/streaming/CategorySection'
 import { VideoGrid } from '@/components/streaming/VideoGrid'
-import { VideoPlayer } from '@/components/streaming/VideoPlayer'
 import { AdminPanel } from '@/components/streaming/AdminPanel'
 import { Flame, Sparkles, Clock, Search, Film, History } from 'lucide-react'
 import { AgeVerificationPopup } from '@/components/streaming/AgeVerificationPopup'
 import { XtubeLogo } from '@/components/shared/XtubeLogo'
 import { AdminLoginModal } from '@/components/shared/AdminLoginModal'
+import { cachedFetch, invalidateCache } from '@/lib/performance/api-cache'
+import { useDebounce } from '@/lib/performance/hooks'
+
+// ─── Dynamic Import VideoPlayer (heavy component - code split) ───────────────
+const VideoPlayer = lazy(() =>
+  import('@/components/streaming/VideoPlayer').then(m => ({ default: m.VideoPlayer }))
+)
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -158,11 +164,11 @@ export default function XtubeHome() {
 
   const fetchVideos = useCallback(async () => {
     try {
-      const res = await fetch('/api/videos?limit=50')
-      if (res.ok) {
-        const data = await res.json()
-        setVideos(data.videos || [])
-      }
+      const data = await cachedFetch<{ videos: VideoData[] }>('videos', () =>
+        fetch('/api/videos?limit=50').then(r => r.json()),
+        60_000 // cache for 1 minute
+      )
+      setVideos(data.videos || [])
     } catch (err) {
       console.error('Error fetching videos:', err)
     }
@@ -172,11 +178,11 @@ export default function XtubeHome() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const res = await fetch('/api/categories')
-      if (res.ok) {
-        const data = await res.json()
-        setCategories(data.categories || [])
-      }
+      const data = await cachedFetch<{ categories: CategoryData[] }>('categories', () =>
+        fetch('/api/categories').then(r => r.json()),
+        300_000 // cache for 5 minutes (categories rarely change)
+      )
+      setCategories(data.categories || [])
     } catch (err) {
       console.error('Error fetching categories:', err)
     }
@@ -186,11 +192,11 @@ export default function XtubeHome() {
 
   const fetchAds = useCallback(async () => {
     try {
-      const res = await fetch('/api/ads?position=hero')
-      if (res.ok) {
-        const data = await res.json()
-        setAds(data.ads || [])
-      }
+      const data = await cachedFetch<{ ads: AdData[] }>('ads-hero', () =>
+        fetch('/api/ads?position=hero').then(r => r.json()),
+        120_000 // cache for 2 minutes
+      )
+      setAds(data.ads || [])
     } catch (err) {
       console.error('Error fetching ads:', err)
     }
@@ -200,11 +206,11 @@ export default function XtubeHome() {
 
   const fetchHeroAds = useCallback(async () => {
     try {
-      const res = await fetch('/api/hero-ads?active=true')
-      if (res.ok) {
-        const data = await res.json()
-        setHeroAds(data.heroAds || [])
-      }
+      const data = await cachedFetch<{ heroAds: HeroAdData[] }>('hero-ads', () =>
+        fetch('/api/hero-ads?active=true').then(r => r.json()),
+        120_000 // cache for 2 minutes
+      )
+      setHeroAds(data.heroAds || [])
     } catch (err) {
       console.error('Error fetching hero ads:', err)
     }
@@ -214,11 +220,11 @@ export default function XtubeHome() {
 
   const fetchFooterAds = useCallback(async () => {
     try {
-      const res = await fetch('/api/footer-ads?active=true')
-      if (res.ok) {
-        const data = await res.json()
-        setFooterAds(data.footerAds || [])
-      }
+      const data = await cachedFetch<{ footerAds: FooterAdData[] }>('footer-ads', () =>
+        fetch('/api/footer-ads?active=true').then(r => r.json()),
+        120_000 // cache for 2 minutes
+      )
+      setFooterAds(data.footerAds || [])
     } catch (err) {
       console.error('Error fetching footer ads:', err)
     }
@@ -312,64 +318,85 @@ export default function XtubeHome() {
     [videos]
   )
 
-  // ─── Get filtered videos for search ────────────────────────────────────────
+  // ─── Debounced search query for performance ──────────────────────────────
 
-  const searchResults = videos.filter(
-    (v) =>
-      v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const debouncedSearchQuery = useDebounce(searchQuery, 200)
+
+  // ─── Get filtered videos for search (memoized with debounced query) ────────
+
+  const searchResults = useMemo(() =>
+    debouncedSearchQuery
+      ? videos.filter(
+          (v) =>
+            v.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+            v.description?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+        )
+      : [],
+    [videos, debouncedSearchQuery]
   )
 
-  // ─── Get related videos for video player ───────────────────────────────────
+  // ─── Get related videos for video player (memoized) ────────────────────────
 
-  const relatedVideos = currentVideo
-    ? videos
-        .filter((v) => v.id !== currentVideo.id)
-        .sort((a, b) => {
-          if (a.category === currentVideo.category && b.category !== currentVideo.category) return -1
-          if (b.category === currentVideo.category && a.category !== currentVideo.category) return 1
-          return b.views - a.views
-        })
-        .slice(0, 15)
-        .map((v) => ({
-          id: v.id,
-          title: v.title,
-          thumbnail: v.thumbnail,
-          duration: v.duration,
-          views: v.views,
-          category: v.category,
-        }))
-    : []
+  const relatedVideos = useMemo(() =>
+    currentVideo
+      ? videos
+          .filter((v) => v.id !== currentVideo.id)
+          .sort((a, b) => {
+            if (a.category === currentVideo.category && b.category !== currentVideo.category) return -1
+            if (b.category === currentVideo.category && a.category !== currentVideo.category) return 1
+            return b.views - a.views
+          })
+          .slice(0, 15)
+          .map((v) => ({
+            id: v.id,
+            title: v.title,
+            thumbnail: v.thumbnail,
+            duration: v.duration,
+            views: v.views,
+            category: v.category,
+          }))
+      : [],
+    [currentVideo, videos]
+  )
 
-  // ─── Prepare hero ads for slider ──────────────────────────────────────────
+  // ─── Prepare hero ads for slider (memoized) ────────────────────────────────
 
-  const heroAdsSliderData = heroAds.map((ad) => ({
-    id: ad.id,
-    title: ad.title,
-    description: ad.description || undefined,
-    category: ad.category || undefined,
-    mediaUrl: ad.mediaUrl,
-    thumbnailUrl: ad.thumbnailUrl || undefined,
-    adType: ad.adType as 'image' | 'video',
-    mediaFormat: ad.mediaFormat,
-  }))
+  const heroAdsSliderData = useMemo(() =>
+    heroAds.map((ad) => ({
+      id: ad.id,
+      title: ad.title,
+      description: ad.description || undefined,
+      category: ad.category || undefined,
+      mediaUrl: ad.mediaUrl,
+      thumbnailUrl: ad.thumbnailUrl || undefined,
+      adType: ad.adType as 'image' | 'video',
+      mediaFormat: ad.mediaFormat,
+    })),
+    [heroAds]
+  )
 
-  // Prepare footer ads data
-  const footerAdsData = footerAds.map((ad) => ({
-    id: ad.id,
-    title: ad.title,
-    mediaUrl: ad.mediaUrl,
-    thumbnailUrl: ad.thumbnailUrl || undefined,
-    adType: ad.adType as 'image' | 'video' | 'gif' | 'html5',
-    mediaFormat: ad.mediaFormat,
-    linkUrl: ad.linkUrl || undefined,
-  }))
+  // Prepare footer ads data (memoized)
+  const footerAdsData = useMemo(() =>
+    footerAds.map((ad) => ({
+      id: ad.id,
+      title: ad.title,
+      mediaUrl: ad.mediaUrl,
+      thumbnailUrl: ad.thumbnailUrl || undefined,
+      adType: ad.adType as 'image' | 'video' | 'gif' | 'html5',
+      mediaFormat: ad.mediaFormat,
+      linkUrl: ad.linkUrl || undefined,
+    })),
+    [footerAds]
+  )
 
-  // ─── Get videos for specific category ──────────────────────────────────────
+  // ─── Get videos for specific category (memoized) ────────────────────────────
 
-  const categoryVideos = selectedCategory
-    ? videos.filter((v) => v.category === selectedCategory)
-    : []
+  const categoryVideos = useMemo(() =>
+    selectedCategory
+      ? videos.filter((v) => v.category === selectedCategory)
+      : [],
+    [videos, selectedCategory]
+  )
 
   // ─── Render Views ──────────────────────────────────────────────────────────
 
@@ -599,12 +626,18 @@ export default function XtubeHome() {
     }
 
     return (
-      <VideoPlayer
-        video={currentVideo}
-        relatedVideos={relatedVideos}
-        comments={videoComments}
-        onAddComment={handleAddComment}
-      />
+      <Suspense fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-xtube-red border-t-transparent" />
+        </div>
+      }>
+        <VideoPlayer
+          video={currentVideo}
+          relatedVideos={relatedVideos}
+          comments={videoComments}
+          onAddComment={handleAddComment}
+        />
+      </Suspense>
     )
   }
 

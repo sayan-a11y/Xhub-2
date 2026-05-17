@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
         ],
       })
 
-      return NextResponse.json({ heroAds })
+      return NextResponse.json({ heroAds }, {
+        headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
+      })
     }
 
     // Admin panel: fetch all hero ads
@@ -38,7 +40,9 @@ export async function GET(request: NextRequest) {
       ],
     })
 
-    return NextResponse.json({ heroAds })
+    return NextResponse.json({ heroAds }, {
+      headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
+    })
   } catch (error) {
     console.error('Error fetching hero ads:', error)
     return NextResponse.json(

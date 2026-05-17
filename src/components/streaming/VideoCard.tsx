@@ -83,6 +83,8 @@ export const VideoCard = memo(function VideoCard({
           alt={title}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
           loading="lazy"
+          decoding="async"
+          fetchPriority="low"
         />
 
         {/* Hover overlay with play icon */}
