@@ -75,14 +75,14 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
   table: string,
   options: RealtimeOptions = {}
 ): UseRealtimeResult<T> {
-  const { filter, schema = 'public', pollInterval = 5000 } = options
+  const { filter, schema = 'public' } = options
   const client = useSupabase()
 
   const [data, setData] = useState<T[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Throttle state updates to max once per second
+  // Throttle state updates to max once per 200ms
   const lastEmit = useRef(0)
   const pendingRef = useRef<T[]>([])
   const rafRef = useRef<number | null>(null)
@@ -105,36 +105,9 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
     }
   }, [])
 
-  // Initial fetch + realtime subscription
+  // Realtime subscription only — data loading is handled by consuming hooks via API routes
   useEffect(() => {
-    let cancelled = false
     let channel: RealtimeChannel | null = null
-    let pollTimer: ReturnType<typeof setInterval> | null = null
-    let realtimeOk = true
-
-    const fetchData = async () => {
-      try {
-        let query = client.from(table).select()
-        if (filter) {
-          // Parse simple "col=eq.val" filter
-          const [col, rest] = filter.split('=')
-          const [op, val] = rest.split('.')
-          query = query.filter(col, op, val) as unknown as typeof query
-        }
-        const { data: rows, error: fetchErr } = await query
-        if (fetchErr) throw fetchErr
-        if (!cancelled) {
-          setData((rows ?? []) as T[])
-          setIsLoading(false)
-          setError(null)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Fetch failed')
-          setIsLoading(false)
-        }
-      }
-    }
 
     const subscribe = () => {
       const channelName = `rt:${table}:${filter ?? 'all'}`
@@ -144,11 +117,6 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
           'postgres_changes',
           { event: '*', schema, table, filter },
           (payload: RealtimePostgresChangesPayload<T>) => {
-            realtimeOk = true
-            if (pollTimer) {
-              clearInterval(pollTimer)
-              pollTimer = null
-            }
             setData((prev) => {
               const next = [...prev]
               if (payload.eventType === 'INSERT') {
@@ -161,33 +129,27 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
                 if (delIdx !== -1) next.splice(delIdx, 1)
               }
               throttledSet(next)
-              return prev // actual update via throttledSet
+              return next
             })
           }
         )
         .subscribe((status) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            realtimeOk = false
-            setError('Realtime connection lost — falling back to polling')
-            if (!pollTimer) {
-              pollTimer = setInterval(fetchData, pollInterval)
-            }
+            setError('Realtime connection lost')
           }
         })
     }
 
-    fetchData().then(subscribe)
+    subscribe()
 
     return () => {
-      cancelled = true
       if (channel) client.removeChannel(channel)
-      if (pollTimer) clearInterval(pollTimer)
       if (rafRef.current) {
         clearTimeout(rafRef.current)
         rafRef.current = null
       }
     }
-  }, [table, filter, schema, pollInterval, client, throttledSet])
+  }, [table, filter, schema, client, throttledSet])
 
   return { data, isLoading, error }
 }

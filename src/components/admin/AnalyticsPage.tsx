@@ -130,7 +130,7 @@ function TopMetricCard({ title, value, icon: Icon, change, delay }: TopMetricCar
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4 }}
-      className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-5 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
+      className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-5 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
     >
       <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-xtube-red to-transparent" />
       <div className="flex items-start justify-between">
@@ -212,7 +212,7 @@ export function AnalyticsPage({ data, loading }: AnalyticsPageProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
+          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
         >
           <h3 className="text-lg font-semibold text-white mb-4">Traffic Overview</h3>
           <div className="h-64 md:h-72">
@@ -246,7 +246,7 @@ export function AnalyticsPage({ data, loading }: AnalyticsPageProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
+          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
         >
           <h3 className="text-lg font-semibold text-white mb-4">Revenue Analytics</h3>
           <div className="h-64 md:h-72">
@@ -277,7 +277,7 @@ export function AnalyticsPage({ data, loading }: AnalyticsPageProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
+          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
         >
           <h3 className="text-lg font-semibold text-white mb-4">User Growth</h3>
           <div className="h-64 md:h-72">
@@ -306,7 +306,7 @@ export function AnalyticsPage({ data, loading }: AnalyticsPageProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
+          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
         >
           <h3 className="text-lg font-semibold text-white mb-4">Traffic Sources</h3>
           <div className="h-64 md:h-72">
@@ -342,7 +342,7 @@ export function AnalyticsPage({ data, loading }: AnalyticsPageProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
+          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
         >
           <h3 className="text-lg font-semibold text-white mb-4">Ad Performance</h3>
           <div className="h-64 md:h-72">
@@ -366,7 +366,7 @@ export function AnalyticsPage({ data, loading }: AnalyticsPageProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
-          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
+          className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
         >
           <h3 className="text-lg font-semibold text-white mb-4">Geographic Distribution</h3>
           <div className="space-y-3">
@@ -402,7 +402,7 @@ export function AnalyticsPage({ data, loading }: AnalyticsPageProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
+        className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-5 hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] transition-colors"
       >
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-lg font-semibold text-white">Real-time Stats</h3>

@@ -270,14 +270,15 @@ function StatusBadge({ status }: { status: 'Published' | 'Processing' | 'Draft' 
 export const AdminDashboard = memo(function AdminDashboard({ data, loading }: AdminDashboardProps) {
   const { ads: allAds } = useAdsManager()
 
-  if (loading || !data) {
-    return <LoadingSkeleton />
+  const d = data || {
+    totalVideos: 0, totalViews: 0, totalClicks: 0, totalRevenue: 0, totalAds: 0, totalUsers: 0,
+    viewsGraph: [], revenueGraph: [], deviceBreakdown: {}, categoryStats: [],
   }
 
   const recentVideos: Array<{ id: string; title: string; duration: string; size: string; uploaded: string; status: 'Published' | 'Processing' | 'Draft'; thumbnail: string }> = []
 
   const catalogCategories = useMemo(() => {
-    if (!data?.categoryStats?.length) return [] as Array<{ name: string; icon: React.ElementType; items: number; color: string; iconColor: string; glow: string }>
+    if (!d.categoryStats?.length) return [] as Array<{ name: string; icon: React.ElementType; items: number; color: string; iconColor: string; glow: string }>
     const categoryIcons: Record<string, { icon: React.ElementType; color: string; iconColor: string; glow: string }> = {
       'Action': { icon: Film, color: 'from-red-500/10 to-red-600/5', iconColor: 'text-red-400', glow: 'hover:shadow-red-500/10' },
       'Drama': { icon: Eye, color: 'from-purple-500/10 to-purple-600/5', iconColor: 'text-purple-400', glow: 'hover:shadow-purple-500/10' },
@@ -287,7 +288,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
       'Romance': { icon: DollarSign, color: 'from-pink-500/10 to-pink-600/5', iconColor: 'text-pink-400', glow: 'hover:shadow-pink-500/10' },
     }
     const defaultIcon = { icon: Film, color: 'from-white/5 to-white/[0.02]', iconColor: 'text-white/40', glow: '' }
-    return data.categoryStats.map(c => {
+    return d.categoryStats.map(c => {
       const cfg = categoryIcons[c.category] || defaultIcon
       return { name: c.category, icon: cfg.icon, items: c.count, color: cfg.color, iconColor: cfg.iconColor, glow: cfg.glow }
     })
@@ -333,24 +334,28 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
       }))
   }, [allAds])
 
-  const performanceData = data?.viewsGraph?.length ? data.viewsGraph.map(v => ({ date: v.date, Views: v.views, Clicks: Math.round(v.views * 0.15), Revenue: Math.round(v.views * 0.02) })) : [
+  const performanceData = d.viewsGraph?.length ? d.viewsGraph.map(v => ({ date: v.date, Views: v.views, Clicks: Math.round(v.views * 0.15), Revenue: Math.round(v.views * 0.02) })) : [
     { date: 'Week 1', Views: 0, Clicks: 0, Revenue: 0 },
     { date: 'Week 2', Views: 0, Clicks: 0, Revenue: 0 },
     { date: 'Week 3', Views: 0, Clicks: 0, Revenue: 0 },
   ]
 
-  const trafficSourceData = data?.categoryStats?.length ? data.categoryStats.map(c => ({ name: c.category, value: c.views })) : [{ name: 'No Data', value: 1 }]
+  const trafficSourceData = d.categoryStats?.length ? d.categoryStats.map(c => ({ name: c.category, value: c.views })) : [{ name: 'No Data', value: 1 }]
 
-  const userDeviceData = Object.entries(data?.deviceBreakdown || {}).length ? Object.entries(data.deviceBreakdown).map(([name, value]) => ({ name, value: value as number })) : [{ name: 'No Data', value: 1 }]
+  const userDeviceData = Object.entries(d.deviceBreakdown || {}).length ? Object.entries(d.deviceBreakdown).map(([name, value]) => ({ name, value: value as number })) : [{ name: 'No Data', value: 1 }]
 
   const statCards: Array<Omit<StatCardProps, 'delay'>> = [
-    { title: 'Total Videos', value: formatNumber(data.totalVideos), icon: Film, change: 12.5, gradientIdx: 0 },
-    { title: 'Total Views', value: formatNumber(data.totalViews), icon: Eye, change: 18.6, gradientIdx: 1 },
-    { title: 'Total Clicks', value: formatNumber(data.totalClicks), icon: MousePointer, change: 11.4, gradientIdx: 2 },
-    { title: 'Total Revenue', value: formatCurrency(data.totalRevenue), icon: DollarSign, change: 22.7, gradientIdx: 3 },
-    { title: 'Total Ads', value: formatNumber(data.totalAds), icon: Megaphone, change: 14.8, gradientIdx: 4 },
-    { title: 'Total Users', value: formatNumber(data.totalUsers), icon: Users, change: 16.2, gradientIdx: 5 },
+    { title: 'Total Videos', value: formatNumber(d.totalVideos), icon: Film, change: 12.5, gradientIdx: 0 },
+    { title: 'Total Views', value: formatNumber(d.totalViews), icon: Eye, change: 18.6, gradientIdx: 1 },
+    { title: 'Total Clicks', value: formatNumber(d.totalClicks), icon: MousePointer, change: 11.4, gradientIdx: 2 },
+    { title: 'Total Revenue', value: formatCurrency(d.totalRevenue), icon: DollarSign, change: 22.7, gradientIdx: 3 },
+    { title: 'Total Ads', value: formatNumber(d.totalAds), icon: Megaphone, change: 14.8, gradientIdx: 4 },
+    { title: 'Total Users', value: formatNumber(d.totalUsers), icon: Users, change: 16.2, gradientIdx: 5 },
   ]
+
+  if (loading && !data) {
+    return <LoadingSkeleton />
+  }
 
   return (
     <div className="space-y-4 p-3 lg:p-5">
@@ -857,7 +862,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
         }
       >
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="text-2xl font-bold text-white">{formatCurrency(data.totalRevenue)}</span>
+          <span className="text-2xl font-bold text-white">{formatCurrency(d.totalRevenue)}</span>
           <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
             <TrendingUp className="h-3 w-3" />
             +22.7%
@@ -866,7 +871,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
         </div>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data.revenueGraph}>
+            <AreaChart data={d.revenueGraph}>
               <defs>
                 <linearGradient id="revenueOverviewGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#E50914" stopOpacity={0.3} />

@@ -175,7 +175,7 @@ function KPICard({ title, value, icon: Icon, color, bgColor, delay }: KPICardPro
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4 }}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-4 lg:p-5 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
+      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 lg:p-5 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
     >
       <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-xtube-red to-transparent" />
       <div className="flex items-start justify-between">
@@ -454,7 +454,7 @@ export function SystemLogsPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25 }}
-        className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-4 lg:p-5"
+        className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 lg:p-5"
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">

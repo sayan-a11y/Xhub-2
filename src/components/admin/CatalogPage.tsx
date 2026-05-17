@@ -383,7 +383,7 @@ export function CatalogPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: 0.05 + idx * 0.03, duration: 0.3 }}
-                className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl p-3 lg:p-4 transition-all hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
+                className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-3 lg:p-4 transition-all hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
               >
                 {/* Background gradient */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${gradientColor} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />

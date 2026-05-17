@@ -137,7 +137,7 @@ function StatCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 backdrop-blur-xl transition-all duration-300 hover:border-white/10 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-lg"
     >
       <div className="absolute left-0 top-0 h-[2px] w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)` }} />
       <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: color, filter: 'blur(40px)', opacity: 0.06 }} />
@@ -503,17 +503,17 @@ export function HeroAdsPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date range picker */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Clock className="h-3.5 w-3.5" />
               May 10 – Jun 10, 2025
             </button>
             {/* Export */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Upload className="h-3.5 w-3.5" />
               Export Report
             </button>
             {/* Notification bell */}
-            <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Bell className="h-4 w-4" />
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff1e1e] text-[8px] font-bold text-white">12</span>
             </button>
@@ -557,7 +557,7 @@ export function HeroAdsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.4 }}
-            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
           >
             <div className="p-3 lg:p-4">
               <div className="mb-4 flex items-center justify-between">
@@ -866,7 +866,7 @@ export function HeroAdsPage() {
             transition={{ delay: 0.3, duration: 0.4 }}
             className="space-y-4"
           >
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-base font-bold text-white">Ad Preview</h2>
@@ -944,7 +944,7 @@ export function HeroAdsPage() {
                             </motion.button>
                           </div>
                         </div>
-                        <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40 backdrop-blur-sm">
+                        <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">
                           Ad • Hero Section
                         </div>
                       </motion.div>
@@ -1000,7 +1000,7 @@ export function HeroAdsPage() {
             className="space-y-4"
           >
             {/* Donut Chart: Image vs Video Distribution */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-bold text-white">Ad Distribution</h2>
@@ -1035,7 +1035,7 @@ export function HeroAdsPage() {
                           const d = payload[0]
                           const pct = totalAds > 0 ? ((d.value as number) / totalAds * 100).toFixed(0) : '0'
                           return (
-                            <div className="rounded-lg border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl backdrop-blur-xl">
+                            <div className="rounded-lg border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl">
                               <p className="text-xs font-semibold text-white">{d.name}</p>
                               <p className="text-[10px] text-white/40">{(d.value as number)} ads ({pct}%)</p>
                             </div>
@@ -1064,7 +1064,7 @@ export function HeroAdsPage() {
             </div>
 
             {/* Top Performing Ads */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-bold text-white">Top Performing</h2>
@@ -1104,7 +1104,7 @@ export function HeroAdsPage() {
             </div>
 
             {/* Quick Stats */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <h2 className="mb-3 text-sm font-bold text-white">Quick Stats</h2>
                 <div className="space-y-2.5">
@@ -1135,7 +1135,7 @@ export function HeroAdsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.4 }}
-          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
         >
           <div className="p-3 lg:p-4">
             {/* Table header */}
@@ -1363,7 +1363,7 @@ export function HeroAdsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
               onClick={() => setDeletingAdId(null)}
             >
               <motion.div

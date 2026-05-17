@@ -1,6 +1,7 @@
 'use client'
 
 import { Film } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Skeleton } from '@/components/ui/skeleton'
 import { VideoCard } from './VideoCard'
 

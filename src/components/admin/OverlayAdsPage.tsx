@@ -48,6 +48,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
+import { useAdsManager } from '@/hooks/useAdsManager'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -229,7 +230,7 @@ function StatCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] p-3 lg:p-4 backdrop-blur-xl transition-all duration-300 hover:border-white/10 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-lg"
     >
       <div className="absolute left-0 top-0 h-[2px] w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)` }} />
       <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: color, filter: 'blur(40px)', opacity: 0.06 }} />
@@ -299,6 +300,8 @@ function PositionSelector({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function OverlayAdsPage() {
+  const { deleteAd, toggleAd } = useAdsManager({ type: 'overlay' })
+
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -438,12 +441,12 @@ export function OverlayAdsPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date range */}
-            <button className="flex items-center gap-2 rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Clock className="h-3.5 w-3.5" />
               May 10 – Jun 10, 2025
             </button>
             {/* Export */}
-            <button className="flex items-center gap-2 rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Upload className="h-3.5 w-3.5" />
               Export Report
             </button>
@@ -479,7 +482,7 @@ export function OverlayAdsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.4 }}
-            className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] backdrop-blur-xl"
+            className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F]"
           >
             <div className="p-3 lg:p-4">
               <h2 className="mb-4 text-base font-bold text-white">Create Overlay Ad</h2>
@@ -763,7 +766,7 @@ export function OverlayAdsPage() {
             transition={{ delay: 0.3, duration: 0.4 }}
             className="space-y-4"
           >
-            <div className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] backdrop-blur-xl">
+            <div className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F]">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-base font-bold text-white">Ad Preview</h2>
@@ -791,7 +794,7 @@ export function OverlayAdsPage() {
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className={`overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0F]/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.6)] ${
+                      className={`overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0F]/90 shadow-[0_0_20px_rgba(0,0,0,0.6)] ${
                         selectedPosition.includes('bottom') || selectedPosition.includes('middle') ? 'w-40' : 'w-36'
                       }`}
                     >
@@ -813,7 +816,7 @@ export function OverlayAdsPage() {
                   </motion.div>
 
                   {/* Countdown */}
-                  <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-[#FF0000]/20 px-2 py-1 backdrop-blur-sm border border-[#FF0000]/30 z-20">
+                  <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-[#FF0000]/20 px-2 py-1 border border-[#FF0000]/30 z-20">
                     <span className="text-[9px] font-bold text-white">Ad</span>
                     <span className="text-[9px] text-white/60">10s</span>
                   </div>
@@ -869,7 +872,7 @@ export function OverlayAdsPage() {
             className="space-y-4"
           >
             {/* Quick Actions */}
-            <div className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] backdrop-blur-xl">
+            <div className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F]">
               <div className="p-3 lg:p-4">
                 <h2 className="mb-4 text-base font-bold text-white">Quick Actions</h2>
                 <div className="space-y-2.5">
@@ -899,7 +902,7 @@ export function OverlayAdsPage() {
             </div>
 
             {/* Ad Performance Overview */}
-            <div className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] backdrop-blur-xl">
+            <div className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F]">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-bold text-white">Ad Performance Overview</h2>
@@ -926,7 +929,7 @@ export function OverlayAdsPage() {
                           const total = donutData.reduce((s, e) => s + e.value, 0)
                           const pct = ((d.value as number) / total * 100).toFixed(0)
                           return (
-                            <div className="rounded-lg border border-[#1A1A1A] bg-[#0B0B0F]/95 px-3 py-2 shadow-xl backdrop-blur-xl">
+                            <div className="rounded-lg border border-[#1A1A1A] bg-[#0B0B0F]/95 px-3 py-2 shadow-xl">
                               <p className="text-xs font-semibold text-white">{d.name}</p>
                               <p className="text-[10px] text-white/40">{(d.value as number).toLocaleString()} ({pct}%)</p>
                             </div>
@@ -964,7 +967,7 @@ export function OverlayAdsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.4 }}
-          className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F] backdrop-blur-xl"
+          className="overflow-hidden rounded-[18px] border border-[#1A1A1A] bg-[#0B0B0F]"
         >
           <div className="p-3 lg:p-4">
             {/* Table header */}
@@ -1072,13 +1075,13 @@ export function OverlayAdsPage() {
                       {/* Actions */}
                       <td className="py-2">
                         <div className="flex items-center gap-1">
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/5 hover:text-white" title="Edit">
+                          <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/5 hover:text-white" title="Edit">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/5 hover:text-[#3B82F6]" title="Analytics">
                             <BarChart3 className="h-3.5 w-3.5" />
                           </button>
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-[#FF0000]/10 hover:text-[#FF0000]" title="Delete">
+                          <button onClick={() => { if (confirm('Delete this ad?')) deleteAd(ad.id) }} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-[#FF0000]/10 hover:text-[#FF0000]" title="Delete">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

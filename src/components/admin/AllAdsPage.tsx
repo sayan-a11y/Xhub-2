@@ -151,10 +151,9 @@ function StatCard({ title, value, change, icon: Icon, color, delay, index }: {
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 backdrop-blur-xl transition-all duration-300 hover:border-white/10 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-lg"
     >
       <div className="absolute left-0 top-0 h-[2px] w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)` }} />
       <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: color, filter: 'blur(40px)', opacity: 0.06 }} />
@@ -295,7 +294,7 @@ export function AllAdsPage() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.3 }}
@@ -316,15 +315,15 @@ export function AllAdsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Clock className="h-3.5 w-3.5" />
               May 10 – Jun 10, 2025
             </button>
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Upload className="h-3.5 w-3.5" />
               Export Report
             </button>
-            <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Bell className="h-4 w-4" />
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff0000] text-[8px] font-bold text-white">12</span>
             </button>
@@ -360,10 +359,9 @@ export function AllAdsPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr_1fr] xl:grid-cols-[340px_1fr_1fr]">
           {/* Ads Distribution Donut */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.4 }}
-            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
           >
             <div className="p-3 lg:p-4">
               <div className="mb-3 flex items-center justify-between">
@@ -387,7 +385,7 @@ export function AllAdsPage() {
                         const total = donutData.reduce((s, e) => s + e.value, 0)
                         const pct = ((d.value as number) / total * 100).toFixed(0)
                         return (
-                          <div className="rounded-lg border border-white/10 bg-[#111]/95 px-3 py-2 shadow-xl backdrop-blur-xl">
+                          <div className="rounded-lg border border-white/10 bg-[#111]/95 px-3 py-2 shadow-xl">
                             <p className="text-xs font-semibold text-white">{d.name}</p>
                             <p className="text-[10px] text-white/40">{d.value} ads ({pct}%)</p>
                           </div>
@@ -421,10 +419,9 @@ export function AllAdsPage() {
 
           {/* Impressions Overview */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
-            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
           >
             <div className="p-3 lg:p-4">
               <div className="mb-3 flex items-center justify-between">
@@ -450,7 +447,7 @@ export function AllAdsPage() {
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
                         return (
-                          <div className="rounded-lg border border-white/10 bg-[#111]/95 px-3 py-2 shadow-xl backdrop-blur-xl">
+                          <div className="rounded-lg border border-white/10 bg-[#111]/95 px-3 py-2 shadow-xl">
                             <p className="text-[10px] text-white/40">{payload[0].payload.date}</p>
                             <p className="text-xs font-semibold text-white">{(payload[0].value as number).toLocaleString()} impressions</p>
                           </div>
@@ -466,10 +463,9 @@ export function AllAdsPage() {
 
           {/* Revenue Overview */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.4 }}
-            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
           >
             <div className="p-3 lg:p-4">
               <div className="mb-3 flex items-center justify-between">
@@ -501,7 +497,7 @@ export function AllAdsPage() {
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
                         return (
-                          <div className="rounded-lg border border-white/10 bg-[#111]/95 px-3 py-2 shadow-xl backdrop-blur-xl">
+                          <div className="rounded-lg border border-white/10 bg-[#111]/95 px-3 py-2 shadow-xl">
                             <p className="text-[10px] text-white/40">{payload[0].payload.date}</p>
                             <p className="text-xs font-semibold text-white">${(payload[0].value as number).toLocaleString()}</p>
                           </div>
@@ -520,9 +516,8 @@ export function AllAdsPage() {
             AD TYPE QUICK FILTERS
             ═══════════════════════════════════════════════════════════════════ */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.38, duration: 0.3 }}
           className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
         >
           {typeFilterButtons.map((btn) => (
@@ -553,10 +548,9 @@ export function AllAdsPage() {
             ALL ADS TABLE
             ═══════════════════════════════════════════════════════════════════ */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.4 }}
-          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
         >
           <div className="p-3 lg:p-4">
             {/* Table header */}
@@ -649,9 +643,8 @@ export function AllAdsPage() {
                     return (
                       <motion.tr
                         key={ad.id}
-                        initial={{ opacity: 0, x: -8 }}
+                        initial={{ opacity: 1, x: 0 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.45 + i * 0.04, duration: 0.3 }}
                         className="group transition-colors hover:bg-white/[0.02]"
                       >
                         {/* Preview */}
@@ -718,7 +711,7 @@ export function AllAdsPage() {
                             <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title={ad.isActive ? 'Pause' : 'Activate'}>
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => deleteAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
+                            <button onClick={() => { if (confirm('Delete this ad?')) deleteAd(ad.id) }} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>

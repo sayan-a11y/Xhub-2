@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense, memo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -344,8 +344,6 @@ const SidebarNavItem = memo(function SidebarNavItem({
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay, duration: 0.2 }}
         onClick={handleClick}
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
         className={`group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
           depth > 0 ? 'pl-6' : ''
         } ${
@@ -471,13 +469,13 @@ export function AdminPanel() {
   const [dataLoading, setDataLoading] = useState(true)
 
   const fetchAdminData = useCallback(async () => {
-    setDataLoading(true)
+    if (!dashboardData) setDataLoading(true)
     try {
 
       const [analyticsData, videosData, adsData] = await Promise.all([
-        cachedFetch('admin:analytics', () => fetch('/api/analytics').then(r => r.ok ? r.json() : null), 30_000),
-        cachedFetch('admin:videos', () => fetch('/api/videos?limit=100').then(r => r.ok ? r.json() : null), 60_000),
-        cachedFetch('admin:ads', () => fetch('/api/ads').then(r => r.ok ? r.json() : null), 120_000),
+        cachedFetch('admin:analytics', () => fetch('/api/analytics').then(r => r.ok ? r.json() : null), 10_000),
+        cachedFetch('admin:videos', () => fetch('/api/videos?limit=100').then(r => r.ok ? r.json() : null), 15_000),
+        cachedFetch('admin:ads', () => fetch('/api/ads').then(r => r.ok ? r.json() : null), 10_000),
       ])
 
       if (analyticsData) setDashboardData(analyticsData)
@@ -495,6 +493,17 @@ export function AdminPanel() {
       fetchAdminData()
     }
   }, [adminUnlocked, fetchAdminData])
+
+  // Refresh data when switching sections (but throttled)
+  const lastRefetchRef = useRef(0)
+  useEffect(() => {
+    if (!adminUnlocked) return
+    const now = Date.now()
+    if (now - lastRefetchRef.current > 5000) { // max once per 5s
+      lastRefetchRef.current = now
+      fetchAdminData()
+    }
+  }, [adminSection, adminUnlocked, fetchAdminData])
 
   // ─── Video Handlers ─────────────────────────────────────────────────────
 
@@ -952,8 +961,6 @@ export function AdminPanel() {
                   {/* Left: Hamburger + Title */}
                   <div className="flex items-center gap-3">
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                       onClick={() => setAdminSidebarCollapsed(!adminSidebarCollapsed)}
                       className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                       aria-label="Toggle sidebar"
@@ -986,8 +993,6 @@ export function AdminPanel() {
 
                     {/* Notification Bell with badge count */}
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                       className="relative rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                       aria-label="Notifications"
                     >
@@ -1000,8 +1005,6 @@ export function AdminPanel() {
 
                     {/* Admin Avatar + Dropdown */}
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                       className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
                       aria-label="Admin profile"
                     >
@@ -1022,10 +1025,10 @@ export function AdminPanel() {
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={adminSection}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0 }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.1 }}
                     >
                       {renderContent()}
                     </motion.div>

@@ -132,7 +132,7 @@ function StatCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 backdrop-blur-xl transition-all duration-300 hover:border-white/10 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-lg"
     >
       <div className="absolute left-0 top-0 h-[2px] w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)` }} />
       <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: color, filter: 'blur(40px)', opacity: 0.06 }} />
@@ -255,8 +255,9 @@ export function HeroFooterAdsPage() {
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
-  const filteredAds = mockAds.filter((ad) => {
-    if (statusFilter !== 'all' && ad.status.toLowerCase() !== statusFilter) return false
+  const allAds = sectionTab === 'hero' ? heroAds : footerAds
+  const filteredAds = allAds.filter((ad) => {
+    if (statusFilter !== 'all' && (ad.isActive ? 'active' : 'paused') !== statusFilter) return false
     if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
@@ -308,17 +309,17 @@ export function HeroFooterAdsPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date range picker */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Clock className="h-3.5 w-3.5" />
               May 10 – Jun 10, 2025
             </button>
             {/* Export */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Upload className="h-3.5 w-3.5" />
               Export Report
             </button>
             {/* Notification bell */}
-            <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Bell className="h-4 w-4" />
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff1e1e] text-[8px] font-bold text-white">12</span>
             </button>
@@ -358,7 +359,7 @@ export function HeroFooterAdsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.4 }}
-            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
           >
             <div className="p-3 lg:p-4">
               <div className="mb-4 flex items-center justify-between">
@@ -718,7 +719,7 @@ export function HeroFooterAdsPage() {
             transition={{ delay: 0.3, duration: 0.4 }}
             className="space-y-4"
           >
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-base font-bold text-white">Ad Preview</h2>
@@ -787,7 +788,7 @@ export function HeroFooterAdsPage() {
                                   </motion.button>
                                 </div>
                               </div>
-                              <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40 backdrop-blur-sm">Ad • Hero Top</div>
+                              <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Hero Top</div>
                             </motion.div>
                           )}
 
@@ -819,7 +820,7 @@ export function HeroFooterAdsPage() {
                                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-white px-3 py-0.5 text-[8px] font-bold text-black">EXPLORE</motion.button>
                                 </div>
                               </div>
-                              <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40 backdrop-blur-sm">Ad • Hero Bottom</div>
+                              <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Hero Bottom</div>
                             </motion.div>
                           )}
                         </>
@@ -855,7 +856,7 @@ export function HeroFooterAdsPage() {
                                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-[#ff1e1e] px-3 py-0.5 text-[8px] font-bold text-white">GET STARTED</motion.button>
                                 </div>
                               </div>
-                              <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40 backdrop-blur-sm">Ad • Footer Top</div>
+                              <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Footer Top</div>
                             </motion.div>
                           )}
 
@@ -930,7 +931,7 @@ export function HeroFooterAdsPage() {
             className="space-y-4"
           >
             {/* Quick Actions */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <h2 className="mb-4 text-base font-bold text-white">Quick Actions</h2>
                 <div className="space-y-2.5">
@@ -960,7 +961,7 @@ export function HeroFooterAdsPage() {
             </div>
 
             {/* Performance Overview */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-bold text-white">Performance Overview</h2>
@@ -996,7 +997,7 @@ export function HeroFooterAdsPage() {
                           const total = donutData.reduce((s, e) => s + e.value, 0)
                           const pct = ((d.value as number) / total * 100).toFixed(0)
                           return (
-                            <div className="rounded-lg border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl backdrop-blur-xl">
+                            <div className="rounded-lg border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl">
                               <p className="text-xs font-semibold text-white">{d.name}</p>
                               <p className="text-[10px] text-white/40">{(d.value as number).toLocaleString()} ({pct}%)</p>
                             </div>
@@ -1034,7 +1035,7 @@ export function HeroFooterAdsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.4 }}
-          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
         >
           <div className="p-3 lg:p-4">
             {/* Table header */}
@@ -1087,16 +1088,16 @@ export function HeroFooterAdsPage() {
                       {/* Preview */}
                       <td className="py-2 pr-3">
                         <div className="relative h-8 w-20 overflow-hidden rounded-lg">
-                          <div className={`absolute inset-0 bg-gradient-to-br ${ad.gradient}`} />
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/[0.02]" />
                           <div className="absolute inset-0 flex items-center justify-center">
-                            {ad.type === 'Image' ? (
+                            {ad.adType === 'image' ? (
                               <ImageIcon className="h-3 w-3 text-white/20" />
                             ) : (
                               <Code2 className="h-3 w-3 text-white/20" />
                             )}
                           </div>
                           <div className="absolute top-0.5 right-0.5 rounded bg-black/50 px-0.5 text-[5px] text-white/40">
-                            {ad.placement.includes('Hero') ? 'H' : 'F'}
+                            {sectionTab === 'hero' ? 'H' : 'F'}
                           </div>
                         </div>
                       </td>
@@ -1106,21 +1107,21 @@ export function HeroFooterAdsPage() {
                       </td>
                       {/* Type */}
                       <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${typeStyles[ad.type]}`}>
-                          {ad.type === 'Image' ? <ImageIcon className="h-2.5 w-2.5" /> : <Code2 className="h-2.5 w-2.5" />}
-                          {ad.type}
+                        <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${ad.adType === 'image' ? typeStyles.Image : typeStyles.HTML5}`}>
+                          {ad.adType === 'image' ? <ImageIcon className="h-2.5 w-2.5" /> : <Code2 className="h-2.5 w-2.5" />}
+                          {ad.adType === 'image' ? 'Image' : 'HTML5'}
                         </span>
                       </td>
                       {/* Placement */}
                       <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 text-xs ${ad.placement.includes('Hero') ? 'text-red-400/70' : 'text-purple-400/70'}`}>
-                          {ad.placement.includes('Hero') ? <ArrowUpFromLine className="h-2.5 w-2.5" /> : <ArrowDownFromLine className="h-2.5 w-2.5" />}
-                          {ad.placement}
+                        <span className={`inline-flex items-center gap-1 text-xs ${sectionTab === 'hero' ? 'text-red-400/70' : 'text-purple-400/70'}`}>
+                          {sectionTab === 'hero' ? <ArrowUpFromLine className="h-2.5 w-2.5" /> : <ArrowDownFromLine className="h-2.5 w-2.5" />}
+                          {sectionTab === 'hero' ? 'Hero' : 'Footer'}
                         </span>
                       </td>
                       {/* Size */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs text-white/50">{ad.size}</span>
+                        <span className="text-xs text-white/50">{ad.adType || '—'}</span>
                       </td>
                       {/* Impressions */}
                       <td className="py-2 pr-3">
@@ -1136,23 +1137,21 @@ export function HeroFooterAdsPage() {
                       </td>
                       {/* Status */}
                       <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${statusStyles[ad.status]}`}>
-                          {ad.status === 'Active' && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                          {ad.status === 'Paused' && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
-                          {ad.status === 'Draft' && <span className="h-1.5 w-1.5 rounded-full bg-white/30" />}
-                          {ad.status}
+                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${ad.isActive ? statusStyles.Active : statusStyles.Paused}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${ad.isActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                          {ad.isActive ? 'Active' : 'Paused'}
                         </span>
                       </td>
                       {/* Actions */}
                       <td className="py-2">
                         <div className="flex items-center gap-1">
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Edit">
+                          <button onClick={() => (sectionTab === 'hero' ? toggleHeroAd : toggleFooterAd)(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title={ad.isActive ? 'Pause' : 'Activate'}>
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Analytics">
                             <BarChart3 className="h-3.5 w-3.5" />
                           </button>
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
+                          <button onClick={() => { if (confirm('Delete this ad?')) (sectionTab === 'hero' ? deleteHeroAd : deleteFooterAd)(ad.id) }} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

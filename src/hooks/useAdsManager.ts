@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { toast } from 'sonner'
 import { useRealtimeSubscription } from '@/lib/supabase/realtime'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -112,9 +113,11 @@ export function useAdsManager(options?: {
       })
       if (!res.ok) throw new Error('Failed to create ad')
       fetchAds()
+      toast.success('Ad created successfully')
       return true
     } catch (err) {
       console.error('Error creating ad:', err)
+      toast.error('Failed to create ad')
       return false
     }
   }, [fetchAds])
@@ -128,9 +131,11 @@ export function useAdsManager(options?: {
       })
       if (!res.ok) throw new Error('Failed to update ad')
       fetchAds()
+      toast.success('Ad updated successfully')
       return true
     } catch (err) {
       console.error('Error updating ad:', err)
+      toast.error('Failed to update ad')
       return false
     }
   }, [fetchAds])
@@ -140,9 +145,11 @@ export function useAdsManager(options?: {
       const res = await fetch(`/api/ads?id=${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed to delete ad')
       fetchAds()
+      toast.success('Ad deleted successfully')
       return true
     } catch (err) {
       console.error('Error deleting ad:', err)
+      toast.error('Failed to delete ad')
       return false
     }
   }, [fetchAds])
@@ -150,8 +157,22 @@ export function useAdsManager(options?: {
   const toggleAd = useCallback(async (id: string): Promise<boolean> => {
     const ad = ads.find((a) => a.id === id)
     if (!ad) return false
-    return updateAd(id, { isActive: !ad.isActive })
-  }, [ads, updateAd])
+    try {
+      const res = await fetch('/api/ads', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isActive: !ad.isActive }),
+      })
+      if (!res.ok) throw new Error('Failed to toggle ad')
+      fetchAds()
+      toast.success(ad.isActive ? 'Ad paused' : 'Ad activated')
+      return true
+    } catch (err) {
+      console.error('Error toggling ad:', err)
+      toast.error('Failed to toggle ad')
+      return false
+    }
+  }, [ads, fetchAds])
 
   return {
     ads,
@@ -237,7 +258,12 @@ export function useHeroAds() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    if (res.ok) fetchAds()
+    if (res.ok) {
+      fetchAds()
+      toast.success('Hero ad created successfully')
+    } else {
+      toast.error('Failed to create hero ad')
+    }
     return res.ok
   }, [fetchAds])
 
@@ -247,7 +273,12 @@ export function useHeroAds() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ...data }),
     })
-    if (res.ok) fetchAds()
+    if (res.ok) {
+      fetchAds()
+      toast.success('Hero ad updated successfully')
+    } else {
+      toast.error('Failed to update hero ad')
+    }
     return res.ok
   }, [fetchAds])
 
@@ -257,15 +288,31 @@ export function useHeroAds() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
-    if (res.ok) fetchAds()
+    if (res.ok) {
+      fetchAds()
+      toast.success('Hero ad deleted successfully')
+    } else {
+      toast.error('Failed to delete hero ad')
+    }
     return res.ok
   }, [fetchAds])
 
   const toggleAd = useCallback(async (id: string) => {
     const ad = ads.find(a => a.id === id)
     if (!ad) return false
-    return updateAd(id, { isActive: !ad.isActive })
-  }, [ads, updateAd])
+    const res = await fetch('/api/hero-ads', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, isActive: !ad.isActive }),
+    })
+    if (res.ok) {
+      fetchAds()
+      toast.success(ad.isActive ? 'Hero ad paused' : 'Hero ad activated')
+    } else {
+      toast.error('Failed to toggle hero ad')
+    }
+    return res.ok
+  }, [ads, fetchAds])
 
   return { ads, loading, refetch: fetchAds, createAd, updateAd, deleteAd, toggleAd }
 }
@@ -302,7 +349,12 @@ export function useFooterAds() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    if (res.ok) fetchAds()
+    if (res.ok) {
+      fetchAds()
+      toast.success('Footer ad created successfully')
+    } else {
+      toast.error('Failed to create footer ad')
+    }
     return res.ok
   }, [fetchAds])
 
@@ -312,7 +364,12 @@ export function useFooterAds() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ...data }),
     })
-    if (res.ok) fetchAds()
+    if (res.ok) {
+      fetchAds()
+      toast.success('Footer ad updated successfully')
+    } else {
+      toast.error('Failed to update footer ad')
+    }
     return res.ok
   }, [fetchAds])
 
@@ -322,15 +379,31 @@ export function useFooterAds() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
-    if (res.ok) fetchAds()
+    if (res.ok) {
+      fetchAds()
+      toast.success('Footer ad deleted successfully')
+    } else {
+      toast.error('Failed to delete footer ad')
+    }
     return res.ok
   }, [fetchAds])
 
   const toggleAd = useCallback(async (id: string) => {
     const ad = ads.find(a => a.id === id)
     if (!ad) return false
-    return updateAd(id, { isActive: !ad.isActive })
-  }, [ads, updateAd])
+    const res = await fetch('/api/footer-ads', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, isActive: !ad.isActive }),
+    })
+    if (res.ok) {
+      fetchAds()
+      toast.success(ad.isActive ? 'Footer ad paused' : 'Footer ad activated')
+    } else {
+      toast.error('Failed to toggle footer ad')
+    }
+    return res.ok
+  }, [ads, fetchAds])
 
   return { ads, loading, refetch: fetchAds, createAd, updateAd, deleteAd, toggleAd }
 }

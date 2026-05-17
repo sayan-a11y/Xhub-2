@@ -114,7 +114,7 @@ const sectionConfig: Record<string, { title: string; description: string }> = {
 function AdChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color: string }>; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-white/5 bg-[#0f0f0f]/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+    <div className="rounded-lg border border-white/5 bg-[#0f0f0f]/90 px-3 py-2 shadow-lg">
       <p className="mb-1 text-xs text-xtube-text-secondary">{label}</p>
       {payload.map((entry, idx) => (
         <p key={idx} className="text-sm font-medium" style={{ color: entry.color }}>
@@ -296,7 +296,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
               Create Ad
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto border-white/5 bg-[#0f0f0f]/90 backdrop-blur-xl sm:max-w-lg">
+          <DialogContent className="max-h-[90vh] overflow-y-auto border-white/5 bg-[#0f0f0f]/90 sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-white">Create New Ad</DialogTitle>
             </DialogHeader>
@@ -421,7 +421,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
       >
         <motion.div
           variants={itemVariants}
-          className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] md:p-6"
+          className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] md:p-6"
         >
           <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-xtube-red to-transparent" />
           <div className="flex items-center gap-3">
@@ -437,7 +437,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
 
         <motion.div
           variants={itemVariants}
-          className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] md:p-6"
+          className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] md:p-6"
         >
           <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-xtube-red to-transparent" />
           <div className="flex items-center gap-3">
@@ -453,7 +453,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
 
         <motion.div
           variants={itemVariants}
-          className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] md:p-6"
+          className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] md:p-6"
         >
           <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-xtube-red to-transparent" />
           <div className="flex items-center gap-3">
@@ -469,7 +469,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
 
         <motion.div
           variants={itemVariants}
-          className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] md:p-6"
+          className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)] md:p-6"
         >
           <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-xtube-red to-transparent" />
           <div className="flex items-center gap-3">
@@ -489,7 +489,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.4 }}
-        className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl md:p-6"
+        className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 md:p-6"
       >
         <h3 className="mb-4 text-lg font-semibold text-white">Ad Performance</h3>
         {chartData.length > 0 ? (
@@ -530,7 +530,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
           {/* Average CTR */}
           <motion.div
             variants={itemVariants}
-            className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
+            className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
           >
             <div className="mb-2 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-xtube-red/10">
@@ -544,7 +544,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
           {/* Total Watch Time */}
           <motion.div
             variants={itemVariants}
-            className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
+            className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
           >
             <div className="mb-2 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-xtube-red/10">
@@ -558,7 +558,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
           {/* Skip Rate */}
           <motion.div
             variants={itemVariants}
-            className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
+            className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
           >
             <div className="mb-2 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-xtube-red/10">
@@ -572,7 +572,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
           {/* Revenue Per Impression */}
           <motion.div
             variants={itemVariants}
-            className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
+            className="group rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 transition-colors hover:border-xtube-red/20 hover:shadow-[0_0_15px_rgba(229,9,20,0.1)]"
           >
             <div className="mb-2 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-xtube-red/10">
@@ -590,7 +590,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.4 }}
-        className="flex flex-col gap-3 rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 backdrop-blur-xl md:flex-row md:items-center"
+        className="flex flex-col gap-3 rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 md:flex-row md:items-center"
       >
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-xtube-text-secondary" />
@@ -662,7 +662,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45, duration: 0.4 }}
-        className="overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80 backdrop-blur-xl"
+        className="overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80"
       >
         <div className="max-h-[600px] overflow-y-auto">
           <Table>

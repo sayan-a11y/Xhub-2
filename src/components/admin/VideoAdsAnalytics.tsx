@@ -170,7 +170,7 @@ const analyticsTableData = [
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color: string }>; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-2xl backdrop-blur-xl">
+    <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-2xl">
       <p className="mb-2 text-xs font-medium text-white/50">{label}</p>
       {payload.map((entry, idx) => (
         <p key={idx} className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -206,7 +206,7 @@ function KPICard({ title, value, icon: Icon, change, delay, accent = '#E50914', 
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4 backdrop-blur-xl transition-all duration-300 hover:border-white/10 hover:shadow-[0_0_20px_rgba(229,9,20,0.12)]"
+      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-[0_0_20px_rgba(229,9,20,0.12)]"
     >
       {/* Top accent line */}
       <div className="absolute left-0 top-0 h-[2px] w-full" style={{ background: `linear-gradient(to right, ${accent}, transparent)` }} />
@@ -260,7 +260,7 @@ function SectionCard({
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className={`overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 backdrop-blur-xl ${className}`}
+      className={`overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 ${className}`}
     >
       <div className="p-3 lg:p-4">
         <div className="mb-4 flex items-center justify-between">
@@ -595,7 +595,7 @@ export function VideoAdsAnalytics({ ads }: VideoAdsAnalyticsProps) {
                       const total = deviceAnalyticsData.reduce((s, e) => s + e.value, 0)
                       const pct = ((d.value as number) / total * 100).toFixed(1)
                       return (
-                        <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-2xl backdrop-blur-xl">
+                        <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-2xl">
                           <p className="text-sm font-semibold text-white">{d.name}</p>
                           <p className="text-xs text-white/50">{(d.value as number).toLocaleString()} ({pct}%)</p>
                         </div>
@@ -861,7 +861,7 @@ export function VideoAdsAnalytics({ ads }: VideoAdsAnalyticsProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8, duration: 0.5 }}
-        className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 backdrop-blur-xl"
+        className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80"
       >
         <div className="p-3 lg:p-4">
           <div className="flex items-center gap-2 mb-4">

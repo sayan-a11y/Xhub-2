@@ -149,10 +149,9 @@ function StatCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 backdrop-blur-xl transition-all duration-300 hover:border-white/10 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-lg"
     >
       {/* Top accent line */}
       <div className="absolute left-0 top-0 h-[2px] w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)` }} />
@@ -341,7 +340,7 @@ export function BannerAdsPage() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.3 }}
@@ -363,17 +362,17 @@ export function BannerAdsPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date range picker */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Clock className="h-3.5 w-3.5" />
               May 10 – Jun 10, 2025
             </button>
             {/* Export */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Upload className="h-3.5 w-3.5" />
               Export Report
             </button>
             {/* Notification bell */}
-            <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Bell className="h-4 w-4" />
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff1e1e] text-[8px] font-bold text-white">5</span>
             </button>
@@ -410,10 +409,9 @@ export function BannerAdsPage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_300px] 2xl:grid-cols-[1fr_1fr_340px]">
           {/* ── LEFT: Create Banner Ad ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.4 }}
-            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
           >
             <div className="p-3 lg:p-4">
               <div className="mb-4 flex items-center justify-between">
@@ -797,12 +795,11 @@ export function BannerAdsPage() {
 
           {/* ── CENTER: Banner Preview ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
             className="space-y-4"
           >
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-base font-bold text-white">Banner Preview</h2>
@@ -974,13 +971,12 @@ export function BannerAdsPage() {
 
           {/* ── RIGHT: Quick Actions + Performance ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.4 }}
             className="space-y-4"
           >
             {/* Quick Actions */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <h2 className="mb-4 text-base font-bold text-white">Quick Actions</h2>
                 <div className="space-y-2.5">
@@ -1010,7 +1006,7 @@ export function BannerAdsPage() {
             </div>
 
             {/* Banner Performance Overview */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-bold text-white">Banner Performance Overview</h2>
@@ -1046,7 +1042,7 @@ export function BannerAdsPage() {
                           const total = donutData.reduce((s, e) => s + e.value, 0)
                           const pct = ((d.value as number) / total * 100).toFixed(0)
                           return (
-                            <div className="rounded-lg border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl backdrop-blur-xl">
+                            <div className="rounded-lg border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl">
                               <p className="text-xs font-semibold text-white">{d.name}</p>
                               <p className="text-[10px] text-white/40">{(d.value as number).toLocaleString()} ({pct}%)</p>
                             </div>
@@ -1081,10 +1077,9 @@ export function BannerAdsPage() {
             BANNER ADS LIST TABLE
             ═══════════════════════════════════════════════════════════════════ */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.4 }}
-          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
         >
           <div className="p-3 lg:p-4">
             {/* Table header */}
@@ -1195,13 +1190,13 @@ export function BannerAdsPage() {
                       {/* Actions */}
                       <td className="py-2">
                         <div className="flex items-center gap-1">
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Edit">
+                          <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title={ad.isActive ? 'Pause' : 'Activate'}>
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Analytics">
                             <BarChart3 className="h-3.5 w-3.5" />
                           </button>
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
+                          <button onClick={() => { if (confirm('Delete this ad?')) deleteAd(ad.id) }} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

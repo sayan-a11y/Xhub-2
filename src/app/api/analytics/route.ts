@@ -22,7 +22,7 @@ export async function GET() {
       db.analytics.findMany({
         select: { date: true, views: true, revenue: true, device: true },
         orderBy: { date: 'desc' },
-        take: 30,
+        take: 14,
       }),
     ])
 
@@ -75,7 +75,7 @@ export async function GET() {
         views: c._sum.views || 0,
       })),
     }, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+      headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' },
     })
   } catch (error) {
     console.error('Error fetching analytics:', error)

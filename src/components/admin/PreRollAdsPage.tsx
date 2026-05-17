@@ -46,6 +46,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
+import { useAdsManager } from '@/hooks/useAdsManager'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -216,7 +217,7 @@ function StatCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4 backdrop-blur-xl transition-all duration-300 hover:border-white/10 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-lg"
     >
       {/* Top accent line */}
       <div className="absolute left-0 top-0 h-[2px] w-full" style={{ background: `linear-gradient(to right, ${color}, transparent)` }} />
@@ -245,6 +246,8 @@ function StatCard({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function PreRollAdsPage() {
+  const { deleteAd, toggleAd } = useAdsManager({ position: 'pre-roll' })
+
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -359,12 +362,12 @@ export function PreRollAdsPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date range picker */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Clock className="h-3.5 w-3.5" />
               May 10 – Jun 10, 2025
             </button>
             {/* Export */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111]/60 px-3 py-2 text-xs font-medium text-white/60 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white">
+            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111111]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Upload className="h-3.5 w-3.5" />
               Export
             </button>
@@ -400,7 +403,7 @@ export function PreRollAdsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.4 }}
-            className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 backdrop-blur-xl"
+            className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80"
           >
             <div className="p-3 lg:p-4">
               <h2 className="mb-4 text-base font-bold text-white">Create Pre-Roll Ad</h2>
@@ -622,7 +625,7 @@ export function PreRollAdsPage() {
             className="space-y-4"
           >
             {/* Video Player Preview */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-base font-bold text-white">Ad Preview</h2>
@@ -668,7 +671,7 @@ export function PreRollAdsPage() {
 
                   {/* Learn More link */}
                   <div className="absolute top-2 right-2">
-                    <button className="flex items-center gap-1 rounded-md bg-black/40 px-2 py-0.5 text-[9px] text-white/60 backdrop-blur-sm hover:text-white">
+                    <button className="flex items-center gap-1 rounded-md bg-black/40 px-2 py-0.5 text-[9px] text-white/60 hover:text-white">
                       Learn More <ExternalLink className="h-2.5 w-2.5" />
                     </button>
                   </div>
@@ -702,7 +705,7 @@ export function PreRollAdsPage() {
             className="space-y-4"
           >
             {/* Quick Actions */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80">
               <div className="p-3 lg:p-4">
                 <h2 className="mb-4 text-base font-bold text-white">Quick Actions</h2>
                 <div className="space-y-2.5">
@@ -732,7 +735,7 @@ export function PreRollAdsPage() {
             </div>
 
             {/* Ad Performance Overview */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 backdrop-blur-xl">
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-bold text-white">Ad Performance Overview</h2>
@@ -768,7 +771,7 @@ export function PreRollAdsPage() {
                           const total = donutData.reduce((s, e) => s + e.value, 0)
                           const pct = ((d.value as number) / total * 100).toFixed(0)
                           return (
-                            <div className="rounded-lg border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl backdrop-blur-xl">
+                            <div className="rounded-lg border border-white/10 bg-[#111111]/95 px-3 py-2 shadow-xl">
                               <p className="text-xs font-semibold text-white">{d.name}</p>
                               <p className="text-[10px] text-white/40">{(d.value as number).toLocaleString()} ({pct}%)</p>
                             </div>
@@ -806,7 +809,7 @@ export function PreRollAdsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.4 }}
-          className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 backdrop-blur-xl"
+          className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80"
         >
           <div className="p-3 lg:p-4">
             {/* Table header */}
@@ -906,13 +909,13 @@ export function PreRollAdsPage() {
                       {/* Actions */}
                       <td className="py-2.5">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="rounded-md p-1 text-white/30 transition-colors hover:bg-white/10 hover:text-white" aria-label="Edit">
+                          <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1 text-white/30 transition-colors hover:bg-white/10 hover:text-white" aria-label="Edit">
                             <Pencil className="h-3 w-3" />
                           </button>
                           <button className="rounded-md p-1 text-white/30 transition-colors hover:bg-white/10 hover:text-blue-400" aria-label="Analytics">
                             <BarChart3 className="h-3 w-3" />
                           </button>
-                          <button className="rounded-md p-1 text-white/30 transition-colors hover:bg-xtube-red/10 hover:text-xtube-red" aria-label="Delete">
+                          <button onClick={() => { if (confirm('Delete this ad?')) deleteAd(ad.id) }} className="rounded-md p-1 text-white/30 transition-colors hover:bg-xtube-red/10 hover:text-xtube-red" aria-label="Delete">
                             <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
