@@ -411,3 +411,79 @@ input[type="range"]::-moz-range-thumb {
   touch-action: manipulation; /* disable double-tap zoom */
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ─── Tablet & Mobile Performance Optimizations ─────────────────────── */
+
+/* Remove heavy effects on touch devices for 60fps */
+@media (pointer: coarse) {
+  * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  
+  /* Reduce shadow complexity on tablet */
+  .shadow-2xl,
+  .shadow-xl,
+  .shadow-lg {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  /* Ensure touch targets are at least 44px */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Disable heavy transitions on tablet */
+  .transition-all {
+    transition-duration: 0.05s !important;
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* GPU acceleration for animated elements */
+.gpu-accelerated,
+[data-framer-motion],
+.animate-spin {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Compact scrollbar for admin panels */
+.compact-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.compact-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.compact-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.compact-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Shimmer animation - ultra lightweight */
+@keyframes shimmer-opt {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer-opt {
+  background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%);
+  background-size: 200% 100%;
+  animation: shimmer-opt 1.5s ease-in-out infinite;
+}

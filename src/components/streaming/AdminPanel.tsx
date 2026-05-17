@@ -445,10 +445,8 @@ export function AdminPanel() {
 
   // Auto-collapse sidebar on tablet
   useEffect(() => {
-    if (isTablet && !adminSidebarCollapsed) {
-      setAdminSidebarCollapsed(true)
-    }
-  }, [isTablet, adminSidebarCollapsed, setAdminSidebarCollapsed])
+    if (isTablet) setAdminSidebarCollapsed(true)
+  }, [isTablet])
 
   // Expandable groups state
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['video-group', 'ads-group']))
@@ -475,8 +473,7 @@ export function AdminPanel() {
   const fetchAdminData = useCallback(async () => {
     setDataLoading(true)
     try {
-      // Force refresh by bypassing cache for admin operations
-      invalidateCache()
+
       const [analyticsData, videosData, adsData] = await Promise.all([
         cachedFetch('admin:analytics', () => fetch('/api/analytics').then(r => r.ok ? r.json() : null), 30_000),
         cachedFetch('admin:videos', () => fetch('/api/videos?limit=100').then(r => r.ok ? r.json() : null), 60_000),
@@ -951,7 +948,7 @@ export function AdminPanel() {
               {/* ── Main Content Area ── */}
               <div className="flex flex-1 flex-col overflow-hidden">
                 {/* Top Header */}
-                <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl px-3 md:px-5">
+                <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-white/5 bg-[#0a0a0a] px-3 md:px-5">
                   {/* Left: Hamburger + Title */}
                   <div className="flex items-center gap-3">
                     <motion.button
@@ -1028,7 +1025,7 @@ export function AdminPanel() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: isTablet ? 0.1 : 0.2 }}
+                      transition={{ duration: 0 }}
                     >
                       {renderContent()}
                     </motion.div>

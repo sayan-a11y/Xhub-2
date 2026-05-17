@@ -15,7 +15,6 @@ import { Flame, Sparkles, Clock, Search, Film, History, Upload, Plus } from 'luc
 import { AgeVerificationPopup } from '@/components/streaming/AgeVerificationPopup'
 import { XtubeLogo } from '@/components/shared/XtubeLogo'
 import { AdminLoginModal } from '@/components/shared/AdminLoginModal'
-import { cachedFetch, invalidateCache } from '@/lib/performance/api-cache'
 import { useDebounce } from '@/lib/performance/hooks'
 import { useRealtimeSubscription } from '@/lib/supabase/realtime'
 
@@ -131,15 +130,8 @@ export default function XtubeHome() {
     }
   }, [])
 
-  // Data state
-  const [videos, setVideos] = useState<VideoData[]>([])
-  const [categories, setCategories] = useState<CategoryData[]>([])
-  const [ads, setAds] = useState<AdData[]>([])
-  const [heroAds, setHeroAds] = useState<HeroAdData[]>([])
-  const [footerAds, setFooterAds] = useState<FooterAdData[]>([])
   const [currentVideo, setCurrentVideo] = useState<VideoData | null>(null)
   const [videoComments, setVideoComments] = useState<CommentData[]>([])
-  const [loading, setLoading] = useState(true)
 
   // ─── Supabase Realtime Subscriptions (ALL data is REALTIME) ─────────────────
   const { data: realtimeVideos } = useRealtimeSubscription<VideoData>('Video', { filter: 'isPublished=eq.true' })
@@ -148,120 +140,23 @@ export default function XtubeHome() {
   const { data: realtimeFooterAds } = useRealtimeSubscription<FooterAdData>('FooterAd', { filter: 'isActive=eq.true' })
   const { data: realtimeAds } = useRealtimeSubscription<AdData>('Ad', { filter: 'isActive=eq.true' })
 
-  // ─── Init system users on first load (no demo data) ─────────────────────────
+  // Data derived from realtime subscriptions (no duplicate API fetches)
+  const videos = (realtimeVideos as VideoData[]) || []
+  const categories = (realtimeCategories as CategoryData[]) || []
+  const ads = (realtimeAds as AdData[]) || []
+  const heroAds = (realtimeHeroAds as HeroAdData[]) || []
+  const footerAds = (realtimeFooterAds as FooterAdData[]) || []
+  // Loading state derived from realtime subscriptions
+  const loading = !realtimeVideos?.length && !realtimeCategories?.length
+
+  // Seed only runs once per session (not every page load)
+  const seedRan = useRef(false)
   useEffect(() => {
-    fetch('/api/seed', { method: 'POST' }).catch(() => {})
-  }, [])
-
-  // ─── Fetch Videos ──────────────────────────────────────────────────────────
-
-  const fetchVideos = useCallback(async () => {
-    try {
-      const data = await cachedFetch<{ videos: VideoData[] }>('videos', () =>
-        fetch('/api/videos?limit=50').then(r => r.json()),
-        60_000 // cache for 1 minute
-      )
-      setVideos(data.videos || [])
-    } catch (err) {
-      console.error('Error fetching videos:', err)
+    if (!seedRan.current) {
+      seedRan.current = true
+      fetch('/api/seed', { method: 'POST' }).catch(() => {})
     }
   }, [])
-
-  // ─── Fetch Categories ──────────────────────────────────────────────────────
-
-  const fetchCategories = useCallback(async () => {
-    try {
-      const data = await cachedFetch<{ categories: CategoryData[] }>('categories', () =>
-        fetch('/api/categories').then(r => r.json()),
-        300_000 // cache for 5 minutes (categories rarely change)
-      )
-      setCategories(data.categories || [])
-    } catch (err) {
-      console.error('Error fetching categories:', err)
-    }
-  }, [])
-
-  // ─── Fetch Ads ─────────────────────────────────────────────────────────────
-
-  const fetchAds = useCallback(async () => {
-    try {
-      const data = await cachedFetch<{ ads: AdData[] }>('ads-hero', () =>
-        fetch('/api/ads?position=hero').then(r => r.json()),
-        120_000 // cache for 2 minutes
-      )
-      setAds(data.ads || [])
-    } catch (err) {
-      console.error('Error fetching ads:', err)
-    }
-  }, [])
-
-  // ─── Fetch Hero Ads ────────────────────────────────────────────────────────
-
-  const fetchHeroAds = useCallback(async () => {
-    try {
-      const data = await cachedFetch<{ heroAds: HeroAdData[] }>('hero-ads', () =>
-        fetch('/api/hero-ads?active=true').then(r => r.json()),
-        120_000 // cache for 2 minutes
-      )
-      setHeroAds(data.heroAds || [])
-    } catch (err) {
-      console.error('Error fetching hero ads:', err)
-    }
-  }, [])
-
-  // ─── Fetch Footer Ads ─────────────────────────────────────────────────────
-
-  const fetchFooterAds = useCallback(async () => {
-    try {
-      const data = await cachedFetch<{ footerAds: FooterAdData[] }>('footer-ads', () =>
-        fetch('/api/footer-ads?active=true').then(r => r.json()),
-        120_000 // cache for 2 minutes
-      )
-      setFooterAds(data.footerAds || [])
-    } catch (err) {
-      console.error('Error fetching footer ads:', err)
-    }
-  }, [])
-
-  // ─── Merge realtime updates (INSTANT - no cache delay) ────────────────────
-  // Realtime returns [] for empty tables — we update state regardless to clear loading
-  // Using deferred setState to satisfy react-hooks/set-state-in-effect lint rule
-  useEffect(() => {
-    const t = setTimeout(() => { setVideos(realtimeVideos as VideoData[]); setLoading(false) }, 0)
-    return () => clearTimeout(t)
-  }, [realtimeVideos])
-
-  useEffect(() => {
-    const t = setTimeout(() => setCategories(realtimeCategories as CategoryData[]), 0)
-    return () => clearTimeout(t)
-  }, [realtimeCategories])
-
-  useEffect(() => {
-    const t = setTimeout(() => setHeroAds(realtimeHeroAds as HeroAdData[]), 0)
-    return () => clearTimeout(t)
-  }, [realtimeHeroAds])
-
-  useEffect(() => {
-    const t = setTimeout(() => setFooterAds(realtimeFooterAds as FooterAdData[]), 0)
-    return () => clearTimeout(t)
-  }, [realtimeFooterAds])
-
-  useEffect(() => {
-    const t = setTimeout(() => setAds(realtimeAds as AdData[]), 0)
-    return () => clearTimeout(t)
-  }, [realtimeAds])
-
-  // ─── Load initial data (API fetch as fallback + initial load) ────────────
-
-  useEffect(() => {
-    let cancelled = false
-    const loadData = async () => {
-      await Promise.all([fetchVideos(), fetchCategories(), fetchAds(), fetchHeroAds(), fetchFooterAds()])
-      if (!cancelled) setLoading(false)
-    }
-    loadData()
-    return () => { cancelled = true }
-  }, [fetchVideos, fetchCategories, fetchAds, fetchHeroAds, fetchFooterAds])
 
   // ─── Load video when selected ──────────────────────────────────────────────
 

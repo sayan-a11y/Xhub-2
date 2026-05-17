@@ -120,7 +120,7 @@ function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
+    <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-4 py-3 shadow-2xl">
       <p className="mb-2 text-xs font-medium text-white/50">{label}</p>
       {payload.map((entry, idx) => (
         <p key={idx} className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -151,10 +151,9 @@ function StatCard({ title, value, icon: Icon, change, delay, gradientIdx }: Stat
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 backdrop-blur-xl transition-all duration-300 hover:border-xtube-red/20 hover:shadow-[0_0_20px_rgba(229,9,20,0.12)] lg:p-4"
+      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#111111] p-3 transition-all duration-300 hover:border-xtube-red/20 hover:shadow-[0_0_20px_rgba(229,9,20,0.12)] lg:p-4"
     >
       {/* Red accent top line */}
       <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-xtube-red to-transparent" />
@@ -203,10 +202,9 @@ function SectionCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className={`overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 backdrop-blur-xl ${className}`}
+      className={`overflow-hidden rounded-xl border border-white/5 bg-[#111111] ${className}`}
     >
       <div className="p-3 lg:p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -219,68 +217,15 @@ function SectionCard({
   )
 }
 
-// ─── Mock Data for Enhanced Dashboard ────────────────────────────────────────
+// ─── Derived Data Placeholders ────────────────────────────────────────────────
 
-const performanceData = [
-  { date: 'May 10', Views: 180000, Clicks: 120000, Revenue: 45000 },
-  { date: 'May 13', Views: 195000, Clicks: 135000, Revenue: 48000 },
-  { date: 'May 16', Views: 210000, Clicks: 142000, Revenue: 52000 },
-  { date: 'May 19', Views: 225000, Clicks: 148000, Revenue: 55000 },
-  { date: 'May 22', Views: 198000, Clicks: 130000, Revenue: 49000 },
-  { date: 'May 25', Views: 235000, Clicks: 155000, Revenue: 58000 },
-  { date: 'May 28', Views: 248000, Clicks: 162000, Revenue: 62000 },
-  { date: 'May 31', Views: 230000, Clicks: 150000, Revenue: 59000 },
-  { date: 'Jun 03', Views: 255000, Clicks: 168000, Revenue: 65000 },
-  { date: 'Jun 06', Views: 242000, Clicks: 158000, Revenue: 61000 },
-  { date: 'Jun 10', Views: 250000, Clicks: 165000, Revenue: 64000 },
-]
+const recentVideos: Array<{ id: string; title: string; duration: string; size: string; uploaded: string; status: 'Published' | 'Processing' | 'Draft'; thumbnail: string }> = []
 
-const trafficSourceData = [
-  { name: 'Direct', value: 4450000 },
-  { name: 'Search', value: 3200000 },
-  { name: 'External', value: 2150000 },
-  { name: 'Social Media', value: 1850000 },
-  { name: 'Others', value: 800000 },
-]
+const catalogCategories: Array<{ name: string; icon: React.ElementType; items: number; color: string; iconColor: string; glow: string }> = []
 
-const userDeviceData = [
-  { name: 'Mobile', value: 45247 },
-  { name: 'Desktop', value: 25847 },
-  { name: 'Tablet', value: 9543 },
-  { name: 'TV', value: 4610 },
-]
+const videoAdsData: Array<{ type: string; totalAds: number; impressions: number; clicks: number; ctr: number; revenue: number }> = []
 
-const recentVideos = [
-  { id: '1', title: 'Nature Cinematic Trailer', duration: '01:28', size: '125 MB', uploaded: 'Jun 10, 2025', status: 'Published' as const, thumbnail: '/api/placeholder/120/68' },
-  { id: '2', title: 'City Life Documentary', duration: '05:42', size: '520 MB', uploaded: 'Jun 10, 2025', status: 'Published' as const, thumbnail: '/api/placeholder/120/68' },
-  { id: '3', title: 'Adventure in Mountains', duration: '03:15', size: '300 MB', uploaded: 'Jun 09, 2025', status: 'Published' as const, thumbnail: '/api/placeholder/120/68' },
-  { id: '4', title: 'Future of Technology', duration: '07:05', size: '750 MB', uploaded: 'Jun 09, 2025', status: 'Processing' as const, thumbnail: '/api/placeholder/120/68' },
-  { id: '5', title: 'Relaxing Ocean Waves', duration: '02:45', size: '180 MB', uploaded: 'Jun 08, 2025', status: 'Published' as const, thumbnail: '/api/placeholder/120/68' },
-]
-
-const catalogCategories = [
-  { name: 'Electronics', icon: Headphones, items: 128, color: 'from-blue-500/20 to-blue-600/5', iconColor: 'text-blue-400', glow: 'group-hover:shadow-blue-500/20' },
-  { name: 'Fashion', icon: Shirt, items: 96, color: 'from-purple-500/20 to-purple-600/5', iconColor: 'text-purple-400', glow: 'group-hover:shadow-purple-500/20' },
-  { name: 'Lifestyle', icon: Coffee, items: 64, color: 'from-emerald-500/20 to-emerald-600/5', iconColor: 'text-emerald-400', glow: 'group-hover:shadow-emerald-500/20' },
-  { name: 'Home & Living', icon: Sofa, items: 72, color: 'from-orange-500/20 to-orange-600/5', iconColor: 'text-orange-400', glow: 'group-hover:shadow-orange-500/20' },
-  { name: 'Sports', icon: Dumbbell, items: 58, color: 'from-pink-500/20 to-pink-600/5', iconColor: 'text-pink-400', glow: 'group-hover:shadow-pink-500/20' },
-  { name: 'Automotive', icon: Car, items: 42, color: 'from-cyan-500/20 to-cyan-600/5', iconColor: 'text-cyan-400', glow: 'group-hover:shadow-cyan-500/20' },
-]
-
-const videoAdsData = [
-  { type: 'Pre-roll', totalAds: 32, impressions: 1250000, clicks: 45600, ctr: 3.65, revenue: 12450.30 },
-  { type: 'Mid-roll', totalAds: 68, impressions: 2150000, clicks: 86400, ctr: 4.01, revenue: 9245.60 },
-  { type: 'Post-roll', totalAds: 12, impressions: 850000, clicks: 25300, ctr: 2.98, revenue: 4125.40 },
-  { type: 'Overlay', totalAds: 24, impressions: 1850000, clicks: 65200, ctr: 3.52, revenue: 5524.30 },
-]
-
-const topPerformingAds = [
-  { rank: 1, name: 'Summer Sale Pre-roll', type: 'Pre-roll', impressions: 725600, ctr: 6.64, revenue: 8245.30 },
-  { rank: 2, name: 'New Arrivals Mid-roll', type: 'Mid-roll', impressions: 512400, ctr: 5.58, revenue: 3245.60 },
-  { rank: 3, name: 'Special Offer Post-roll', type: 'Post-roll', impressions: 325800, ctr: 5.74, revenue: 2125.40 },
-  { rank: 4, name: 'Subscribe Overlay', type: 'Overlay', impressions: 285600, ctr: 5.36, revenue: 1854.20 },
-  { rank: 5, name: 'Brand Promo Pre-roll', type: 'Pre-roll', impressions: 198400, ctr: 4.94, revenue: 1245.10 },
-]
+const topPerformingAds: Array<{ rank: number; name: string; type: string; impressions: number; ctr: number; revenue: number }> = []
 
 // ─── Loading Skeleton ────────────────────────────────────────────────────────
 
@@ -289,7 +234,7 @@ function LoadingSkeleton() {
     <div className="space-y-4 p-3 lg:p-5">
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-4 backdrop-blur-xl">
+          <div key={i} className="overflow-hidden rounded-xl border border-white/5 bg-[#111111] p-4">
             <Skeleton className="mb-3 h-3 w-20 bg-white/5" />
             <Skeleton className="mb-2 h-7 w-24 bg-white/5" />
             <Skeleton className="h-3 w-16 bg-white/5" />
@@ -298,7 +243,7 @@ function LoadingSkeleton() {
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-4 backdrop-blur-xl">
+          <div key={i} className="overflow-hidden rounded-xl border border-white/5 bg-[#111111] p-4">
             <Skeleton className="mb-4 h-5 w-32 bg-white/5" />
             <Skeleton className="h-56 bg-white/5" />
           </div>
@@ -306,7 +251,7 @@ function LoadingSkeleton() {
       </div>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-4 backdrop-blur-xl">
+          <div key={i} className="overflow-hidden rounded-xl border border-white/5 bg-[#111111] p-4">
             <Skeleton className="mb-4 h-5 w-40 bg-white/5" />
             <Skeleton className="h-48 bg-white/5" />
           </div>
@@ -340,6 +285,16 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
   if (loading || !data) {
     return <LoadingSkeleton />
   }
+
+  const performanceData = data?.viewsGraph?.length ? data.viewsGraph.map(v => ({ date: v.date, Views: v.views, Clicks: Math.round(v.views * 0.15), Revenue: Math.round(v.views * 0.02) })) : [
+    { date: 'Week 1', Views: 0, Clicks: 0, Revenue: 0 },
+    { date: 'Week 2', Views: 0, Clicks: 0, Revenue: 0 },
+    { date: 'Week 3', Views: 0, Clicks: 0, Revenue: 0 },
+  ]
+
+  const trafficSourceData = data?.categoryStats?.length ? data.categoryStats.map(c => ({ name: c.category, value: c.views })) : [{ name: 'No Data', value: 1 }]
+
+  const userDeviceData = Object.entries(data?.deviceBreakdown || {}).length ? Object.entries(data.deviceBreakdown).map(([name, value]) => ({ name, value: value as number })) : [{ name: 'No Data', value: 1 }]
 
   const statCards: Array<Omit<StatCardProps, 'delay'>> = [
     { title: 'Total Videos', value: formatNumber(data.totalVideos), icon: Film, change: 12.5, gradientIdx: 0 },
@@ -427,7 +382,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
                     const total = trafficSourceData.reduce((s, e) => s + e.value, 0)
                     const pct = ((d.value as number) / total * 100).toFixed(1)
                     return (
-                      <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
+                      <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-4 py-3 shadow-2xl">
                         <p className="text-sm font-semibold text-white">{d.name}</p>
                         <p className="text-xs text-white/50">{formatNumber(d.value as number)} ({pct}%)</p>
                       </div>
@@ -480,7 +435,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
                     const total = userDeviceData.reduce((s, e) => s + e.value, 0)
                     const pct = ((d.value as number) / total * 100).toFixed(1)
                     return (
-                      <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
+                      <div className="rounded-xl border border-white/10 bg-[#111111]/95 px-4 py-3 shadow-2xl">
                         <p className="text-sm font-semibold text-white">{d.name}</p>
                         <p className="text-xs text-white/50">{(d.value as number).toLocaleString()} ({pct}%)</p>
                       </div>
@@ -529,11 +484,8 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
             </thead>
             <tbody className="divide-y divide-white/5">
               {recentVideos.map((video, i) => (
-                <motion.tr
+                <tr
                   key={video.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + i * 0.04, duration: 0.3 }}
                   className="group transition-colors hover:bg-white/[0.02]"
                 >
                   <td className="py-3 pr-4">
@@ -580,7 +532,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
                       </button>
                     </div>
                   </td>
-                </motion.tr>
+                </tr>
               ))}
             </tbody>
           </table>
@@ -658,19 +610,19 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
 
               {/* Ad overlay labels */}
               <div className="absolute top-3 left-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 rounded-md bg-orange-400/20 px-2 py-0.5 backdrop-blur-sm border border-orange-400/30">
+                <div className="flex items-center gap-1.5 rounded-md bg-orange-400/20 px-2 py-0.5 border border-orange-400/30">
                   <span className="text-[9px] font-bold text-orange-300">PRE-ROLL AD</span>
                   <span className="text-[8px] text-orange-300/60">00:00-00:15</span>
                 </div>
-                <div className="flex items-center gap-1.5 rounded-md bg-purple-400/20 px-2 py-0.5 backdrop-blur-sm border border-purple-400/30">
+                <div className="flex items-center gap-1.5 rounded-md bg-purple-400/20 px-2 py-0.5 border border-purple-400/30">
                   <span className="text-[9px] font-bold text-purple-300">MID-ROLL AD</span>
                   <span className="text-[8px] text-purple-300/60">02:15-02:45</span>
                 </div>
-                <div className="flex items-center gap-1.5 rounded-md bg-blue-400/20 px-2 py-0.5 backdrop-blur-sm border border-blue-400/30">
+                <div className="flex items-center gap-1.5 rounded-md bg-blue-400/20 px-2 py-0.5 border border-blue-400/30">
                   <span className="text-[9px] font-bold text-blue-300">POST-ROLL AD</span>
                   <span className="text-[8px] text-blue-300/60">05:20-05:35</span>
                 </div>
-                <div className="flex items-center gap-1.5 rounded-md bg-emerald-400/20 px-2 py-0.5 backdrop-blur-sm border border-emerald-400/30">
+                <div className="flex items-center gap-1.5 rounded-md bg-emerald-400/20 px-2 py-0.5 border border-emerald-400/30">
                   <span className="text-[9px] font-bold text-emerald-300">OVERLAY AD</span>
                   <span className="text-[8px] text-emerald-300/60">00:30-00:45</span>
                 </div>
@@ -693,10 +645,9 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
             {catalogCategories.map((cat, i) => (
               <motion.div
                 key={cat.name}
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 1, scale: 1 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.6 + i * 0.05, duration: 0.3 }}
-                className={`group relative overflow-hidden rounded-xl border border-white/5 bg-gradient-to-br ${cat.color} p-3 backdrop-blur-sm transition-all duration-300 hover:border-white/10 hover:shadow-lg ${cat.glow}`}
+                className={`group relative overflow-hidden rounded-xl border border-white/5 bg-gradient-to-br ${cat.color} p-3 transition-all duration-300 hover:border-white/10 hover:shadow-lg ${cat.glow}`}
               >
                 <cat.icon className={`h-6 w-6 ${cat.iconColor} mb-2 transition-transform duration-300 group-hover:scale-110`} />
                 <p className="text-sm font-semibold text-white">{cat.name}</p>
@@ -759,11 +710,8 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
                     'Overlay': 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20',
                   }
                   return (
-                    <motion.tr
+                    <tr
                       key={ad.type}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.65 + i * 0.05, duration: 0.3 }}
                       className="group transition-colors hover:bg-white/[0.02]"
                     >
                       <td className="py-2.5 pr-3">
@@ -776,7 +724,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
                       <td className="py-2.5 pr-3 text-xs text-white/60">{formatNumber(ad.clicks)}</td>
                       <td className="py-2.5 pr-3 text-xs font-semibold text-xtube-red">{ad.ctr}%</td>
                       <td className="py-2.5 text-xs font-medium text-emerald-400">${ad.revenue.toLocaleString()}</td>
-                    </motion.tr>
+                    </tr>
                   )
                 })}
               </tbody>
@@ -824,11 +772,8 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
                   }
 
                   return (
-                    <motion.tr
+                    <tr
                       key={ad.rank}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.7 + i * 0.05, duration: 0.3 }}
                       className="group transition-colors hover:bg-white/[0.02]"
                     >
                       <td className="py-2.5 pr-3">
@@ -843,7 +788,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
                       <td className="py-2.5 pr-3 text-xs text-white/60">{formatNumber(ad.impressions)}</td>
                       <td className="py-2.5 pr-3 text-xs font-semibold text-xtube-red">{ad.ctr}%</td>
                       <td className="py-2.5 text-xs font-medium text-emerald-400">${ad.revenue.toLocaleString()}</td>
-                    </motion.tr>
+                    </tr>
                   )
                 })}
               </tbody>

@@ -89,13 +89,13 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
 
   const throttledSet = useCallback((next: T[]) => {
     const now = Date.now()
-    if (now - lastEmit.current >= 1000) {
+    if (now - lastEmit.current >= 200) {
       lastEmit.current = now
       setData(next)
     } else {
       pendingRef.current = next
       if (!rafRef.current) {
-        const delay = 1000 - (now - lastEmit.current)
+        const delay = 200 - (now - lastEmit.current)
         setTimeout(() => {
           lastEmit.current = Date.now()
           setData(pendingRef.current)
@@ -114,7 +114,7 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
 
     const fetchData = async () => {
       try {
-        let query = client.from(table).select('*')
+        let query = client.from(table).select()
         if (filter) {
           // Parse simple "col=eq.val" filter
           const [col, rest] = filter.split('=')

@@ -65,18 +65,10 @@ export async function GET(request: NextRequest) {
           { startDate: { lte: now }, endDate: null },
         ],
       },
-      include: { videoAds: true },
     })
 
-    // Increment impressions
-    await Promise.all(
-      ads.map((ad) =>
-        db.ad.update({
-          where: { id: ad.id },
-          data: { impressions: { increment: 1 } },
-        })
-      )
-    )
+    // Impression tracking moved to dedicated endpoint (see /api/video-ads/impression)
+    // No longer incrementing on every GET to improve performance
 
     return NextResponse.json({ ads }, {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
