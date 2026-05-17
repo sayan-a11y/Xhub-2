@@ -1,5 +1,14 @@
 import type { NextConfig } from "next";
 
+// Fix Bun's broken DATABASE_URL resolution (it auto-resolves to local SQLite)
+// Must be set before any module that reads process.env.DATABASE_URL
+if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("postgresql://")) {
+  process.env.DATABASE_URL = "postgresql://postgres.saitqrdjefqivaoeouhx:sayankarmakar159%40gmail.com@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
+}
+if (process.env.DIRECT_URL && !process.env.DIRECT_URL.startsWith("postgresql://")) {
+  process.env.DIRECT_URL = "postgresql://postgres.saitqrdjefqivaoeouhx:sayankarmakar159%40gmail.com@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres";
+}
+
 const nextConfig: NextConfig = {
   output: "standalone",
   /* config options here */
@@ -53,8 +62,9 @@ const nextConfig: NextConfig = {
   ],
   allowedDevOrigins: [
     "localhost",
-    ".space-z.ai",           // Z.ai preview panel
-    ".z.ai",                 // Z.ai domain
+    ".space-z.ai",
+    ".z.ai",
+    "preview-chat-900d3c0a-ed11-4efc-9561-1c70c4fb2190.space-z.ai",
   ],
   experimental: {
     optimizeCss: true,

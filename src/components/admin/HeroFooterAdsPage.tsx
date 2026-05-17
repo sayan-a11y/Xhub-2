@@ -703,10 +703,40 @@ export function HeroFooterAdsPage() {
                 <motion.button
                   whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(255,30,30,0.4)' }}
                   whileTap={{ scale: 0.98 }}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e]"
+                  onClick={async () => {
+                    if (!adTitle.trim()) return
+                    setSaving(true)
+                    const data: Record<string, unknown> = {
+                      title: adTitle,
+                      linkUrl: adLink || undefined,
+                      adType: 'image',
+                      mediaUrl: 'https://placehold.co/1920x600/1a0a2e/ffffff?text=' + encodeURIComponent(adTitle),
+                      mediaFormat: 'image/jpeg',
+                      isActive: statusActive,
+                      startDate: startDate || null,
+                      endDate: endDate || null,
+                      displayOrder: 0,
+                    }
+                    try {
+                      if (sectionTab === 'hero') {
+                        await createHeroAd(data)
+                      } else {
+                        await createFooterAd(data)
+                      }
+                      setAdTitle('')
+                      setAdLink('')
+                      setStartDate('')
+                      setEndDate('')
+                      setStatusActive(true)
+                    } finally {
+                      setSaving(false)
+                    }
+                  }}
+                  disabled={saving || !adTitle.trim()}
+                  className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e] disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <CloudUpload className="h-4 w-4" />
-                  Save {sectionLabel} Ad
+                  {saving ? 'Saving...' : `Save ${sectionLabel} Ad`}
                 </motion.button>
               </div>
             </div>

@@ -19,14 +19,17 @@ import {
 
 // ── Client singleton (browser only) ──────────────────────────────
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+const isSupabaseConfigured = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 
 const globalForSupabase = globalThis as unknown as {
   realtimeClient: SupabaseClient | undefined
 }
 
-function getBrowserClient(): SupabaseClient {
+function getBrowserClient(): SupabaseClient | null {
+  if (!isSupabaseConfigured) return null
   if (!globalForSupabase.realtimeClient) {
     globalForSupabase.realtimeClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       realtime: {
@@ -41,9 +44,8 @@ function getBrowserClient(): SupabaseClient {
 
 const RealtimeContext = createContext<SupabaseClient | null>(null)
 
-function useSupabase(): SupabaseClient {
+function useSupabase(): SupabaseClient | null {
   const ctx = useContext(RealtimeContext)
-  if (!ctx) throw new Error('useSupabase must be used within a <RealtimeProvider>')
   return ctx
 }
 
@@ -51,6 +53,8 @@ function useSupabase(): SupabaseClient {
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const client = useMemo(() => getBrowserClient(), [])
+  // If Supabase is not configured, render children without provider (no realtime)
+  if (!client) return <>{children}</>
   return <RealtimeContext.Provider value={client}>{children}</RealtimeContext.Provider>
 }
 
@@ -107,6 +111,7 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
 
   // Realtime subscription only — data loading is handled by consuming hooks via API routes
   useEffect(() => {
+    if (!client) return // Supabase not configured, skip realtime
     let channel: RealtimeChannel | null = null
 
     const subscribe = () => {
@@ -143,7 +148,7 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
     subscribe()
 
     return () => {
-      if (channel) client.removeChannel(channel)
+      if (channel && client) client.removeChannel(channel)
       if (rafRef.current) {
         clearTimeout(rafRef.current)
         rafRef.current = null
@@ -172,6 +177,7 @@ export function useRealtimePresence(channelName: string): UsePresenceResult {
   const channelRef = useRef<RealtimeChannel | null>(null)
 
   useEffect(() => {
+    if (!client) return // Supabase not configured, skip presence
     const channel = client.channel(channelName, {
       config: { presence: { key: '' } },
     })

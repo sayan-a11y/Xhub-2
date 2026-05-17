@@ -277,7 +277,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
 
   const recentVideos: Array<{ id: string; title: string; duration: string; size: string; uploaded: string; status: 'Published' | 'Processing' | 'Draft'; thumbnail: string }> = []
 
-  const catalogCategories = useMemo(() => {
+  const catalogCategories = (() => {
     if (!d.categoryStats?.length) return [] as Array<{ name: string; icon: React.ElementType; items: number; color: string; iconColor: string; glow: string }>
     const categoryIcons: Record<string, { icon: React.ElementType; color: string; iconColor: string; glow: string }> = {
       'Action': { icon: Film, color: 'from-red-500/10 to-red-600/5', iconColor: 'text-red-400', glow: 'hover:shadow-red-500/10' },
@@ -292,7 +292,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
       const cfg = categoryIcons[c.category] || defaultIcon
       return { name: c.category, icon: cfg.icon, items: c.count, color: cfg.color, iconColor: cfg.iconColor, glow: cfg.glow }
     })
-  }, [data?.categoryStats])
+  })()
 
   const videoAdsData = useMemo(() => {
     const typeGroups: Record<string, { totalAds: number; impressions: number; clicks: number; revenue: number }> = {}

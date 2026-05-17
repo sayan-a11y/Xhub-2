@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play,
@@ -70,19 +70,6 @@ import { useAdsManager } from '@/hooks/useAdsManager'
 type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
 type AdTab = 'image' | 'html5' | 'text'
 
-interface PopupAd {
-  id: string
-  name: string
-  type: 'Image' | 'HTML5' | 'Text'
-  trigger: string
-  displayOn: string
-  impressions: string
-  ctr: string
-  revenue: string
-  status: 'Active' | 'Paused' | 'Draft'
-  gradient: string
-}
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const STAT_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#ec4899', '#f97316']
@@ -101,85 +88,15 @@ const thumbnailGradients = [
   'from-pink-900/60 via-rose-800/40 to-fuchsia-900/30',
 ]
 
-const mockAds: PopupAd[] = [
-  {
-    id: '1',
-    name: 'Summer Sale Popup',
-    type: 'Image',
-    trigger: 'Time Delay (5s)',
-    displayOn: 'Homepage',
-    impressions: '842.5K',
-    ctr: '5.24%',
-    revenue: '$3,450.80',
-    status: 'Active',
-    gradient: 'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  },
-  {
-    id: '2',
-    name: 'Premium Subscription Offer',
-    type: 'HTML5',
-    trigger: 'Exit Intent',
-    displayOn: 'All Pages',
-    impressions: '624.3K',
-    ctr: '4.87%',
-    revenue: '$2,845.60',
-    status: 'Active',
-    gradient: 'from-blue-900/60 via-indigo-800/40 to-violet-900/30',
-  },
-  {
-    id: '3',
-    name: 'Free Trial Popup Ad',
-    type: 'Text',
-    trigger: 'Scroll (50%)',
-    displayOn: 'Video Pages',
-    impressions: '512.8K',
-    ctr: '3.92%',
-    revenue: '$1,545.40',
-    status: 'Active',
-    gradient: 'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  },
-  {
-    id: '4',
-    name: 'Holiday Discount Banner',
-    type: 'Image',
-    trigger: 'Time Delay (10s)',
-    displayOn: 'Homepage',
-    impressions: '389.4K',
-    ctr: '6.14%',
-    revenue: '$2,104.50',
-    status: 'Paused',
-    gradient: 'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  },
-  {
-    id: '5',
-    name: 'Newsletter Signup Popup',
-    type: 'HTML5',
-    trigger: 'Exit Intent',
-    displayOn: 'All Pages',
-    impressions: '278.6K',
-    ctr: '4.36%',
-    revenue: '$924.00',
-    status: 'Active',
-    gradient: 'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  },
-  {
-    id: '6',
-    name: 'New Release Alert',
-    type: 'Text',
-    trigger: 'Time Delay (3s)',
-    displayOn: 'Video Pages',
-    impressions: '156.2K',
-    ctr: '5.72%',
-    revenue: '$780.00',
-    status: 'Draft',
-    gradient: 'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  },
-]
+function formatNumber(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(2)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
+  return n.toString()
+}
 
-const donutData = [
-  { name: 'Image Ads', value: 1231900 },
-  { name: 'HTML5 Ads', value: 902900 },
-]
+function formatCurrency(n: number): string {
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
 
 // ─── Mini Sparkline SVG ──────────────────────────────────────────────────────
 
@@ -258,7 +175,7 @@ function StatCard({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function PopupAdsPage() {
-  const { deleteAd, toggleAd } = useAdsManager({ type: 'popup' })
+  const { ads, loading, createAd, deleteAd, toggleAd } = useAdsManager({ type: 'popup' })
 
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
@@ -287,8 +204,10 @@ export function PopupAdsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [popupVisible, setPopupVisible] = useState(true)
+  const [newAdTitle, setNewAdTitle] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const createSectionRef = useRef<HTMLDivElement>(null)
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ─── Simulated Upload ──────────────────────────────────────────────────
@@ -347,13 +266,47 @@ export function PopupAdsPage() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 
-  // ─── Filtered Ads ──────────────────────────────────────────────────────
+  // ─── Computed Data from Real Ads ──────────────────────────────────────
 
-  const filteredAds = mockAds.filter((ad) => {
+  const displayAds = useMemo(() => ads.map((ad) => ({
+    id: ad.id,
+    name: ad.title,
+    type: (ad.mediaFormat === 'html5' ? 'HTML5' : ad.mediaFormat === 'text' ? 'Text' : 'Image') as 'Image' | 'HTML5' | 'Text',
+    trigger: ad.skipAfter ? `Time Delay (${ad.skipAfter}s)` : 'Time Delay (5s)',
+    displayOn: ad.position || 'All Pages',
+    impressions: formatNumber(ad.impressions),
+    ctr: ad.impressions > 0 ? `${(ad.clicks / ad.impressions * 100).toFixed(2)}%` : '0.00%',
+    revenue: formatCurrency(ad.revenue),
+    status: (ad.isActive ? 'Active' : 'Paused') as 'Active' | 'Paused',
+  })), [ads])
+
+  const filteredAds = displayAds.filter((ad) => {
     if (statusFilter !== 'all' && ad.status.toLowerCase() !== statusFilter) return false
     if (searchQuery && !ad.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
+
+  const pageSize = 10
+  const totalPages = Math.max(1, Math.ceil(filteredAds.length / pageSize))
+  const paginatedAds = filteredAds.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // Donut chart data from real ads
+  const donutData = useMemo(() => {
+    const imageImpressions = ads.filter(a => a.mediaFormat !== 'html5' && a.mediaFormat !== 'text').reduce((s, a) => s + a.impressions, 0)
+    const html5Impressions = ads.filter(a => a.mediaFormat === 'html5').reduce((s, a) => s + a.impressions, 0)
+    return [
+      { name: 'Image Ads', value: imageImpressions || 1 },
+      { name: 'HTML5 Ads', value: html5Impressions || 1 },
+    ]
+  }, [ads])
+
+  // Stat values from real ads
+  const totalAds = ads.length
+  const activeAdsCount = ads.filter(a => a.isActive).length
+  const totalImpressions = ads.reduce((s, a) => s + a.impressions, 0)
+  const totalClicks = ads.reduce((s, a) => s + a.clicks, 0)
+  const overallCtr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100).toFixed(2) : '0.00'
+  const totalRevenue = ads.reduce((s, a) => s + a.revenue, 0)
 
   const statusStyles: Record<string, string> = {
     Active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -427,6 +380,7 @@ export function PopupAdsPage() {
             <motion.button
               whileHover={{ scale: 1.03, boxShadow: '0 0 25px rgba(255,30,30,0.4)' }}
               whileTap={{ scale: 0.97 }}
+              onClick={() => createSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e]"
             >
               <CloudUpload className="h-4 w-4" />
@@ -439,11 +393,11 @@ export function PopupAdsPage() {
             TOP ANALYTICS CARDS (5 cards)
             ═══════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <StatCard title="Total Popup Ads" value="29" change="+14.2%" icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
-          <StatCard title="Active Ads" value="24" change="+11.8%" icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
-          <StatCard title="Impressions" value="3.78M" change="+22.4%" icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
-          <StatCard title="CTR" value="4.92%" change="+9.6%" icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
-          <StatCard title="Revenue" value="$11,245.30" change="+18.3%" icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
+          <StatCard title="Total Popup Ads" value={String(totalAds)} change={totalAds > 0 ? `+${totalAds} ads` : 'No ads'} icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
+          <StatCard title="Active Ads" value={String(activeAdsCount)} change={activeAdsCount > 0 ? `${activeAdsCount} active` : 'None active'} icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
+          <StatCard title="Impressions" value={formatNumber(totalImpressions)} change={totalImpressions > 0 ? 'Live data' : 'No data'} icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
+          <StatCard title="CTR" value={`${overallCtr}%`} change={totalClicks > 0 ? 'Live data' : 'No data'} icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
+          <StatCard title="Revenue" value={formatCurrency(totalRevenue)} change={totalRevenue > 0 ? 'Live data' : 'No data'} icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════
@@ -452,6 +406,7 @@ export function PopupAdsPage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_300px] 2xl:grid-cols-[1fr_1fr_340px]">
           {/* ── LEFT: Create Popup Ad ── */}
           <motion.div
+            ref={createSectionRef}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.4 }}
@@ -463,6 +418,18 @@ export function PopupAdsPage() {
                 {uploadStage === 'success' && (
                   <button onClick={handleResetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Reset</button>
                 )}
+              </div>
+
+              {/* Ad Title */}
+              <div className="mb-4 space-y-1.5">
+                <label className="text-[11px] font-medium text-white/50">Ad Title</label>
+                <input
+                  type="text"
+                  value={newAdTitle}
+                  onChange={(e) => setNewAdTitle(e.target.value)}
+                  className="h-8 w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-3 text-xs text-white/70 outline-none focus:border-[#ff1e1e]/40"
+                  placeholder="Enter popup ad title..."
+                />
               </div>
 
               {/* Tabs: Image Ad / HTML5 Ad / Text Ad */}
@@ -811,6 +778,23 @@ export function PopupAdsPage() {
                 <motion.button
                   whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(255,30,30,0.4)' }}
                   whileTap={{ scale: 0.98 }}
+                  onClick={async () => {
+                    if (!newAdTitle.trim()) return
+                    const success = await createAd({
+                      type: 'popup',
+                      title: newAdTitle.trim(),
+                      position: popupPosition,
+                      imageUrl: '',
+                      mediaFormat: adTab === 'html5' ? 'html5' : adTab === 'text' ? 'text' : 'image',
+                      frequency: displayFrequency === 'once-per-session' ? 1 : displayFrequency === 'once-per-page' ? 2 : displayFrequency === 'every-visit' ? 3 : 4,
+                      skipAfter: parseInt(timeDelay) || 5,
+                      isActive: true,
+                    })
+                    if (success) {
+                      setNewAdTitle('')
+                      handleResetUpload()
+                    }
+                  }}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e]"
                 >
                   <CloudUpload className="h-4 w-4" />
@@ -1037,7 +1021,7 @@ export function PopupAdsPage() {
                         ))}
                       </Pie>
                       <text x="50%" y="44%" textAnchor="middle" dominantBaseline="middle" className="fill-white text-sm font-bold">
-                        3.78M
+                        {formatNumber(totalImpressions)}
                       </text>
                       <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" className="fill-white/30 text-[8px]">
                         Impressions
@@ -1102,7 +1086,6 @@ export function PopupAdsPage() {
                     <SelectItem value="all" className="text-xs text-white focus:bg-white/5">All Status</SelectItem>
                     <SelectItem value="active" className="text-xs text-white focus:bg-white/5">Active</SelectItem>
                     <SelectItem value="paused" className="text-xs text-white focus:bg-white/5">Paused</SelectItem>
-                    <SelectItem value="draft" className="text-xs text-white focus:bg-white/5">Draft</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="relative">
@@ -1129,87 +1112,104 @@ export function PopupAdsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {filteredAds.map((ad, i) => (
-                    <motion.tr
-                      key={ad.id}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.45 + i * 0.04, duration: 0.3 }}
-                      className="group transition-colors hover:bg-white/[0.02]"
-                    >
-                      {/* Preview */}
-                      <td className="py-2 pr-3">
-                        <div className="relative h-10 w-16 overflow-hidden rounded-lg">
-                          <div className={`absolute inset-0 bg-gradient-to-br ${ad.gradient}`} />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            {ad.type === 'Image' ? (
-                              <ImageIcon className="h-3 w-3 text-white/20" />
-                            ) : ad.type === 'HTML5' ? (
-                              <Code2 className="h-3 w-3 text-white/20" />
-                            ) : (
-                              <Type className="h-3 w-3 text-white/20" />
-                            )}
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={`loading-${i}`} className="border-b border-white/5">
+                        {Array.from({ length: 10 }).map((_, j) => (
+                          <td key={j} className="py-2 pr-3">
+                            <div className="h-4 w-16 animate-pulse rounded bg-white/5" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : paginatedAds.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-xs text-white/30">
+                        No popup ads found. Create your first popup ad!
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedAds.map((ad, i) => (
+                      <motion.tr
+                        key={ad.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.05 + i * 0.04, duration: 0.3 }}
+                        className="group transition-colors hover:bg-white/[0.02]"
+                      >
+                        {/* Preview */}
+                        <td className="py-2 pr-3">
+                          <div className="relative h-10 w-16 overflow-hidden rounded-lg">
+                            <div className={`absolute inset-0 bg-gradient-to-br ${thumbnailGradients[i % thumbnailGradients.length]}`} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              {ad.type === 'Image' ? (
+                                <ImageIcon className="h-3 w-3 text-white/20" />
+                              ) : ad.type === 'HTML5' ? (
+                                <Code2 className="h-3 w-3 text-white/20" />
+                              ) : (
+                                <Type className="h-3 w-3 text-white/20" />
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      {/* Ad Name */}
-                      <td className="py-2 pr-3">
-                        <p className="text-xs font-medium text-white">{ad.name}</p>
-                      </td>
-                      {/* Type */}
-                      <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${typeStyles[ad.type]}`}>
-                          {ad.type === 'Image' && <ImageIcon className="h-2.5 w-2.5" />}
-                          {ad.type === 'HTML5' && <Code2 className="h-2.5 w-2.5" />}
-                          {ad.type === 'Text' && <Type className="h-2.5 w-2.5" />}
-                          {ad.type}
-                        </span>
-                      </td>
-                      {/* Trigger */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs text-white/50">{ad.trigger}</span>
-                      </td>
-                      {/* Display On */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs text-white/50">{ad.displayOn}</span>
-                      </td>
-                      {/* Impressions */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-white/70">{ad.impressions}</span>
-                      </td>
-                      {/* CTR */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-white/70">{ad.ctr}</span>
-                      </td>
-                      {/* Revenue */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs font-semibold text-emerald-400">{ad.revenue}</span>
-                      </td>
-                      {/* Status */}
-                      <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${statusStyles[ad.status]}`}>
-                          {ad.status === 'Active' && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                          {ad.status === 'Paused' && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
-                          {ad.status === 'Draft' && <span className="h-1.5 w-1.5 rounded-full bg-white/30" />}
-                          {ad.status}
-                        </span>
-                      </td>
-                      {/* Actions */}
-                      <td className="py-2">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Edit">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Analytics">
-                            <BarChart3 className="h-3.5 w-3.5" />
-                          </button>
-                          <button onClick={() => { if (confirm('Delete this ad?')) deleteAd(ad.id) }} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        {/* Ad Name */}
+                        <td className="py-2 pr-3">
+                          <p className="text-xs font-medium text-white">{ad.name}</p>
+                        </td>
+                        {/* Type */}
+                        <td className="py-2 pr-3">
+                          <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${typeStyles[ad.type]}`}>
+                            {ad.type === 'Image' && <ImageIcon className="h-2.5 w-2.5" />}
+                            {ad.type === 'HTML5' && <Code2 className="h-2.5 w-2.5" />}
+                            {ad.type === 'Text' && <Type className="h-2.5 w-2.5" />}
+                            {ad.type}
+                          </span>
+                        </td>
+                        {/* Trigger */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs text-white/50">{ad.trigger}</span>
+                        </td>
+                        {/* Display On */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs text-white/50">{ad.displayOn}</span>
+                        </td>
+                        {/* Impressions */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs font-medium text-white/70">{ad.impressions}</span>
+                        </td>
+                        {/* CTR */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs font-medium text-white/70">{ad.ctr}</span>
+                        </td>
+                        {/* Revenue */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs font-semibold text-emerald-400">{ad.revenue}</span>
+                        </td>
+                        {/* Status */}
+                        <td className="py-2 pr-3">
+                          <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${statusStyles[ad.status]}`}>
+                            {ad.status === 'Active' && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                            {ad.status === 'Paused' && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+                            {ad.status}
+                          </span>
+                        </td>
+                        {/* Actions */}
+                        <td className="py-2">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Toggle">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Analytics">
+                              <BarChart3 className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => { if (confirm('Delete this ad?')) deleteAd(ad.id) }} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1228,7 +1228,7 @@ export function PopupAdsPage() {
                     <SelectItem value="50" className="text-[10px] text-white focus:bg-white/5">50</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="text-[10px] text-white/30">1–6 of 29</span>
+                <span className="text-[10px] text-white/30">{(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredAds.length)} of {filteredAds.length}</span>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -1237,7 +1237,7 @@ export function PopupAdsPage() {
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
-                {[1, 2, 3].map((page) => (
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, idx) => idx + 1).map((page) => (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
@@ -1251,7 +1251,7 @@ export function PopupAdsPage() {
                   </button>
                 ))}
                 <button
-                  onClick={() => setCurrentPage(Math.min(3, currentPage + 1))}
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-white/40 transition-colors hover:bg-white/5 hover:text-white"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />

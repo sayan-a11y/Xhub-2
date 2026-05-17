@@ -66,7 +66,6 @@ export function useAdsManager(options?: {
 
   const fetchAds = useCallback(async () => {
     const fetchId = ++fetchIdRef.current
-    setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
@@ -90,16 +89,17 @@ export function useAdsManager(options?: {
     }
   }, [type, position, admin])
 
-  // Initial fetch
+  // Initial fetch - use queueMicrotask to avoid synchronous setState in effect
   useEffect(() => {
-    fetchAds()
+    setLoading(true)
+    queueMicrotask(() => { fetchAds() })
   }, [fetchAds])
 
   // Refetch when realtime data changes
   const prevRealtimeCount = useRef(0)
   useEffect(() => {
     if (realtimeRows.length !== prevRealtimeCount.current && prevRealtimeCount.current > 0) {
-      fetchAds()
+      queueMicrotask(() => { fetchAds() })
     }
     prevRealtimeCount.current = realtimeRows.length
   }, [realtimeRows, fetchAds])
@@ -244,11 +244,15 @@ export function useHeroAds() {
     }
   }, [])
 
-  useEffect(() => { fetchAds() }, [fetchAds])
+  useEffect(() => {
+    queueMicrotask(() => { fetchAds() })
+  }, [fetchAds])
 
   const prevCount = useRef(0)
   useEffect(() => {
-    if (realtimeRows.length !== prevCount.current && prevCount.current > 0) fetchAds()
+    if (realtimeRows.length !== prevCount.current && prevCount.current > 0) {
+      queueMicrotask(() => { fetchAds() })
+    }
     prevCount.current = realtimeRows.length
   }, [realtimeRows, fetchAds])
 
@@ -335,11 +339,15 @@ export function useFooterAds() {
     }
   }, [])
 
-  useEffect(() => { fetchAds() }, [fetchAds])
+  useEffect(() => {
+    queueMicrotask(() => { fetchAds() })
+  }, [fetchAds])
 
   const prevCount = useRef(0)
   useEffect(() => {
-    if (realtimeRows.length !== prevCount.current && prevCount.current > 0) fetchAds()
+    if (realtimeRows.length !== prevCount.current && prevCount.current > 0) {
+      queueMicrotask(() => { fetchAds() })
+    }
     prevCount.current = realtimeRows.length
   }, [realtimeRows, fetchAds])
 

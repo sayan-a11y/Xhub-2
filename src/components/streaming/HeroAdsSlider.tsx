@@ -8,7 +8,7 @@ import {
   useMemo,
 } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Info, ChevronLeft, ChevronRight, Volume2, VolumeX, Megaphone, Maximize2 } from 'lucide-react'
+import { Play, Info, ChevronLeft, ChevronRight, Volume2, VolumeX, Megaphone, Maximize2, Clock } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 
 /* ────────────────────────────────────────────
@@ -25,6 +25,8 @@ interface HeroAdItem {
   adType: 'image' | 'video'
   mediaFormat: string
   linkUrl?: string
+  startDate?: string | null
+  endDate?: string | null
 }
 
 interface HeroAdsSliderProps {
@@ -468,6 +470,16 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
                     </span>
                   </div>
                 </motion.div>
+
+                {/* Scheduled badge */}
+                {currentAd.startDate && new Date(currentAd.startDate) > new Date() && (
+                  <motion.div variants={contentItem}>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-amber-400">
+                      <Clock className="h-3 w-3" />
+                      Scheduled
+                    </span>
+                  </motion.div>
+                )}
 
                 {/* Category badge */}
                 {currentAd.category && (

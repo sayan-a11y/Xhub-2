@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { RealtimeProvider } from "@/lib/supabase/realtime";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,9 +35,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#050505] text-white`}
       >
-        <RealtimeProvider>
-          {children}
-        </RealtimeProvider>
+        <ErrorBoundary>
+          <RealtimeProvider>
+            {children}
+          </RealtimeProvider>
+        </ErrorBoundary>
         <Toaster />
       </body>
     </html>

@@ -79,6 +79,8 @@ interface HeroAdData {
   impressions: number
   clicks: number
   ctr: number
+  startDate?: string | null
+  endDate?: string | null
 }
 
 interface FooterAdData {
@@ -93,6 +95,8 @@ interface FooterAdData {
   impressions: number
   clicks: number
   ctr: number
+  startDate?: string | null
+  endDate?: string | null
 }
 
 interface CommentData {
@@ -133,19 +137,79 @@ export default function XtubeHome() {
   const [currentVideo, setCurrentVideo] = useState<VideoData | null>(null)
   const [videoComments, setVideoComments] = useState<CommentData[]>([])
 
-  // ─── Supabase Realtime Subscriptions (ALL data is REALTIME) ─────────────────
+  // ─── Supabase Realtime Subscriptions (supplements API data with live updates) ──
   const { data: realtimeVideos } = useRealtimeSubscription<VideoData>('Video', { filter: 'isPublished=eq.true' })
   const { data: realtimeCategories } = useRealtimeSubscription<CategoryData>('Category')
   const { data: realtimeHeroAds } = useRealtimeSubscription<HeroAdData>('HeroAd', { filter: 'isActive=eq.true' })
   const { data: realtimeFooterAds } = useRealtimeSubscription<FooterAdData>('FooterAd', { filter: 'isActive=eq.true' })
   const { data: realtimeAds } = useRealtimeSubscription<AdData>('Ad', { filter: 'isActive=eq.true' })
 
-  // Data derived from realtime subscriptions (no duplicate API fetches)
-  const videos = (realtimeVideos as VideoData[]) || []
-  const categories = (realtimeCategories as CategoryData[]) || []
-  const ads = (realtimeAds as AdData[]) || []
-  const heroAds = (realtimeHeroAds as HeroAdData[]) || []
-  const footerAds = (realtimeFooterAds as FooterAdData[]) || []
+  // ─── Initial API data fetching (populates data on first load) ──────────────
+  const [apiVideos, setApiVideos] = useState<VideoData[]>([])
+  const [apiCategories, setApiCategories] = useState<CategoryData[]>([])
+  const [apiHeroAds, setApiHeroAds] = useState<HeroAdData[]>([])
+  const [apiFooterAds, setApiFooterAds] = useState<FooterAdData[]>([])
+  const [apiAds, setApiAds] = useState<AdData[]>([])
+  const [apiLoaded, setApiLoaded] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchInitialData = async () => {
+      try {
+        const [videosRes, categoriesRes, heroAdsRes, footerAdsRes, adsRes] = await Promise.all([
+          fetch('/api/videos?limit=100'),
+          fetch('/api/categories'),
+          fetch('/api/hero-ads?active=true'),
+          fetch('/api/footer-ads?active=true'),
+          fetch('/api/ads'),
+        ])
+        if (cancelled) return
+        if (videosRes.ok) {
+          const data = await videosRes.json()
+          setApiVideos(data.videos || [])
+        }
+        if (categoriesRes.ok) {
+          const data = await categoriesRes.json()
+          setApiCategories(data.categories || [])
+        }
+        if (heroAdsRes.ok) {
+          const data = await heroAdsRes.json()
+          setApiHeroAds(data.heroAds || [])
+        }
+        if (footerAdsRes.ok) {
+          const data = await footerAdsRes.json()
+          setApiFooterAds(data.footerAds || [])
+        }
+        if (adsRes.ok) {
+          const data = await adsRes.json()
+          setApiAds(data.ads || [])
+        }
+        setApiLoaded(true)
+      } catch (err) {
+        console.error('Error fetching initial data:', err)
+        setApiLoaded(true)
+      }
+    }
+    fetchInitialData()
+    return () => { cancelled = true }
+  }, [])
+
+  // Filter ads by date range (realtime only filters by isActive, not scheduling)
+  const isWithinSchedule = (ad: { isActive: boolean; startDate?: string | null; endDate?: string | null }) => {
+    if (!ad.isActive) return false
+    const now = new Date()
+    if (ad.startDate && new Date(ad.startDate) > now) return false
+    if (ad.endDate && new Date(ad.endDate) < now) return false
+    return true
+  }
+
+  // Merge: prefer realtime data if available, otherwise fall back to API data
+  const videos = (realtimeVideos.length > 0 ? realtimeVideos : apiVideos) as VideoData[]
+  const categories = (realtimeCategories.length > 0 ? realtimeCategories : apiCategories) as CategoryData[]
+  const ads = (realtimeAds.length > 0 ? realtimeAds : apiAds) as AdData[]
+  const heroAds = ((realtimeHeroAds.length > 0 ? realtimeHeroAds : apiHeroAds) as HeroAdData[]).filter(isWithinSchedule)
+  const footerAds = ((realtimeFooterAds.length > 0 ? realtimeFooterAds : apiFooterAds) as FooterAdData[]).filter(isWithinSchedule)
+
   // Progressive loading: show content as soon as ANY data arrives
   // Max skeleton time: 800ms then show whatever we have
   const [skeletonTimeout, setSkeletonTimeout] = useState(true)
@@ -153,7 +217,7 @@ export default function XtubeHome() {
     const t = setTimeout(() => setSkeletonTimeout(false), 800)
     return () => clearTimeout(t)
   }, [])
-  const loading = skeletonTimeout && !realtimeVideos?.length && !realtimeCategories?.length
+  const loading = skeletonTimeout && !videos.length && !categories.length && !apiLoaded
 
   // Seed only runs once EVER per browser (persisted via localStorage)
   const seedRan = useRef(false)

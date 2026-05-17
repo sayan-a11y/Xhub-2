@@ -14,6 +14,8 @@ interface FooterAdItem {
   adType: 'image' | 'video' | 'gif' | 'html5'
   mediaFormat: string
   linkUrl?: string
+  startDate?: string | null
+  endDate?: string | null
 }
 
 interface FooterAdsProps {
