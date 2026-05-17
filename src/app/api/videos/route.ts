@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') || 'latest'
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
+    const cursor = searchParams.get('cursor')
 
     const where: any = { isPublished: true }
 
@@ -28,17 +29,34 @@ export async function GET(request: NextRequest) {
     if (sort === 'oldest') orderBy = { createdAt: 'asc' }
     if (sort === 'title') orderBy = { title: 'asc' }
 
-    const videos = await db.video.findMany({
+    // Cursor-based pagination for infinite scroll
+    const queryOptions: any = {
       where,
       orderBy,
-      take: limit,
-      skip: offset,
-    })
+      take: limit + 1, // fetch one extra to determine nextCursor
+    }
+
+    if (cursor) {
+      queryOptions.cursor = { id: cursor }
+      queryOptions.skip = 1 // skip the cursor item itself
+    } else if (offset > 0) {
+      // Backward compat: offset-based pagination
+      queryOptions.skip = offset
+    }
+
+    const videos = await db.video.findMany(queryOptions)
+
+    // Determine nextCursor
+    let nextCursor: string | null = null
+    if (videos.length > limit) {
+      videos.pop() // remove the extra item
+      nextCursor = videos[videos.length - 1].id
+    }
 
     const total = await db.video.count({ where })
 
-    return NextResponse.json({ videos, total }, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    return NextResponse.json({ videos, total, nextCursor }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
     })
   } catch (error) {
     console.error('Error fetching videos:', error)

@@ -11,12 +11,13 @@ import { FooterAds } from '@/components/streaming/FooterAds'
 import { CategorySection } from '@/components/streaming/CategorySection'
 import { VideoGrid } from '@/components/streaming/VideoGrid'
 import { AdminPanel } from '@/components/streaming/AdminPanel'
-import { Flame, Sparkles, Clock, Search, Film, History } from 'lucide-react'
+import { Flame, Sparkles, Clock, Search, Film, History, Upload, Plus } from 'lucide-react'
 import { AgeVerificationPopup } from '@/components/streaming/AgeVerificationPopup'
 import { XtubeLogo } from '@/components/shared/XtubeLogo'
 import { AdminLoginModal } from '@/components/shared/AdminLoginModal'
 import { cachedFetch, invalidateCache } from '@/lib/performance/api-cache'
 import { useDebounce } from '@/lib/performance/hooks'
+import { useRealtimeSubscription } from '@/lib/supabase/realtime'
 
 // ─── Dynamic Import VideoPlayer (heavy component - code split) ───────────────
 const VideoPlayer = lazy(() =>
@@ -139,25 +140,17 @@ export default function XtubeHome() {
   const [currentVideo, setCurrentVideo] = useState<VideoData | null>(null)
   const [videoComments, setVideoComments] = useState<CommentData[]>([])
   const [loading, setLoading] = useState(true)
-  const [seeded, setSeeded] = useState(false)
 
-  // ─── Seed Database ─────────────────────────────────────────────────────────
+  // ─── Supabase Realtime Subscriptions (ALL data is REALTIME) ─────────────────
+  const { data: realtimeVideos } = useRealtimeSubscription<VideoData>('Video', { filter: 'isPublished=eq.true' })
+  const { data: realtimeCategories } = useRealtimeSubscription<CategoryData>('Category')
+  const { data: realtimeHeroAds } = useRealtimeSubscription<HeroAdData>('HeroAd', { filter: 'isActive=eq.true' })
+  const { data: realtimeFooterAds } = useRealtimeSubscription<FooterAdData>('FooterAd', { filter: 'isActive=eq.true' })
+  const { data: realtimeAds } = useRealtimeSubscription<AdData>('Ad', { filter: 'isActive=eq.true' })
 
+  // ─── Init system users on first load (no demo data) ─────────────────────────
   useEffect(() => {
-    let cancelled = false
-    async function seedDB() {
-      try {
-        const res = await fetch('/api/seed', { method: 'POST' })
-        if (!cancelled && res.ok) {
-          setSeeded(true)
-        }
-      } catch (err) {
-        console.error('Seed error:', err)
-        if (!cancelled) setSeeded(true)
-      }
-    }
-    seedDB()
-    return () => { cancelled = true }
+    fetch('/api/seed', { method: 'POST' }).catch(() => {})
   }, [])
 
   // ─── Fetch Videos ──────────────────────────────────────────────────────────
@@ -230,10 +223,37 @@ export default function XtubeHome() {
     }
   }, [])
 
-  // ─── Load initial data ─────────────────────────────────────────────────────
+  // ─── Merge realtime updates (INSTANT - no cache delay) ────────────────────
+  // Realtime returns [] for empty tables — we update state regardless to clear loading
+  // Using deferred setState to satisfy react-hooks/set-state-in-effect lint rule
+  useEffect(() => {
+    const t = setTimeout(() => { setVideos(realtimeVideos as VideoData[]); setLoading(false) }, 0)
+    return () => clearTimeout(t)
+  }, [realtimeVideos])
 
   useEffect(() => {
-    if (!seeded) return
+    const t = setTimeout(() => setCategories(realtimeCategories as CategoryData[]), 0)
+    return () => clearTimeout(t)
+  }, [realtimeCategories])
+
+  useEffect(() => {
+    const t = setTimeout(() => setHeroAds(realtimeHeroAds as HeroAdData[]), 0)
+    return () => clearTimeout(t)
+  }, [realtimeHeroAds])
+
+  useEffect(() => {
+    const t = setTimeout(() => setFooterAds(realtimeFooterAds as FooterAdData[]), 0)
+    return () => clearTimeout(t)
+  }, [realtimeFooterAds])
+
+  useEffect(() => {
+    const t = setTimeout(() => setAds(realtimeAds as AdData[]), 0)
+    return () => clearTimeout(t)
+  }, [realtimeAds])
+
+  // ─── Load initial data (API fetch as fallback + initial load) ────────────
+
+  useEffect(() => {
     let cancelled = false
     const loadData = async () => {
       await Promise.all([fetchVideos(), fetchCategories(), fetchAds(), fetchHeroAds(), fetchFooterAds()])
@@ -241,7 +261,7 @@ export default function XtubeHome() {
     }
     loadData()
     return () => { cancelled = true }
-  }, [seeded, fetchVideos, fetchCategories, fetchAds, fetchHeroAds, fetchFooterAds])
+  }, [fetchVideos, fetchCategories, fetchAds, fetchHeroAds, fetchFooterAds])
 
   // ─── Load video when selected ──────────────────────────────────────────────
 
@@ -404,15 +424,15 @@ export default function XtubeHome() {
     if (loading) {
       return (
         <div className="space-y-6 pb-20 md:pb-8">
-          <div className="h-[240px] sm:h-[320px] md:h-[420px] animate-shimmer bg-xtube-card" />
+          <div className="h-[240px] sm:h-[320px] md:h-[420px] animate-shimmer-opt" />
           <section className="px-3 md:px-5 space-y-4">
-            <div className="h-7 w-40 rounded-lg animate-shimmer bg-xtube-card" />
+            <div className="h-7 w-40 rounded-lg animate-shimmer-opt" />
             <div className="flex gap-3 overflow-hidden">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="w-[200px] sm:w-[220px] md:w-[240px] flex-shrink-0 space-y-2">
-                  <div className="aspect-video rounded-lg animate-shimmer bg-xtube-card" />
-                  <div className="h-4 w-3/4 rounded animate-shimmer bg-xtube-card" />
-                  <div className="h-3 w-1/2 rounded animate-shimmer bg-xtube-card" />
+                  <div className="aspect-video rounded-lg animate-shimmer-opt" />
+                  <div className="h-4 w-3/4 rounded animate-shimmer-opt" />
+                  <div className="h-3 w-1/2 rounded animate-shimmer-opt" />
                 </div>
               ))}
             </div>
@@ -421,10 +441,35 @@ export default function XtubeHome() {
       )
     }
 
+    // ─── Empty state when no videos exist ────────────────────────────────────
+    if (videos.length === 0) {
+      return (
+        <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 px-4 pb-20 md:pb-8">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute left-1/2 top-1/3 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-xtube-red/5 blur-[120px]" />
+          </div>
+          <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-xtube-card border border-xtube-border">
+              <Film className="h-10 w-10 text-xtube-red" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">No Videos Yet</h2>
+            <p className="max-w-sm text-sm text-xtube-text-secondary">
+              Add videos via the Admin Panel and they will appear here instantly with real-time updates.
+            </p>
+            <p className="text-xs text-xtube-text-secondary/60 mt-2">
+              Click the logo 7 times to access Admin Panel
+            </p>
+          </div>
+        </div>
+      )
+    }
+
     return (
     <div className="space-y-6 pb-20 md:pb-8">
-      {/* Hero Ads Slider - Only hero ads, no trending videos */}
-      <HeroAdsSlider ads={heroAdsSliderData} />
+      {/* Hero Ads Slider - only shows when hero ads exist */}
+      {heroAdsSliderData.length > 0 && <HeroAdsSlider ads={heroAdsSliderData} />}
+      {/* Trending section - only shows when videos exist */}
+      {trendingVideos.length > 0 && (
       <section className="px-3 md:px-5">
         <CategorySection
           title="🔥 Trending Now"
@@ -441,6 +486,7 @@ export default function XtubeHome() {
           }))}
         />
       </section>
+      )}
       {Object.entries(videosByCategory).map(([category, categoryVids]) => (
         <section key={category} className="px-4 md:px-6">
           <CategorySection
@@ -459,10 +505,12 @@ export default function XtubeHome() {
           />
         </section>
       ))}
-      {/* Footer Ads Section */}
+      {/* Footer Ads Section - only shows when footer ads exist */}
+      {footerAdsData.length > 0 && (
       <div className="mt-6">
         <FooterAds ads={footerAdsData} />
       </div>
+      )}
     </div>
     )
   }

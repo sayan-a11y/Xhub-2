@@ -87,23 +87,7 @@ function getRandomFileSize(): string {
   return sizes[Math.floor(Math.random() * sizes.length)]
 }
 
-// ─── Mock Video Data ─────────────────────────────────────────────────────────
-
-const mockVideos = [
-  { id: '1', title: 'The Last Horizon', category: 'Sci-Fi', views: 2840000, duration: '2:15:30', isPublished: true, createdAt: '2026-05-28T10:00:00Z', thumbnail: '' },
-  { id: '2', title: 'Midnight Streets', category: 'Action', views: 1560000, duration: '1:48:20', isPublished: true, createdAt: '2026-05-25T10:00:00Z', thumbnail: '' },
-  { id: '3', title: 'Beyond Mountains', category: 'Adventure', views: 980000, duration: '2:02:45', isPublished: true, createdAt: '2026-05-22T10:00:00Z', thumbnail: '' },
-  { id: '4', title: 'Love in Paris', category: 'Romance', views: 2100000, duration: '1:35:10', isPublished: true, createdAt: '2026-05-20T10:00:00Z', thumbnail: '' },
-  { id: '5', title: 'Deep Blue World', category: 'Documentary', views: 720000, duration: '1:22:05', isPublished: true, createdAt: '2026-05-18T10:00:00Z', thumbnail: '' },
-  { id: '6', title: "Dragon's Legacy", category: 'Fantasy', views: 3450000, duration: '2:28:15', isPublished: true, createdAt: '2026-05-16T10:00:00Z', thumbnail: '' },
-  { id: '7', title: 'Speed Knights', category: 'Sports', views: 890000, duration: '1:55:40', isPublished: true, createdAt: '2026-05-14T10:00:00Z', thumbnail: '' },
-  { id: '8', title: 'Space Odyssey', category: 'Sci-Fi', views: 4120000, duration: '2:45:20', isPublished: true, createdAt: '2026-05-12T10:00:00Z', thumbnail: '' },
-  { id: '9', title: 'Hidden Forest', category: 'Nature', views: 650000, duration: '1:12:30', isPublished: false, createdAt: '2026-05-10T10:00:00Z', thumbnail: '' },
-  { id: '10', title: 'Nightlife Party', category: 'Music', views: 1340000, duration: '1:08:55', isPublished: true, createdAt: '2026-05-08T10:00:00Z', thumbnail: '' },
-  { id: '11', title: 'War of Kingdoms', category: 'History', views: 1890000, duration: '2:18:10', isPublished: true, createdAt: '2026-05-06T10:00:00Z', thumbnail: '' },
-  { id: '12', title: 'Little Dreamer', category: 'Animation', views: 520000, duration: '1:42:25', isPublished: false, createdAt: '2026-05-04T10:00:00Z', thumbnail: '' },
-]
-
+// ─── Default categories for video upload form ──────────────────────────────────
 const categories = [
   'All Categories',
   'Sci-Fi',
@@ -568,23 +552,8 @@ function AllVideosView({
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(12)
 
-  // Merge real videos with mock data for display
-  const allVideos = useMemo(() => {
-    if (videos.length >= 12) return videos
-    return mockVideos.map((mv, i) => ({
-      ...mv,
-      ...(videos[i] ? {
-        id: videos[i].id,
-        title: videos[i].title,
-        category: videos[i].category,
-        views: videos[i].views,
-        duration: videos[i].duration,
-        isPublished: videos[i].isPublished,
-        createdAt: videos[i].createdAt,
-        thumbnail: videos[i].thumbnail,
-      } : {}),
-    }))
-  }, [videos])
+  // Show ONLY real videos from database (no mock data)
+  const allVideos = useMemo(() => videos, [videos])
 
   // Filter and sort videos
   const filteredVideos = useMemo(() => {

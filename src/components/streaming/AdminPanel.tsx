@@ -475,6 +475,8 @@ export function AdminPanel() {
   const fetchAdminData = useCallback(async () => {
     setDataLoading(true)
     try {
+      // Force refresh by bypassing cache for admin operations
+      invalidateCache()
       const [analyticsData, videosData, adsData] = await Promise.all([
         cachedFetch('admin:analytics', () => fetch('/api/analytics').then(r => r.ok ? r.json() : null), 30_000),
         cachedFetch('admin:videos', () => fetch('/api/videos?limit=100').then(r => r.ok ? r.json() : null), 60_000),

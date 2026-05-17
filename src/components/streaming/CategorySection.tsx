@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback, memo } from 'react'
+import { useRef, useState, useCallback, memo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
@@ -20,6 +20,29 @@ interface CategorySectionProps {
     createdAt: string
   }>
 }
+
+/** Lazy card slot – only renders VideoCard when inside the scroll viewport */
+const LazyCardSlot = memo(function LazyCardSlot({ video }: { video: CategorySectionProps['videos'][number] }) {
+  const [isInView, setIsInView] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setIsInView(true) },
+      { rootMargin: '300px', threshold: 0 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={ref} className="w-[200px] flex-shrink-0 sm:w-[220px] md:w-[240px] lg:w-[260px]">
+      {isInView ? <VideoCard {...video} /> : <div className="aspect-video rounded-lg bg-xtube-card animate-shimmer-opt" />}
+    </div>
+  )
+})
 
 export const CategorySection = memo(function CategorySection({ title, category, videos }: CategorySectionProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -114,15 +137,11 @@ export const CategorySection = memo(function CategorySection({ title, category, 
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="no-scrollbar flex gap-3 overflow-x-auto scroll-smooth pb-2"
+          className="no-scrollbar flex gap-3 overflow-x-auto scroll-smooth pb-2 gpu-accelerated"
+          style={{ willChange: 'scroll-position' }}
         >
           {videos.map((video) => (
-            <div
-              key={video.id}
-              className="w-[200px] flex-shrink-0 sm:w-[220px] md:w-[240px] lg:w-[260px]"
-            >
-              <VideoCard {...video} />
-            </div>
+            <LazyCardSlot key={video.id} video={video} />
           ))}
         </div>
       </div>

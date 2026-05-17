@@ -4,6 +4,7 @@ import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { Play, Clock, Eye } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
+import { useIntersectionObserver } from '@/lib/performance/hooks'
 
 interface VideoCardProps {
   id: string
@@ -58,12 +59,16 @@ export const VideoCard = memo(function VideoCard({
   createdAt,
 }: VideoCardProps) {
   const navigateToVideo = useAppStore((s) => s.navigateToVideo)
+  const { ref: lazyRef, isIntersecting } = useIntersectionObserver({
+    triggerOnce: true,
+    rootMargin: '200px',
+  })
 
   return (
     <motion.div
       whileHover={{ scale: 1.03 }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-      className="group cursor-pointer"
+      className="group cursor-pointer gpu-accelerated"
       onClick={() => navigateToVideo(id)}
       role="button"
       tabIndex={0}
@@ -76,31 +81,27 @@ export const VideoCard = memo(function VideoCard({
       }}
     >
       {/* Thumbnail Container */}
-      <div className="relative aspect-video overflow-hidden rounded-lg bg-xtube-card">
-        {/* Background image */}
-        <img
-          src={thumbnail}
-          alt={title}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-        />
+      <div ref={lazyRef} className="relative aspect-video overflow-hidden rounded-lg bg-xtube-card">
+        {/* Background image - lazy loaded via IntersectionObserver */}
+        {isIntersecting ? (
+          <img
+            src={thumbnail}
+            alt={title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+          />
+        ) : (
+          <div className="h-full w-full bg-xtube-card animate-shimmer-opt" />
+        )}
 
-        {/* Hover overlay with play icon */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            whileHover={{ scale: 1 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-xtube-red/90 text-white shadow-lg"
-          >
+        {/* Hover overlay with play icon + red glow (CSS-only) */}
+        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40 shadow-[0_0_20px_rgba(229,9,20,0.3)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-xtube-red/90 text-white shadow-lg scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-300">
             <Play className="h-5 w-5 ml-0.5" fill="currentColor" />
-          </motion.div>
+          </div>
         </div>
-
-        {/* Red glow on hover */}
-        <div className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 shadow-[0_0_20px_rgba(229,9,20,0.3)] pointer-events-none" />
 
         {/* Category tag - top left */}
         <div className="absolute left-2 top-2">

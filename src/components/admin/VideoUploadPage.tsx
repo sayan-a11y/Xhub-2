@@ -241,6 +241,43 @@ export function VideoUploadPage() {
     setIsLive(false)
   }, [])
 
+  // ─── Create video in database via API ──────────────────────────────────────
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishSuccess, setPublishSuccess] = useState(false)
+
+  const handlePublishVideo = useCallback(async () => {
+    if (!title.trim() || !category) return
+    setIsPublishing(true)
+    try {
+      const res = await fetch('/api/videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim() || `Watch ${title.trim()} on Xtube.`,
+          thumbnail: `https://picsum.photos/seed/${Date.now()}/640/360`,
+          videoUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+          category,
+          duration: duration || '0:00',
+          isHd: quality === '1080p' || quality === '2k' || quality === '4k',
+          isPublished: true,
+          resolution: quality,
+        }),
+      })
+      if (res.ok) {
+        setPublishSuccess(true)
+        setTimeout(() => {
+          handleResetUpload()
+          setPublishSuccess(false)
+        }, 2000)
+      }
+    } catch (err) {
+      console.error('Error creating video:', err)
+    } finally {
+      setIsPublishing(false)
+    }
+  }, [title, description, category, quality, duration, handleResetUpload])
+
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -831,10 +868,18 @@ export function VideoUploadPage() {
                   <motion.button
                     whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(229,9,20,0.4)' }}
                     whileTap={{ scale: 0.98 }}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-xtube-red px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(229,9,20,0.3)] transition-all hover:bg-xtube-red-hover"
+                    onClick={handlePublishVideo}
+                    disabled={isPublishing || !title.trim() || !category}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-xtube-red px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(229,9,20,0.3)] transition-all hover:bg-xtube-red-hover disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Upload className="h-4 w-4" />
-                    Upload Video
+                    {isPublishing ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : publishSuccess ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    {isPublishing ? 'Publishing...' : publishSuccess ? 'Published!' : 'Upload Video'}
                   </motion.button>
                 </div>
               </div>

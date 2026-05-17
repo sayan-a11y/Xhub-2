@@ -354,3 +354,60 @@ input[type="range"]::-moz-range-thumb {
 .text-responsive-xl {
   font-size: clamp(18px, 1.125vw, 24px);
 }
+
+/* ─── GPU-Accelerated Animations ──────────────────────────── */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* ─── Smooth 60fps transitions ────────────────────────────── */
+.smooth-transition {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, opacity;
+}
+
+/* ─── Reduced motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .gpu-accelerated,
+  .smooth-transition {
+    will-change: auto;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Lazy image fade-in ──────────────────────────────────── */
+.lazy-image {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.lazy-image.loaded {
+  opacity: 1;
+}
+
+/* ─── Skeleton shimmer optimized ──────────────────────────── */
+@keyframes shimmer-opt {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer-opt {
+  background: linear-gradient(90deg, #0B0B0F 25%, #151520 37%, #0B0B0F 63%);
+  background-size: 200% 100%;
+  animation: shimmer-opt 1.5s ease-in-out infinite;
+}
+
+/* ─── Touch action optimization ───────────────────────────── */
+.touch-optimized {
+  touch-action: manipulation; /* disable double-tap zoom */
+  -webkit-tap-highlight-color: transparent;
+}

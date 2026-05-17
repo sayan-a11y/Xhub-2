@@ -115,17 +115,44 @@ const categoryColors = [
 ]
 
 export function CatalogPage() {
-  const [categories, setCategories] = useState<CategoryItem[]>(initialCategories)
+  const [categories, setCategories] = useState<CategoryItem[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingCategory, setDeletingCategory] = useState<CategoryItem | null>(null)
+  const [loading, setLoading] = useState(true)
 
   // Form state
   const [formName, setFormName] = useState('')
   const [formSlug, setFormSlug] = useState('')
   const [formIcon, setFormIcon] = useState('flame')
   const [formOrder, setFormOrder] = useState('1')
+
+  // ─── Fetch categories from API ──────────────────────────────────────────────
+  useState(() => {
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/categories')
+        if (res.ok) {
+          const data = await res.json()
+          setCategories((data.categories || []).map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            slug: c.slug,
+            icon: c.icon || 'film',
+            order: c.order,
+            videoCount: 0,
+            viewCount: 0,
+          })))
+        }
+      } catch (err) {
+        console.error('Error loading categories:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadCategories()
+  })
 
   const resetForm = () => {
     setFormName('')
@@ -150,37 +177,74 @@ export function CatalogPage() {
     setDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim() || !formSlug.trim()) return
 
-    if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editingCategory.id
-            ? { ...c, name: formName, slug: formSlug, icon: formIcon, order: parseInt(formOrder) }
-            : c
-        )
-      )
-    } else {
-      const newCategory: CategoryItem = {
-        id: Date.now().toString(),
-        name: formName,
-        slug: formSlug,
-        icon: formIcon,
-        order: parseInt(formOrder),
-        videoCount: 0,
-        viewCount: 0,
+    try {
+      if (editingCategory) {
+        // Update existing category
+        const res = await fetch('/api/categories', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingCategory.id,
+            name: formName,
+            slug: formSlug,
+            icon: formIcon,
+            order: parseInt(formOrder),
+          }),
+        })
+        if (res.ok) {
+          setCategories((prev) =>
+            prev.map((c) =>
+              c.id === editingCategory.id
+                ? { ...c, name: formName, slug: formSlug, icon: formIcon, order: parseInt(formOrder) }
+                : c
+            )
+          )
+        }
+      } else {
+        // Create new category via API
+        const res = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formName,
+            slug: formSlug,
+            icon: formIcon,
+            order: parseInt(formOrder),
+          }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          const newCategory: CategoryItem = {
+            id: data.category?.id || Date.now().toString(),
+            name: formName,
+            slug: formSlug,
+            icon: formIcon,
+            order: parseInt(formOrder),
+            videoCount: 0,
+            viewCount: 0,
+          }
+          setCategories((prev) => [...prev, newCategory])
+        }
       }
-      setCategories((prev) => [...prev, newCategory])
+    } catch (err) {
+      console.error('Error saving category:', err)
     }
 
     setDialogOpen(false)
     resetForm()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deletingCategory) return
-    setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id))
+    try {
+      await fetch(`/api/categories?id=${deletingCategory.id}`, { method: 'DELETE' })
+      setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id))
+    } catch (err) {
+      console.error('Error deleting category:', err)
+    }
     setDeleteDialogOpen(false)
     setDeletingCategory(null)
   }

@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
           total,
           totalPages: Math.ceil(total / limit),
         },
+      }, {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
       })
     }
 
@@ -76,7 +78,9 @@ export async function GET(request: NextRequest) {
       )
     )
 
-    return NextResponse.json({ ads })
+    return NextResponse.json({ ads }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+    })
   } catch (error) {
     console.error('Error fetching ads:', error)
     return NextResponse.json({ error: 'Failed to fetch ads' }, { status: 500 })
