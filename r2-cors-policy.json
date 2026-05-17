@@ -1,0 +1,41 @@
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "http://localhost:81",
+      "https://*.space-z.ai",
+      "https://*.z.ai",
+      "*"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "PUT",
+      "POST",
+      "DELETE",
+      "HEAD"
+    ],
+    "AllowedHeaders": [
+      "Content-Type",
+      "Authorization",
+      "X-Amz-Content-Sha256",
+      "X-Amz-Date",
+      "X-Amz-Algorithm",
+      "X-Amz-Credential",
+      "X-Amz-Signature",
+      "X-Amz-SignedHeaders",
+      "X-Amz-Expires",
+      "Upload-Incomplete",
+      "Upload-Offset",
+      "Upload-Length",
+      "Upload-Name",
+      "Upload-Concurrency"
+    ],
+    "ExposeHeaders": [
+      "ETag",
+      "X-Amz-Request-Id",
+      "Content-Length",
+      "Content-Range"
+    ],
+    "MaxAgeSeconds": 86400
+  }
+]

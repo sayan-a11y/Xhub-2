@@ -51,7 +51,11 @@ const nextConfig: NextConfig = {
       ],
     },
   ],
-  allowedDevOrigins: ["localhost"],
+  allowedDevOrigins: [
+    "localhost",
+    ".space-z.ai",           // Z.ai preview panel
+    ".z.ai",                 // Z.ai domain
+  ],
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ["framer-motion", "lucide-react", "recharts", "date-fns"],
