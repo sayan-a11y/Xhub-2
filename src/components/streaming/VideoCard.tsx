@@ -1,7 +1,6 @@
 'use client'
 
 import { memo } from 'react'
-import { motion } from 'framer-motion'
 import { Play, Clock, Eye } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { useIntersectionObserver } from '@/lib/performance/hooks'
@@ -65,10 +64,8 @@ export const VideoCard = memo(function VideoCard({
   })
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.03 }}
-      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-      className="group cursor-pointer gpu-accelerated"
+    <div
+      className="group cursor-pointer gpu-accelerated transition-transform duration-200 hover:scale-[1.03]"
       onClick={() => navigateToVideo(id)}
       role="button"
       tabIndex={0}
@@ -148,6 +145,6 @@ export const VideoCard = memo(function VideoCard({
           <span>{formatRelativeDate(createdAt)}</span>
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 })

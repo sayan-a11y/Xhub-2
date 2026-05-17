@@ -36,7 +36,7 @@ interface HeroAdsSliderProps {
    ──────────────────────────────────────────── */
 
 const AUTOPLAY_DELAY = 1_800_000  // 30 minutes in ms
-const TRANSITION_SPEED = 1_200    // ms
+const TRANSITION_SPEED = 600    // ms - faster transition
 const SWIPE_THRESHOLD = 50        // px minimum swipe distance
 const MAX_VISIBLE_ADS = 6         // Maximum hero ads to display
 
@@ -55,18 +55,16 @@ const contentVariants = {
 }
 
 const contentItem = {
-  hidden: { opacity: 0, y: 28, filter: 'blur(6px)' },
+  hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
-    filter: 'blur(0px)',
-    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
   },
   exit: {
     opacity: 0,
-    y: -14,
-    filter: 'blur(3px)',
-    transition: { duration: 0.3, ease: 'easeIn' },
+    y: -10,
+    transition: { duration: 0.2, ease: 'easeIn' },
   },
 }
 
@@ -303,7 +301,7 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl border border-white/5 bg-[#0B0B0F]/80 backdrop-blur-xl"
+              className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl border border-white/5 bg-[#0B0B0F]/80"
             >
               <Megaphone className="h-8 w-8 sm:h-10 sm:w-10 text-[#ff1e1e]/40" />
             </motion.div>
@@ -402,17 +400,8 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
               </>
             ) : (
               <>
-                {/* Parallax zoom image */}
-                <motion.div
-                  className="absolute inset-0 overflow-hidden"
-                  initial={{ scale: 1 }}
-                  animate={{ scale: 1.06 }}
-                  transition={{
-                    duration: 30,
-                    ease: 'linear',
-                  }}
-                  style={{ willChange: 'transform' }}
-                >
+                {/* Static image - no parallax zoom for performance */}
+                <div className="absolute inset-0 overflow-hidden">
                   <img
                     src={currentAd.mediaUrl}
                     alt={currentAd.title}
@@ -420,7 +409,7 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
                     fetchPriority={currentIndex === 0 ? 'high' : 'auto'}
                     className="h-full w-full object-cover"
                   />
-                </motion.div>
+                </div>
 
                 {/* Cinematic dark overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/50 to-[#050505]/10" />

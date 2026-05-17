@@ -477,3 +477,39 @@ Stage Summary:
 - Realtime updates 5x faster (200ms throttle vs 1000ms)
 - Ads API no longer does N write operations on every GET request
 - 0 lint errors, all changes are minimal and targeted
+
+---
+Task ID: 3
+Agent: AllAdsPage Real Data Agent
+Task: Update AllAdsPage to use real Supabase data via useAdsManager hook instead of mock data
+
+Work Log:
+- Added import for useAdsManager hook and AdItem type from @/hooks/useAdsManager
+- Added imports for Dialog/DialogContent/DialogHeader/DialogTitle/DialogDescription/DialogFooter, Input, Label, Skeleton from shadcn/ui
+- Added Loader2 icon import from lucide-react
+- Removed ALL hardcoded mock data: mockAds (10 entries), donutData (8 entries), impressionsData (16 entries), revenueData (16 entries)
+- Removed AllAd interface (replaced by AdItem from hook)
+- Added helper functions: formatNumber(), formatCurrency(), getDisplayType()
+- Added REALTIME_POSITION_MAP for human-readable position display
+- Added useAdsManager() hook call at top of component with destructured: realAds, adsLoading, deleteAd, toggleAd, createAd, updateAd
+- Computed stat cards from real data: totalAds, activeAds, totalImpressions, totalClicks, totalRevenue, overallCtr
+- Computed donutData from real ad type distribution via useMemo
+- Computed impressionsData and revenueData from real ad createdAt dates via useMemo
+- Replaced filteredAds to filter realAds instead of mockAds, using ad.isActive and ad.title
+- Added paginatedAds with pageSize=10 for real pagination
+- Updated table rendering: ad.name→ad.title, ad.impressions→formatNumber(ad.impressions), ad.ctr→computed, ad.revenue→formatCurrency(ad.revenue), ad.status→ad.isActive, ad.placement→ad.position (via map), ad.sizeDuration→derived, ad.gradient→colored bg based on type, ad.date→formatted ad.createdAt
+- Wired up action buttons: Delete→deleteAd(ad.id), Edit→toggleAd(ad.id), Create New Ad→opens dialog
+- Added Create New Ad dialog with form fields: title, type, position, imageUrl, linkUrl, startDate, endDate, frequency
+- Added loading skeleton with 5 Skeleton rows when adsLoading is true
+- Updated pagination to use real filteredAds.length and totalPages
+- Removed unused imports (CloudUpload, Monitor, Film, Code2, Sparkles, ArrowUpFromLine, ArrowDownFromLine, Filter, ExternalLink, RectangleHorizontal, AnimatePresence)
+- Removed unused REALTIME_TYPE_MAP constant
+- Lint result: 0 new errors (4 pre-existing errors in useAdsManager.ts, 3 pre-existing warnings in ads/route.ts)
+
+Stage Summary:
+- AllAdsPage fully migrated from hardcoded mock data to real Supabase data via useAdsManager hook
+- All stat cards, charts, and table data computed from real ad records
+- CRUD operations wired up: create (dialog), delete, toggle active/paused
+- Loading skeleton shown during data fetch
+- Pagination based on actual filtered results
+- Zero new lint errors, all changes minimal and targeted

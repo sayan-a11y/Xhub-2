@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useHeroAds, useFooterAds, type HeroAdItem, type FooterAdItem } from '@/hooks/useAdsManager'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CloudUpload,
@@ -57,19 +58,6 @@ type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
 type SectionTab = 'hero' | 'footer'
 type PreviewMode = 'desktop' | 'tablet' | 'mobile'
 
-interface HeroFooterAd {
-  id: string
-  title: string
-  type: 'Image' | 'HTML5'
-  placement: string
-  size: string
-  impressions: string
-  ctr: string
-  revenue: string
-  status: 'Active' | 'Paused' | 'Draft'
-  gradient: string
-}
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const STAT_COLORS = ['#ff1e1e', '#8b5cf6', '#10b981', '#ec4899', '#f97316']
@@ -88,85 +76,13 @@ const thumbnailGradients = [
   'from-pink-900/60 via-rose-800/40 to-fuchsia-900/30',
 ]
 
-const mockAds: HeroFooterAd[] = [
-  {
-    id: '1',
-    title: 'Summer Mega Sale',
-    type: 'Image',
-    placement: 'Hero Section - Top',
-    size: '1920×600',
-    impressions: '1.85M',
-    ctr: '5.24%',
-    revenue: '$5,450.80',
-    status: 'Active',
-    gradient: 'from-red-900/60 via-rose-800/40 to-pink-900/30',
-  },
-  {
-    id: '2',
-    title: 'Premium Plan Promo',
-    type: 'HTML5',
-    placement: 'Hero Section - Bottom',
-    size: '1600×300',
-    impressions: '1.12M',
-    ctr: '4.87%',
-    revenue: '$3,845.60',
-    status: 'Active',
-    gradient: 'from-blue-900/60 via-indigo-800/40 to-violet-900/30',
-  },
-  {
-    id: '3',
-    title: 'New Releases Banner',
-    type: 'Image',
-    placement: 'Footer Top',
-    size: '970×250',
-    impressions: '898.5K',
-    ctr: '3.92%',
-    revenue: '$2,145.40',
-    status: 'Active',
-    gradient: 'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  },
-  {
-    id: '4',
-    title: 'Holiday Special Offer',
-    type: 'Image',
-    placement: 'Hero Section - Top',
-    size: '1920×600',
-    impressions: '689.4K',
-    ctr: '4.14%',
-    revenue: '$2,104.50',
-    status: 'Paused',
-    gradient: 'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  },
-  {
-    id: '5',
-    title: 'Footer Subscribe CTA',
-    type: 'HTML5',
-    placement: 'Footer Bottom',
-    size: '728×90',
-    impressions: '454.2K',
-    ctr: '3.56%',
-    revenue: '$1,424.00',
-    status: 'Active',
-    gradient: 'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  },
-  {
-    id: '6',
-    title: 'Weekend Binge Fest',
-    type: 'Image',
-    placement: 'Footer Top',
-    size: '1600×300',
-    impressions: '323.6K',
-    ctr: '3.82%',
-    revenue: '$1,075.45',
-    status: 'Draft',
-    gradient: 'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  },
-]
+// ─── Format helpers ──────────────────────────────────────────────────────────
 
-const donutData = [
-  { name: 'Hero Section', value: 3904000 },
-  { name: 'Footer Section', value: 1516000 },
-]
+function formatNumber(num: number): string {
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M'
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K'
+  return num.toString()
+}
 
 // ─── Mini Sparkline SVG ──────────────────────────────────────────────────────
 
@@ -243,6 +159,10 @@ function StatCard({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function HeroFooterAdsPage() {
+  // Real data hooks
+  const { ads: heroAds, loading: heroLoading, createAd: createHeroAd, deleteAd: deleteHeroAd, toggleAd: toggleHeroAd } = useHeroAds()
+  const { ads: footerAds, loading: footerLoading, createAd: createFooterAd, deleteAd: deleteFooterAd, toggleAd: toggleFooterAd } = useFooterAds()
+
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -252,6 +172,7 @@ export function HeroFooterAdsPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [selectedThumbnail, setSelectedThumbnail] = useState(0)
   const [sectionTab, setSectionTab] = useState<SectionTab>('hero')
+  const [saving, setSaving] = useState(false)
 
   // Ad settings state
   const [adTitle, setAdTitle] = useState('')

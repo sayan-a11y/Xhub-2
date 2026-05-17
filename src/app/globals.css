@@ -179,18 +179,14 @@
   box-shadow: 0 0 10px rgba(229, 9, 20, 0.15);
 }
 
-/* Glassmorphism */
+/* Glassmorphism - lightweight version */
 .glass {
-  background: rgba(15, 15, 15, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(15, 15, 15, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .glass-strong {
-  background: rgba(15, 15, 15, 0.9);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 15, 15, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 

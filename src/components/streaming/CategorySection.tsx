@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useState, useCallback, memo, useEffect } from 'react'
-import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { VideoCard } from './VideoCard'
@@ -93,34 +92,24 @@ export const CategorySection = memo(function CategorySection({ title, category, 
       <div className="relative">
         {/* Left scroll arrow */}
         {showLeftArrow && (
-          <motion.button
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 z-20 -translate-y-1/2 glass flex h-10 w-10 items-center justify-center rounded-full text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/10"
+            className="absolute left-0 top-1/2 z-20 -translate-y-1/2 glass flex h-10 w-10 items-center justify-center rounded-full text-white/60 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/10 hover:text-white hover:scale-110 active:scale-95"
             aria-label="Scroll left"
           >
             <ChevronLeft className="h-5 w-5" />
-          </motion.button>
+          </button>
         )}
 
         {/* Right scroll arrow */}
         {showRightArrow && (
-          <motion.button
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 z-20 -translate-y-1/2 glass flex h-10 w-10 items-center justify-center rounded-full text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/10"
+            className="absolute right-0 top-1/2 z-20 -translate-y-1/2 glass flex h-10 w-10 items-center justify-center rounded-full text-white/60 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/10 hover:text-white hover:scale-110 active:scale-95"
             aria-label="Scroll right"
           >
             <ChevronRight className="h-5 w-5" />
-          </motion.button>
+          </button>
         )}
 
         {/* Left fade */}

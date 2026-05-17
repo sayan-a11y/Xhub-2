@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
-  CloudUpload,
   Upload,
   Trash2,
   Megaphone,
@@ -20,19 +19,11 @@ import {
   ChevronRight,
   Radio,
   Bell,
-  Monitor,
   Plus,
-  Film,
   LayoutGrid,
-  Code2,
-  Sparkles,
-  ArrowUpFromLine,
-  ArrowDownFromLine,
   Layers,
-  Filter,
-  ExternalLink,
   Play,
-  RectangleHorizontal,
+  Loader2,
 } from 'lucide-react'
 import {
   Select,
@@ -41,6 +32,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   PieChart,
   Pie,
@@ -57,24 +59,11 @@ import {
   Area,
   AreaChart,
 } from 'recharts'
+import { useAdsManager, type AdItem } from '@/hooks/useAdsManager'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type AdType = 'Banner' | 'Popup' | 'Hero/Footer' | 'Pre-Roll' | 'Mid-Roll' | 'Post-Roll' | 'Overlay' | 'Image Banner'
-
-interface AllAd {
-  id: string
-  name: string
-  type: AdType
-  placement: string
-  sizeDuration: string
-  impressions: string
-  ctr: string
-  revenue: string
-  status: 'Active' | 'Paused'
-  gradient: string
-  date: string
-}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -102,67 +91,41 @@ const AD_TYPE_STYLES: Record<AdType, string> = {
   'Image Banner': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
 }
 
-const donutData = [
-  { name: 'Banner Ads', value: 36, color: '#3b82f6' },
-  { name: 'Popup Ads', value: 24, color: '#ec4899' },
-  { name: 'Hero/Footer Ads', value: 16, color: '#8b5cf6' },
-  { name: 'Pre-Roll Ads', value: 20, color: '#f97316' },
-  { name: 'Mid-Roll Ads', value: 18, color: '#06b6d4' },
-  { name: 'Post-Roll Ads', value: 12, color: '#a855f7' },
-  { name: 'Overlay Ads', value: 8, color: '#eab308' },
-  { name: 'Image Banner Ads', value: 4, color: '#10b981' },
-]
+// ─── Helper functions ──────────────────────────────────────────────────────
 
-const impressionsData = [
-  { date: 'May 10', value: 420000 },
-  { date: 'May 12', value: 580000 },
-  { date: 'May 14', value: 720000 },
-  { date: 'May 16', value: 650000 },
-  { date: 'May 18', value: 890000 },
-  { date: 'May 20', value: 760000 },
-  { date: 'May 22', value: 920000 },
-  { date: 'May 24', value: 840000 },
-  { date: 'May 26', value: 980000 },
-  { date: 'May 28', value: 750000 },
-  { date: 'May 30', value: 860000 },
-  { date: 'Jun 01', value: 910000 },
-  { date: 'Jun 03', value: 780000 },
-  { date: 'Jun 05', value: 950000 },
-  { date: 'Jun 07', value: 820000 },
-  { date: 'Jun 09', value: 890000 },
-]
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return n.toLocaleString()
+}
 
-const revenueData = [
-  { date: 'May 10', value: 1200 },
-  { date: 'May 12', value: 1800 },
-  { date: 'May 14', value: 2400 },
-  { date: 'May 16', value: 2100 },
-  { date: 'May 18', value: 3200 },
-  { date: 'May 20', value: 2800 },
-  { date: 'May 22', value: 3600 },
-  { date: 'May 24', value: 2900 },
-  { date: 'May 26', value: 4100 },
-  { date: 'May 28', value: 3400 },
-  { date: 'May 30', value: 3800 },
-  { date: 'Jun 01', value: 3200 },
-  { date: 'Jun 03', value: 4500 },
-  { date: 'Jun 05', value: 3900 },
-  { date: 'Jun 07', value: 4800 },
-  { date: 'Jun 09', value: 4200 },
-]
+function formatCurrency(n: number): string {
+  return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
-const mockAds: AllAd[] = [
-  { id: '1', name: 'Summer Sale Banner', type: 'Banner', placement: 'Top Header', sizeDuration: '970×250', impressions: '1.42M', ctr: '4.24%', revenue: '$5,450.80', status: 'Active', gradient: 'from-blue-900/60 via-indigo-800/40 to-violet-900/30', date: 'May 15, 2025' },
-  { id: '2', name: 'Hero Brand Ad', type: 'Hero/Footer', placement: 'Hero Section - Top', sizeDuration: '1920×600', impressions: '1.85M', ctr: '5.24%', revenue: '$6,120.00', status: 'Active', gradient: 'from-purple-900/60 via-violet-800/40 to-fuchsia-900/30', date: 'May 12, 2025' },
-  { id: '3', name: 'XTUBE Popup', type: 'Popup', placement: 'Center Popup', sizeDuration: '600×400', impressions: '842.5K', ctr: '5.24%', revenue: '$3,450.80', status: 'Active', gradient: 'from-pink-900/60 via-rose-800/40 to-red-900/30', date: 'May 18, 2025' },
-  { id: '4', name: 'Nike Pre-Roll', type: 'Pre-Roll', placement: 'Pre-Roll (Before Video)', sizeDuration: '00:05 sec', impressions: '558.4K', ctr: '6.45%', revenue: '$2,450.30', status: 'Active', gradient: 'from-orange-900/60 via-amber-800/40 to-yellow-900/30', date: 'May 20, 2025' },
-  { id: '5', name: 'Samsung Mid-Roll', type: 'Mid-Roll', placement: 'Mid-Roll (During Video)', sizeDuration: '00:10 sec', impressions: '425.2K', ctr: '4.82%', revenue: '$1,845.60', status: 'Paused', gradient: 'from-cyan-900/60 via-sky-800/40 to-blue-900/30', date: 'May 22, 2025' },
-  { id: '6', name: 'Coca-Cola Overlay', type: 'Overlay', placement: 'Bottom Overlay', sizeDuration: 'Persistent', impressions: '689.0K', ctr: '3.24%', revenue: '$2,104.50', status: 'Active', gradient: 'from-yellow-900/60 via-amber-800/40 to-orange-900/30', date: 'May 25, 2025' },
-  { id: '7', name: 'Gaming Footer Banner', type: 'Hero/Footer', placement: 'Footer Bottom', sizeDuration: '728×90', impressions: '312.8K', ctr: '3.92%', revenue: '$1,245.40', status: 'Active', gradient: 'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30', date: 'May 28, 2025' },
-  { id: '8', name: 'Movie Promo Post-Roll', type: 'Post-Roll', placement: 'Post-Roll (After Video)', sizeDuration: '00:08 sec', impressions: '245.6K', ctr: '5.36%', revenue: '$924.00', status: 'Paused', gradient: 'from-fuchsia-900/60 via-pink-800/40 to-rose-900/30', date: 'Jun 01, 2025' },
-  { id: '9', name: 'Fashion Week Banner', type: 'Image Banner', placement: 'Middle Content', sizeDuration: '300×250', impressions: '189.2K', ctr: '4.12%', revenue: '$780.00', status: 'Active', gradient: 'from-emerald-900/60 via-green-800/40 to-teal-900/30', date: 'Jun 03, 2025' },
-  { id: '10', name: 'Premium Subscription Ad', type: 'Popup', placement: 'Exit Intent Popup', sizeDuration: '500×350', impressions: '456.8K', ctr: '4.87%', revenue: '$2,845.60', status: 'Active', gradient: 'from-rose-900/60 via-pink-800/40 to-red-900/30', date: 'Jun 05, 2025' },
-]
+const REALTIME_POSITION_MAP: Record<string, string> = {
+  'hero': 'Hero Section',
+  'sidebar': 'Sidebar',
+  'footer': 'Footer',
+  'entry': 'Entry Popup',
+  'exit': 'Exit Popup',
+  'timed': 'Timed Popup',
+  'pre-roll': 'Pre-Roll (Before Video)',
+  'mid-roll': 'Mid-Roll (During Video)',
+  'post-roll': 'Post-Roll (After Video)',
+}
+
+function getDisplayType(ad: AdItem): AdType {
+  if (ad.type === 'video') {
+    if (ad.position === 'mid-roll') return 'Mid-Roll'
+    if (ad.position === 'post-roll') return 'Post-Roll'
+    return 'Pre-Roll'
+  }
+  if (ad.type === 'banner') return 'Banner'
+  if (ad.type === 'popup') return 'Popup'
+  if (ad.type === 'overlay') return 'Overlay'
+  return 'Banner'
+}
 
 // ─── Mini Sparkline SVG ──────────────────────────────────────────────────────
 
@@ -217,29 +180,101 @@ function StatCard({ title, value, change, icon: Icon, color, delay, index }: {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function AllAdsPage() {
+  const { ads: realAds, loading: adsLoading, deleteAd, toggleAd, createAd, updateAd } = useAdsManager()
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [activeTypeFilter, setActiveTypeFilter] = useState<string>('all')
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newAd, setNewAd] = useState({ title: '', type: 'banner', position: 'hero', imageUrl: '', linkUrl: '', startDate: '', endDate: '', frequency: '0' })
+
+  // ─── Computed stats from real data ──────────────────────────────────
+  const totalAds = realAds.length
+  const activeAds = realAds.filter(a => a.isActive).length
+  const totalImpressions = realAds.reduce((s, a) => s + a.impressions, 0)
+  const totalClicks = realAds.reduce((s, a) => s + a.clicks, 0)
+  const totalRevenue = realAds.reduce((s, a) => s + a.revenue, 0)
+  const overallCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) + '%' : '0%'
+
+  // ─── Donut data from real ad type distribution ──────────────────────
+  const donutData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    realAds.forEach(ad => {
+      const displayType = getDisplayType(ad)
+      counts[displayType] = (counts[displayType] || 0) + 1
+    })
+    return Object.entries(counts).map(([name, value]) => ({
+      name: name + ' Ads',
+      value,
+      color: AD_TYPE_COLORS[name as AdType] || '#6b7280',
+    }))
+  }, [realAds])
+
+  // ─── Impressions & Revenue chart data from real ads ────────────────
+  const impressionsData = useMemo(() => {
+    const byDate: Record<string, number> = {}
+    realAds.forEach(ad => {
+      const d = new Date(ad.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
+      byDate[d] = (byDate[d] || 0) + ad.impressions
+    })
+    return Object.entries(byDate).map(([date, value]) => ({ date, value }))
+  }, [realAds])
+
+  const revenueData = useMemo(() => {
+    const byDate: Record<string, number> = {}
+    realAds.forEach(ad => {
+      const d = new Date(ad.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
+      byDate[d] = (byDate[d] || 0) + ad.revenue
+    })
+    return Object.entries(byDate).map(([date, value]) => ({ date, value }))
+  }, [realAds])
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
   const filteredAds = useMemo(() => {
-    return mockAds.filter((ad) => {
-      if (statusFilter !== 'all' && ad.status.toLowerCase() !== statusFilter) return false
+    return realAds.filter((ad) => {
+      const displayStatus = ad.isActive ? 'active' : 'paused'
+      if (statusFilter !== 'all' && displayStatus !== statusFilter) return false
       if (activeTypeFilter !== 'all') {
+        const displayType = getDisplayType(ad)
         const typeMap: Record<string, string> = {
           'banner': 'Banner', 'popup': 'Popup', 'hero-footer': 'Hero/Footer',
           'pre-roll': 'Pre-Roll', 'mid-roll': 'Mid-Roll', 'post-roll': 'Post-Roll',
           'overlay': 'Overlay', 'image-banner': 'Image Banner',
         }
-        if (ad.type !== typeMap[activeTypeFilter]) return false
+        if (displayType !== typeMap[activeTypeFilter]) return false
       }
-      if (searchQuery && !ad.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+      if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
       return true
     })
-  }, [statusFilter, activeTypeFilter, searchQuery])
+  }, [realAds, statusFilter, activeTypeFilter, searchQuery])
+
+  // ─── Pagination ────────────────────────────────────────────────────
+  const pageSize = 10
+  const totalPages = Math.max(1, Math.ceil(filteredAds.length / pageSize))
+  const paginatedAds = filteredAds.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  const handleCreateAd = useCallback(async () => {
+    setCreating(true)
+    const ok = await createAd({
+      title: newAd.title,
+      type: newAd.type,
+      position: newAd.position,
+      imageUrl: newAd.imageUrl || 'https://placehold.co/800x400/111/fff?text=Ad',
+      linkUrl: newAd.linkUrl || null,
+      startDate: newAd.startDate || null,
+      endDate: newAd.endDate || null,
+      frequency: Number(newAd.frequency) || 0,
+      isActive: true,
+    })
+    setCreating(false)
+    if (ok) {
+      setShowCreateDialog(false)
+      setNewAd({ title: '', type: 'banner', position: 'hero', imageUrl: '', linkUrl: '', startDate: '', endDate: '', frequency: '0' })
+    }
+  }, [createAd, newAd])
 
   const statusStyles: Record<string, string> = {
     Active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -299,6 +334,7 @@ export function AllAdsPage() {
             <motion.button
               whileHover={{ scale: 1.03, boxShadow: '0 0 25px rgba(255,0,0,0.4)' }}
               whileTap={{ scale: 0.97 }}
+              onClick={() => setShowCreateDialog(true)}
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ff0000] to-[#cc0000] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,0,0,0.3)] transition-all hover:from-[#ff1111] hover:to-[#dd0000]"
             >
               <Plus className="h-4 w-4" />
@@ -311,11 +347,11 @@ export function AllAdsPage() {
             TOP ANALYTICS CARDS (5 cards)
             ═══════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <StatCard title="Total Ads" value="156" change="+18.5%" icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
-          <StatCard title="Active Ads" value="124" change="+14.2%" icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
-          <StatCard title="Impressions" value="8.42M" change="+26.7%" icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
-          <StatCard title="CTR" value="4.59%" change="+9.4%" icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
-          <StatCard title="Revenue" value="$24,425.80" change="+22.6%" icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
+          <StatCard title="Total Ads" value={String(totalAds)} change={`${activeAds} active`} icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
+          <StatCard title="Active Ads" value={String(activeAds)} change={`${totalAds - activeAds} paused`} icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
+          <StatCard title="Impressions" value={formatNumber(totalImpressions)} change="total" icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
+          <StatCard title="CTR" value={overallCtr} change="avg" icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
+          <StatCard title="Revenue" value={formatCurrency(totalRevenue)} change="total" icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════
@@ -332,7 +368,7 @@ export function AllAdsPage() {
             <div className="p-3 lg:p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-white">Ads Distribution</h2>
-                <span className="text-[10px] text-white/30">156 Total Ads</span>
+                <span className="text-[10px] text-white/30">{totalAds} Total Ads</span>
               </div>
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
@@ -342,7 +378,7 @@ export function AllAdsPage() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" className="fill-white text-lg font-bold">156</text>
+                    <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" className="fill-white text-lg font-bold">{totalAds}</text>
                     <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" className="fill-white/30 text-[8px]">Total Ads</text>
                     <Tooltip
                       content={({ active, payload }) => {
@@ -567,6 +603,26 @@ export function AllAdsPage() {
             </div>
 
             {/* Table */}
+            {adsLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <Skeleton className="h-9 w-16 rounded-lg bg-white/5" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3 w-32 rounded bg-white/5" />
+                      <Skeleton className="h-2 w-20 rounded bg-white/5" />
+                    </div>
+                    <Skeleton className="h-5 w-14 rounded-md bg-white/5" />
+                    <Skeleton className="h-3 w-16 rounded bg-white/5" />
+                    <Skeleton className="h-3 w-12 rounded bg-white/5" />
+                    <Skeleton className="h-3 w-14 rounded bg-white/5" />
+                    <Skeleton className="h-3 w-10 rounded bg-white/5" />
+                    <Skeleton className="h-3 w-16 rounded bg-white/5" />
+                    <Skeleton className="h-5 w-14 rounded-md bg-white/5" />
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1000px]">
                 <thead>
@@ -577,129 +633,142 @@ export function AllAdsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {filteredAds.map((ad, i) => (
-                    <motion.tr
-                      key={ad.id}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.45 + i * 0.04, duration: 0.3 }}
-                      className="group transition-colors hover:bg-white/[0.02]"
-                    >
-                      {/* Preview */}
-                      <td className="py-2 pr-3">
-                        <div className="relative h-9 w-16 overflow-hidden rounded-lg">
-                          <div className={`absolute inset-0 bg-gradient-to-br ${ad.gradient}`} />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            {ad.type === 'Banner' || ad.type === 'Image Banner' ? <ImageIcon className="h-3 w-3 text-white/20" /> :
-                             ad.type === 'Pre-Roll' || ad.type === 'Mid-Roll' || ad.type === 'Post-Roll' ? <Play className="h-3 w-3 text-white/20" /> :
-                             ad.type === 'Overlay' ? <Layers className="h-3 w-3 text-white/20" /> :
-                             ad.type === 'Popup' ? <LayoutGrid className="h-3 w-3 text-white/20" /> :
-                             <Megaphone className="h-3 w-3 text-white/20" />}
+                  {paginatedAds.length === 0 && (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-sm text-white/30">No ads found</td>
+                    </tr>
+                  )}
+                  {paginatedAds.map((ad, i) => {
+                    const displayType = getDisplayType(ad)
+                    const displayStatus = ad.isActive ? 'Active' : 'Paused'
+                    const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) + '%' : '0%'
+                    const displayPosition = REALTIME_POSITION_MAP[ad.position] || ad.position
+                    const sizeDuration = ad.type === 'video' && ad.adDuration ? `${String(Math.floor(ad.adDuration / 60)).padStart(2, '0')}:${String(ad.adDuration % 60).padStart(2, '0')} sec` : '—'
+                    const dateStr = ad.createdAt ? new Date(ad.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+                    const previewBg = AD_TYPE_COLORS[displayType] || '#6b7280'
+                    return (
+                      <motion.tr
+                        key={ad.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.45 + i * 0.04, duration: 0.3 }}
+                        className="group transition-colors hover:bg-white/[0.02]"
+                      >
+                        {/* Preview */}
+                        <td className="py-2 pr-3">
+                          <div className="relative h-9 w-16 overflow-hidden rounded-lg">
+                            <div className="absolute inset-0" style={{ background: `${previewBg}20` }} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              {displayType === 'Banner' || displayType === 'Image Banner' ? <ImageIcon className="h-3 w-3 text-white/20" /> :
+                               displayType === 'Pre-Roll' || displayType === 'Mid-Roll' || displayType === 'Post-Roll' ? <Play className="h-3 w-3 text-white/20" /> :
+                               displayType === 'Overlay' ? <Layers className="h-3 w-3 text-white/20" /> :
+                               displayType === 'Popup' ? <LayoutGrid className="h-3 w-3 text-white/20" /> :
+                               <Megaphone className="h-3 w-3 text-white/20" />}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      {/* Ad Name */}
-                      <td className="py-2 pr-3">
-                        <p className="text-xs font-medium text-white">{ad.name}</p>
-                        <p className="text-[10px] text-white/25">{ad.date}</p>
-                      </td>
-                      {/* Type */}
-                      <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${AD_TYPE_STYLES[ad.type]}`}>
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: AD_TYPE_COLORS[ad.type] }} />
-                          {ad.type}
-                        </span>
-                      </td>
-                      {/* Placement */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs text-white/50">{ad.placement}</span>
-                      </td>
-                      {/* Size / Duration */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs text-white/50">{ad.sizeDuration}</span>
-                      </td>
-                      {/* Impressions */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-white/70">{ad.impressions}</span>
-                      </td>
-                      {/* CTR */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-white/70">{ad.ctr}</span>
-                      </td>
-                      {/* Revenue */}
-                      <td className="py-2 pr-3">
-                        <span className="text-xs font-semibold text-emerald-400">{ad.revenue}</span>
-                      </td>
-                      {/* Status */}
-                      <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${statusStyles[ad.status]}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${ad.status === 'Active' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                          {ad.status}
-                        </span>
-                      </td>
-                      {/* Actions */}
-                      <td className="py-2">
-                        <div className="flex items-center gap-0.5">
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="View">
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Analytics">
-                            <BarChart3 className="h-3.5 w-3.5" />
-                          </button>
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Edit">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        {/* Ad Name */}
+                        <td className="py-2 pr-3">
+                          <p className="text-xs font-medium text-white">{ad.title}</p>
+                          <p className="text-[10px] text-white/25">{dateStr}</p>
+                        </td>
+                        {/* Type */}
+                        <td className="py-2 pr-3">
+                          <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${AD_TYPE_STYLES[displayType]}`}>
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: AD_TYPE_COLORS[displayType] }} />
+                            {displayType}
+                          </span>
+                        </td>
+                        {/* Placement */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs text-white/50">{displayPosition}</span>
+                        </td>
+                        {/* Size / Duration */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs text-white/50">{sizeDuration}</span>
+                        </td>
+                        {/* Impressions */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs font-medium text-white/70">{formatNumber(ad.impressions)}</span>
+                        </td>
+                        {/* CTR */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs font-medium text-white/70">{ctr}</span>
+                        </td>
+                        {/* Revenue */}
+                        <td className="py-2 pr-3">
+                          <span className="text-xs font-semibold text-emerald-400">{formatCurrency(ad.revenue)}</span>
+                        </td>
+                        {/* Status */}
+                        <td className="py-2 pr-3">
+                          <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${statusStyles[displayStatus]}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${ad.isActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                            {displayStatus}
+                          </span>
+                        </td>
+                        {/* Actions */}
+                        <td className="py-2">
+                          <div className="flex items-center gap-0.5">
+                            <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="View">
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                            <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Analytics">
+                              <BarChart3 className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title={ad.isActive ? 'Pause' : 'Activate'}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => deleteAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
+            )}
 
             {/* Pagination */}
             <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-white/30">Rows per page:</span>
-                <Select value="10" onValueChange={() => {}}>
-                  <SelectTrigger className="h-6 w-16 rounded border-white/10 bg-[#0a0a0a] text-[10px] text-white/50 [&_svg]:text-white/30">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="border-white/10 bg-[#111]">
-                    <SelectItem value="10" className="text-[10px] text-white focus:bg-white/5">10</SelectItem>
-                    <SelectItem value="25" className="text-[10px] text-white focus:bg-white/5">25</SelectItem>
-                    <SelectItem value="50" className="text-[10px] text-white focus:bg-white/5">50</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-[10px] text-white/30">1–10 of 156</span>
+                <span className="text-[10px] text-white/50">{pageSize}</span>
+                <span className="text-[10px] text-white/30">{`${Math.min((currentPage - 1) * pageSize + 1, filteredAds.length)}–${Math.min(currentPage * pageSize, filteredAds.length)} of ${filteredAds.length}`}</span>
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-white/40 transition-colors hover:bg-white/5 hover:text-white"
+                  disabled={currentPage <= 1}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-white/40 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-30"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
-                {[1, 2, 3, 4, 5].map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#ff0000] text-white'
-                        : 'border border-white/10 text-white/40 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <span className="text-[10px] text-white/30">...16</span>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, idx) => {
+                  const startPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4))
+                  const page = startPage + idx
+                  if (page > totalPages) return null
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-[#ff0000] text-white'
+                          : 'border border-white/10 text-white/40 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                })}
+                {totalPages > 5 && <span className="text-[10px] text-white/30">...{totalPages}</span>}
                 <button
-                  onClick={() => setCurrentPage(Math.min(16, currentPage + 1))}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-white/40 transition-colors hover:bg-white/5 hover:text-white"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-white/40 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-30"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
@@ -708,6 +777,128 @@ export function AllAdsPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          CREATE NEW AD DIALOG
+          ═══════════════════════════════════════════════════════════════════ */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="border-white/10 bg-[#111] text-white sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white">Create New Ad</DialogTitle>
+            <DialogDescription className="text-white/40">Fill in the details to create a new advertisement.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label className="text-white/60">Title</Label>
+              <Input
+                value={newAd.title}
+                onChange={(e) => setNewAd(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Ad title"
+                className="border-white/10 bg-[#0a0a0a] text-white placeholder:text-white/25"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label className="text-white/60">Type</Label>
+                <Select value={newAd.type} onValueChange={(v) => setNewAd(prev => ({ ...prev, type: v }))}>
+                  <SelectTrigger className="border-white/10 bg-[#0a0a0a] text-white/60 [&_svg]:text-white/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-white/10 bg-[#111]">
+                    <SelectItem value="banner" className="text-white focus:bg-white/5">Banner</SelectItem>
+                    <SelectItem value="popup" className="text-white focus:bg-white/5">Popup</SelectItem>
+                    <SelectItem value="overlay" className="text-white focus:bg-white/5">Overlay</SelectItem>
+                    <SelectItem value="video" className="text-white focus:bg-white/5">Video</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label className="text-white/60">Position</Label>
+                <Select value={newAd.position} onValueChange={(v) => setNewAd(prev => ({ ...prev, position: v }))}>
+                  <SelectTrigger className="border-white/10 bg-[#0a0a0a] text-white/60 [&_svg]:text-white/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-white/10 bg-[#111]">
+                    <SelectItem value="hero" className="text-white focus:bg-white/5">Hero</SelectItem>
+                    <SelectItem value="sidebar" className="text-white focus:bg-white/5">Sidebar</SelectItem>
+                    <SelectItem value="footer" className="text-white focus:bg-white/5">Footer</SelectItem>
+                    <SelectItem value="entry" className="text-white focus:bg-white/5">Entry</SelectItem>
+                    <SelectItem value="exit" className="text-white focus:bg-white/5">Exit</SelectItem>
+                    <SelectItem value="timed" className="text-white focus:bg-white/5">Timed</SelectItem>
+                    <SelectItem value="pre-roll" className="text-white focus:bg-white/5">Pre-Roll</SelectItem>
+                    <SelectItem value="mid-roll" className="text-white focus:bg-white/5">Mid-Roll</SelectItem>
+                    <SelectItem value="post-roll" className="text-white focus:bg-white/5">Post-Roll</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-white/60">Image URL</Label>
+              <Input
+                value={newAd.imageUrl}
+                onChange={(e) => setNewAd(prev => ({ ...prev, imageUrl: e.target.value }))}
+                placeholder="https://example.com/image.jpg"
+                className="border-white/10 bg-[#0a0a0a] text-white placeholder:text-white/25"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-white/60">Link URL</Label>
+              <Input
+                value={newAd.linkUrl}
+                onChange={(e) => setNewAd(prev => ({ ...prev, linkUrl: e.target.value }))}
+                placeholder="https://example.com"
+                className="border-white/10 bg-[#0a0a0a] text-white placeholder:text-white/25"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label className="text-white/60">Start Date</Label>
+                <Input
+                  type="date"
+                  value={newAd.startDate}
+                  onChange={(e) => setNewAd(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="border-white/10 bg-[#0a0a0a] text-white/60"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label className="text-white/60">End Date</Label>
+                <Input
+                  type="date"
+                  value={newAd.endDate}
+                  onChange={(e) => setNewAd(prev => ({ ...prev, endDate: e.target.value }))}
+                  className="border-white/10 bg-[#0a0a0a] text-white/60"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-white/60">Frequency</Label>
+              <Input
+                type="number"
+                value={newAd.frequency}
+                onChange={(e) => setNewAd(prev => ({ ...prev, frequency: e.target.value }))}
+                placeholder="0"
+                className="border-white/10 bg-[#0a0a0a] text-white placeholder:text-white/25"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setShowCreateDialog(false)}
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 transition-colors hover:bg-white/5"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateAd}
+              disabled={creating || !newAd.title.trim()}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ff0000] to-[#cc0000] px-4 py-2 text-sm font-semibold text-white transition-all hover:from-[#ff1111] hover:to-[#dd0000] disabled:opacity-50"
+            >
+              {creating && <Loader2 className="h-4 w-4 animate-spin" />}
+              {creating ? 'Creating...' : 'Create Ad'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

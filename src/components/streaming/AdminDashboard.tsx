@@ -1,6 +1,6 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   Film,
@@ -41,6 +41,7 @@ import {
   Legend,
 } from 'recharts'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAdsManager } from '@/hooks/useAdsManager'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -210,13 +211,7 @@ function SectionCard({
 
 // ─── Derived Data Placeholders ────────────────────────────────────────────────
 
-const recentVideos: Array<{ id: string; title: string; duration: string; size: string; uploaded: string; status: 'Published' | 'Processing' | 'Draft'; thumbnail: string }> = []
-
-const catalogCategories: Array<{ name: string; icon: React.ElementType; items: number; color: string; iconColor: string; glow: string }> = []
-
-const videoAdsData: Array<{ type: string; totalAds: number; impressions: number; clicks: number; ctr: number; revenue: number }> = []
-
-const topPerformingAds: Array<{ rank: number; name: string; type: string; impressions: number; ctr: number; revenue: number }> = []
+// Data arrays are now computed inside the component from real data
 
 // ─── Loading Skeleton ────────────────────────────────────────────────────────
 
@@ -273,9 +268,70 @@ function StatusBadge({ status }: { status: 'Published' | 'Processing' | 'Draft' 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export const AdminDashboard = memo(function AdminDashboard({ data, loading }: AdminDashboardProps) {
+  const { ads: allAds } = useAdsManager()
+
   if (loading || !data) {
     return <LoadingSkeleton />
   }
+
+  const recentVideos: Array<{ id: string; title: string; duration: string; size: string; uploaded: string; status: 'Published' | 'Processing' | 'Draft'; thumbnail: string }> = []
+
+  const catalogCategories = useMemo(() => {
+    if (!data?.categoryStats?.length) return [] as Array<{ name: string; icon: React.ElementType; items: number; color: string; iconColor: string; glow: string }>
+    const categoryIcons: Record<string, { icon: React.ElementType; color: string; iconColor: string; glow: string }> = {
+      'Action': { icon: Film, color: 'from-red-500/10 to-red-600/5', iconColor: 'text-red-400', glow: 'hover:shadow-red-500/10' },
+      'Drama': { icon: Eye, color: 'from-purple-500/10 to-purple-600/5', iconColor: 'text-purple-400', glow: 'hover:shadow-purple-500/10' },
+      'Comedy': { icon: Megaphone, color: 'from-yellow-500/10 to-yellow-600/5', iconColor: 'text-yellow-400', glow: 'hover:shadow-yellow-500/10' },
+      'Horror': { icon: Volume2, color: 'from-green-500/10 to-green-600/5', iconColor: 'text-green-400', glow: 'hover:shadow-green-500/10' },
+      'Sci-Fi': { icon: Settings, color: 'from-cyan-500/10 to-cyan-600/5', iconColor: 'text-cyan-400', glow: 'hover:shadow-cyan-500/10' },
+      'Romance': { icon: DollarSign, color: 'from-pink-500/10 to-pink-600/5', iconColor: 'text-pink-400', glow: 'hover:shadow-pink-500/10' },
+    }
+    const defaultIcon = { icon: Film, color: 'from-white/5 to-white/[0.02]', iconColor: 'text-white/40', glow: '' }
+    return data.categoryStats.map(c => {
+      const cfg = categoryIcons[c.category] || defaultIcon
+      return { name: c.category, icon: cfg.icon, items: c.count, color: cfg.color, iconColor: cfg.iconColor, glow: cfg.glow }
+    })
+  }, [data?.categoryStats])
+
+  const videoAdsData = useMemo(() => {
+    const typeGroups: Record<string, { totalAds: number; impressions: number; clicks: number; revenue: number }> = {}
+    for (const ad of allAds) {
+      const displayType = ad.position === 'pre-roll' ? 'Pre-roll'
+        : ad.position === 'mid-roll' ? 'Mid-roll'
+        : ad.position === 'post-roll' ? 'Post-roll'
+        : ad.type === 'overlay' ? 'Overlay' : null
+      if (!displayType) continue
+      if (!typeGroups[displayType]) typeGroups[displayType] = { totalAds: 0, impressions: 0, clicks: 0, revenue: 0 }
+      typeGroups[displayType].totalAds++
+      typeGroups[displayType].impressions += ad.impressions
+      typeGroups[displayType].clicks += ad.clicks
+      typeGroups[displayType].revenue += ad.revenue
+    }
+    return Object.entries(typeGroups).map(([type, d]) => ({
+      type,
+      totalAds: d.totalAds,
+      impressions: d.impressions,
+      clicks: d.clicks,
+      ctr: d.impressions > 0 ? parseFloat(((d.clicks / d.impressions) * 100).toFixed(2)) : 0,
+      revenue: parseFloat(d.revenue.toFixed(2)),
+    }))
+  }, [allAds])
+
+  const topPerformingAds = useMemo(() => {
+    const videoPositions = ['pre-roll', 'mid-roll', 'post-roll']
+    const videoAds = allAds.filter(ad => videoPositions.includes(ad.position) || ad.type === 'overlay')
+    return videoAds
+      .sort((a, b) => b.impressions - a.impressions)
+      .slice(0, 5)
+      .map((ad, i) => ({
+        rank: i + 1,
+        name: ad.title,
+        type: ad.position === 'pre-roll' ? 'Pre-roll' : ad.position === 'mid-roll' ? 'Mid-roll' : ad.position === 'post-roll' ? 'Post-roll' : 'Overlay',
+        impressions: ad.impressions,
+        ctr: ad.impressions > 0 ? parseFloat(((ad.clicks / ad.impressions) * 100).toFixed(2)) : 0,
+        revenue: parseFloat(ad.revenue.toFixed(2)),
+      }))
+  }, [allAds])
 
   const performanceData = data?.viewsGraph?.length ? data.viewsGraph.map(v => ({ date: v.date, Views: v.views, Clicks: Math.round(v.views * 0.15), Revenue: Math.round(v.views * 0.02) })) : [
     { date: 'Week 1', Views: 0, Clicks: 0, Revenue: 0 },

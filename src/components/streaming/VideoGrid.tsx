@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { Film } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { VideoCard } from './VideoCard'
@@ -70,15 +69,8 @@ export function VideoGrid({
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {videos.map((video, index) => (
-        <motion.div
-          key={video.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: index * 0.05 }}
-        >
-          <VideoCard {...video} />
-        </motion.div>
+      {videos.map((video) => (
+        <VideoCard key={video.id} {...video} />
       ))}
     </div>
   )

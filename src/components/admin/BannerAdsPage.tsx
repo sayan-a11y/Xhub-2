@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useAdsManager } from '@/hooks/useAdsManager'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play,
@@ -71,17 +72,16 @@ type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
 type AdTab = 'image' | 'html5' | 'animated'
 type PreviewMode = 'desktop' | 'tablet' | 'mobile'
 
-interface BannerAd {
-  id: string
-  name: string
-  type: 'Image' | 'HTML5' | 'Animated'
-  size: string
-  position: string
-  impressions: string
-  ctr: string
-  revenue: string
-  status: 'Active' | 'Paused' | 'Draft'
-  gradient: string
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return n.toString()
+}
+
+function formatCurrency(n: number): string {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -102,85 +102,7 @@ const thumbnailGradients = [
   'from-pink-900/60 via-rose-800/40 to-fuchsia-900/30',
 ]
 
-const mockAds: BannerAd[] = [
-  {
-    id: '1',
-    name: 'Summer Sale Banner',
-    type: 'Image',
-    size: '970×250',
-    position: 'Top Header',
-    impressions: '1.42M',
-    ctr: '4.24%',
-    revenue: '$5,450.80',
-    status: 'Active',
-    gradient: 'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  },
-  {
-    id: '2',
-    name: 'Premium Subscription Offer',
-    type: 'HTML5',
-    size: '728×90',
-    position: 'Middle Content',
-    impressions: '1.24M',
-    ctr: '3.87%',
-    revenue: '$4,245.60',
-    status: 'Active',
-    gradient: 'from-blue-900/60 via-indigo-800/40 to-violet-900/30',
-  },
-  {
-    id: '3',
-    name: 'New Release Promo',
-    type: 'Animated',
-    size: '300×250',
-    position: 'Middle Content',
-    impressions: '998.5K',
-    ctr: '3.52%',
-    revenue: '$3,145.40',
-    status: 'Active',
-    gradient: 'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  },
-  {
-    id: '4',
-    name: 'Holiday Discount Banner',
-    type: 'Image',
-    size: '970×250',
-    position: 'Top Header',
-    impressions: '789.4K',
-    ctr: '5.14%',
-    revenue: '$2,704.50',
-    status: 'Paused',
-    gradient: 'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  },
-  {
-    id: '5',
-    name: 'Fashion Week Banner',
-    type: 'Animated',
-    size: '320×50',
-    position: 'Bottom Footer',
-    impressions: '654.2K',
-    ctr: '2.96%',
-    revenue: '$1,424.00',
-    status: 'Active',
-    gradient: 'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  },
-  {
-    id: '6',
-    name: 'Electronics Sale Ad',
-    type: 'HTML5',
-    size: '728×90',
-    position: 'Middle Content',
-    impressions: '423.6K',
-    ctr: '3.42%',
-    revenue: '$1,075.45',
-    status: 'Draft',
-    gradient: 'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  },
-]
-
-const donutData = [
-  { name: 'Image Banners', value: 2210000 },
-  { name: 'HTML5 Banners', value: 1663500 },
-]
+// donutData computed from real data inside component
 
 // ─── Mini Sparkline SVG ──────────────────────────────────────────────────────
 
@@ -259,6 +181,26 @@ function StatCard({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function BannerAdsPage() {
+  // Real data from Supabase
+  const { ads: realAds, loading: adsLoading, deleteAd, toggleAd, createAd } = useAdsManager({ type: 'banner' })
+
+  // Computed stats from real data
+  const totalAds = realAds.length
+  const activeAds = realAds.filter(a => a.isActive).length
+  const totalImpressions = realAds.reduce((s, a) => s + a.impressions, 0)
+  const totalClicks = realAds.reduce((s, a) => s + a.clicks, 0)
+  const totalRevenue = realAds.reduce((s, a) => s + a.revenue, 0)
+  const overallCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) + '%' : '0%'
+
+  const donutData = useMemo(() => {
+    const activeImpressions = realAds.filter(a => a.isActive).reduce((s, a) => s + a.impressions, 0)
+    const pausedImpressions = realAds.filter(a => !a.isActive).reduce((s, a) => s + a.impressions, 0)
+    return [
+      { name: 'Active Banners', value: activeImpressions || 1 },
+      { name: 'Paused Banners', value: pausedImpressions || 0 },
+    ]
+  }, [realAds])
+
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -350,9 +292,10 @@ export function BannerAdsPage() {
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
-  const filteredAds = mockAds.filter((ad) => {
-    if (statusFilter !== 'all' && ad.status.toLowerCase() !== statusFilter) return false
-    if (searchQuery && !ad.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+  const filteredAds = realAds.filter((ad) => {
+    const statusStr = ad.isActive ? 'active' : 'paused'
+    if (statusFilter !== 'all' && statusStr !== statusFilter) return false
+    if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
 
@@ -454,11 +397,11 @@ export function BannerAdsPage() {
             TOP ANALYTICS CARDS (5 cards)
             ═══════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <StatCard title="Total Banner Ads" value="42" change="+16.5%" icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
-          <StatCard title="Active Ads" value="35" change="+13.2%" icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
-          <StatCard title="Impressions" value="6.42M" change="+24.7%" icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
-          <StatCard title="CTR" value="3.89%" change="+7.4%" icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
-          <StatCard title="Revenue" value="$18,245.75" change="+21.6%" icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
+          <StatCard title="Total Banner Ads" value={String(totalAds)} change={totalAds > 0 ? '+' + totalAds : '0'} icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
+          <StatCard title="Active Ads" value={String(activeAds)} change={activeAds > 0 ? '+' + activeAds : '0'} icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
+          <StatCard title="Impressions" value={formatNumber(totalImpressions)} change={totalImpressions > 0 ? '+' + formatNumber(totalImpressions) : '0'} icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
+          <StatCard title="CTR" value={overallCtr} change={overallCtr !== '0%' ? '+' + overallCtr : '0'} icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
+          <StatCard title="Revenue" value={formatCurrency(totalRevenue)} change={totalRevenue > 0 ? '+' + formatCurrency(totalRevenue) : '0'} icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════

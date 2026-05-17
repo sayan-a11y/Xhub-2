@@ -146,14 +146,21 @@ export default function XtubeHome() {
   const ads = (realtimeAds as AdData[]) || []
   const heroAds = (realtimeHeroAds as HeroAdData[]) || []
   const footerAds = (realtimeFooterAds as FooterAdData[]) || []
-  // Loading state derived from realtime subscriptions
-  const loading = !realtimeVideos?.length && !realtimeCategories?.length
+  // Progressive loading: show content as soon as ANY data arrives
+  // Max skeleton time: 800ms then show whatever we have
+  const [skeletonTimeout, setSkeletonTimeout] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setSkeletonTimeout(false), 800)
+    return () => clearTimeout(t)
+  }, [])
+  const loading = skeletonTimeout && !realtimeVideos?.length && !realtimeCategories?.length
 
-  // Seed only runs once per session (not every page load)
+  // Seed only runs once EVER per browser (persisted via localStorage)
   const seedRan = useRef(false)
   useEffect(() => {
-    if (!seedRan.current) {
+    if (!seedRan.current && !localStorage.getItem('xtube_seeded')) {
       seedRan.current = true
+      localStorage.setItem('xtube_seeded', '1')
       fetch('/api/seed', { method: 'POST' }).catch(() => {})
     }
   }, [])
@@ -316,7 +323,9 @@ export default function XtubeHome() {
   // ─── Render Views ──────────────────────────────────────────────────────────
 
   const renderHomeView = () => {
-    if (loading) {
+    // Show skeleton ONLY while no data AND within timeout window
+    const hasAnyData = videos.length > 0 || heroAds.length > 0 || categories.length > 0
+    if (loading && !hasAnyData) {
       return (
         <div className="space-y-6 pb-20 md:pb-8">
           <div className="h-[240px] sm:h-[320px] md:h-[420px] animate-shimmer-opt" />
@@ -617,7 +626,7 @@ export default function XtubeHome() {
           >
             {/* Top Header Bar */}
             {currentView !== 'admin' && (
-              <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-xtube-border bg-[#050505]/90 px-3 backdrop-blur-md md:px-4 lg:px-5">
+              <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-xtube-border bg-[#050505] px-3 md:px-4 lg:px-5">
                 <div className="flex items-center gap-2">
                   {/* Mobile Logo — only shows on mobile (<768px), sidebar has logo on md+ */}
                   <div className="md:hidden">
@@ -649,10 +658,10 @@ export default function XtubeHome() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentView}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.25 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
               >
                 {currentView === 'home' && renderHomeView()}
                 {currentView === 'trending' && renderTrendingView()}
