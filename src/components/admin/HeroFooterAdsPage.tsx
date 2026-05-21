@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { useHeroAds, useFooterAds, type HeroAdItem, type FooterAdItem } from '@/hooks/useAdsManager'
+import { useFooterAds, type FooterAdItem } from '@/hooks/useAdsManager'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CloudUpload,
@@ -33,7 +33,6 @@ import {
   Calendar,
   LayoutGrid,
   ArrowDownFromLine,
-  ArrowUpFromLine,
   RefreshCw,
 } from 'lucide-react'
 import {
@@ -55,7 +54,7 @@ import {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
-type SectionTab = 'hero' | 'footer'
+// Footer ads only — hero removed
 type PreviewMode = 'desktop' | 'tablet' | 'mobile'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -160,7 +159,6 @@ function StatCard({
 
 export function HeroFooterAdsPage() {
   // Real data hooks
-  const { ads: heroAds, loading: heroLoading, createAd: createHeroAd, deleteAd: deleteHeroAd, toggleAd: toggleHeroAd } = useHeroAds()
   const { ads: footerAds, loading: footerLoading, createAd: createFooterAd, deleteAd: deleteFooterAd, toggleAd: toggleFooterAd } = useFooterAds()
 
   // Upload state
@@ -171,7 +169,7 @@ export function HeroFooterAdsPage() {
   const [uploadedSize, setUploadedSize] = useState('0 GB')
   const [isDragOver, setIsDragOver] = useState(false)
   const [selectedThumbnail, setSelectedThumbnail] = useState(0)
-  const [sectionTab, setSectionTab] = useState<SectionTab>('hero')
+  // Footer ads only — no hero tab
   const [saving, setSaving] = useState(false)
 
   // Ad settings state
@@ -180,7 +178,7 @@ export function HeroFooterAdsPage() {
   const [deviceDesktop, setDeviceDesktop] = useState(true)
   const [deviceTablet, setDeviceTablet] = useState(true)
   const [deviceMobile, setDeviceMobile] = useState(false)
-  const [position, setPosition] = useState('hero-top')
+  const [position, setPosition] = useState('footer-top')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [autoRotate, setAutoRotate] = useState(false)
@@ -255,7 +253,7 @@ export function HeroFooterAdsPage() {
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
-  const allAds = sectionTab === 'hero' ? heroAds : footerAds
+  const allAds = footerAds
   const filteredAds = allAds.filter((ad) => {
     if (statusFilter !== 'all' && (ad.isActive ? 'active' : 'paused') !== statusFilter) return false
     if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
@@ -275,7 +273,7 @@ export function HeroFooterAdsPage() {
 
   // ─── Section label helper ──────────────────────────────────────────────
 
-  const sectionLabel = sectionTab === 'hero' ? 'Hero Section' : 'Footer Section'
+  const sectionLabel = 'Footer Section'
 
   // ─── Preview container width ───────────────────────────────────────────
 
@@ -303,8 +301,8 @@ export function HeroFooterAdsPage() {
               <LayoutGrid className="h-5 w-5 text-[#ff1e1e]" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white md:text-2xl">Hero / Footer Ads</h1>
-              <p className="mt-0.5 text-sm text-white/40">Create and manage hero &amp; footer ads for your platform</p>
+              <h1 className="text-xl font-bold text-white md:text-2xl">Footer Ads</h1>
+              <p className="mt-0.5 text-sm text-white/40">Create and manage footer ads for your platform</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -334,7 +332,7 @@ export function HeroFooterAdsPage() {
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e]"
             >
               <CloudUpload className="h-4 w-4" />
-              Create Hero/Footer Ad
+              Create Footer Ad
             </motion.button>
           </div>
         </div>
@@ -354,7 +352,7 @@ export function HeroFooterAdsPage() {
             THREE COLUMN LAYOUT
             ═══════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_300px] 2xl:grid-cols-[1fr_1fr_340px]">
-          {/* ── LEFT: Create Hero / Footer Ad ── */}
+          {/* ── LEFT: Create Footer Ad ── */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -363,46 +361,17 @@ export function HeroFooterAdsPage() {
           >
             <div className="p-3 lg:p-4">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-bold text-white">Create Hero / Footer Ad</h2>
+                <h2 className="text-base font-bold text-white">Create Footer Ad</h2>
                 {uploadStage === 'success' && (
                   <button onClick={handleResetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Reset</button>
                 )}
               </div>
 
-              {/* Section Tabs: Hero Section / Footer Section */}
-              <div className="mb-4 flex items-center gap-0 border-b border-white/5">
-                <button
-                  onClick={() => { setSectionTab('hero'); setPosition('hero-top') }}
-                  className={`relative flex items-center gap-2 px-4 pb-2.5 text-sm font-medium transition-colors ${
-                    sectionTab === 'hero' ? 'text-white' : 'text-white/40 hover:text-white/60'
-                  }`}
-                >
-                  <ArrowUpFromLine className="h-3.5 w-3.5" />
-                  Hero Section
-                  {sectionTab === 'hero' && (
-                    <motion.div
-                      layoutId="hero-footer-tab-indicator"
-                      className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#ff1e1e]"
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    />
-                  )}
-                </button>
-                <button
-                  onClick={() => { setSectionTab('footer'); setPosition('footer-top') }}
-                  className={`relative flex items-center gap-2 px-4 pb-2.5 text-sm font-medium transition-colors ${
-                    sectionTab === 'footer' ? 'text-white' : 'text-white/40 hover:text-white/60'
-                  }`}
-                >
-                  <ArrowDownFromLine className="h-3.5 w-3.5" />
-                  Footer Section
-                  {sectionTab === 'footer' && (
-                    <motion.div
-                      layoutId="hero-footer-tab-indicator"
-                      className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#ff1e1e]"
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    />
-                  )}
-                </button>
+              {/* Footer Section Label */}
+              <div className="mb-4 flex items-center gap-2 border-b border-white/5 pb-2.5">
+                <ArrowDownFromLine className="h-3.5 w-3.5 text-[#ff1e1e]" />
+                <span className="text-sm font-medium text-white">Footer Section</span>
+                <div className="flex-1 h-[2px] bg-[#ff1e1e]" />
               </div>
 
               {/* Upload Area */}
@@ -435,7 +404,7 @@ export function HeroFooterAdsPage() {
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-medium text-white">
-                        Drag &amp; drop your {sectionLabel.toLowerCase()} ad here
+                        Drag &amp; drop your footer ad here
                       </p>
                       <p className="mt-1 text-xs text-white/40">
                         or <span className="text-[#ff1e1e] underline underline-offset-2">browse files</span>
@@ -514,7 +483,7 @@ export function HeroFooterAdsPage() {
                     <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
                       <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-white">hero_banner_2025.jpg</p>
+                        <p className="truncate text-xs font-medium text-white">footer_banner_2025.jpg</p>
                         <p className="text-[10px] text-white/30">2.35MB • 1920×600 • JPG</p>
                       </div>
                       <button onClick={handleResetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Change</button>
@@ -630,8 +599,6 @@ export function HeroFooterAdsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="border-white/10 bg-[#111111]">
-                        <SelectItem value="hero-top" className="text-xs text-white focus:bg-white/5">Hero Section - Top</SelectItem>
-                        <SelectItem value="hero-bottom" className="text-xs text-white focus:bg-white/5">Hero Section - Bottom</SelectItem>
                         <SelectItem value="footer-top" className="text-xs text-white focus:bg-white/5">Footer Top</SelectItem>
                         <SelectItem value="footer-bottom" className="text-xs text-white focus:bg-white/5">Footer Bottom</SelectItem>
                       </SelectContent>
@@ -718,11 +685,7 @@ export function HeroFooterAdsPage() {
                       displayOrder: 0,
                     }
                     try {
-                      if (sectionTab === 'hero') {
-                        await createHeroAd(data)
-                      } else {
-                        await createFooterAd(data)
-                      }
+                      await createFooterAd(data)
                       setAdTitle('')
                       setAdLink('')
                       setStartDate('')
@@ -790,136 +753,67 @@ export function HeroFooterAdsPage() {
                       </div>
                     </div>
 
-                    {/* Content with ad placement */}
+                    {/* Content with footer ad placement */}
                     <div className="relative">
-                      {/* HERO SECTION AD */}
-                      {(position === 'hero-top' || position === 'hero-bottom') && (
-                        <>
-                          {position === 'hero-top' && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="relative overflow-hidden"
-                              style={{ aspectRatio: '1920/600' }}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#16213e] to-[#0f3460]" />
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#ff1e1e]/10 to-transparent" />
-                              <div className="absolute inset-0 flex items-center justify-center p-3 lg:p-4">
-                                <div className="text-center">
-                                  <div className="text-[8px] font-bold tracking-[0.2em] text-white/30 uppercase">Summer Collection 2025</div>
-                                  <p className="mt-1 text-lg font-bold text-white">SUMMER MEGA SALE</p>
-                                  <p className="text-[9px] text-white/40 mt-0.5">Up to 50% Off • Limited Time</p>
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    className="mt-2 rounded bg-[#ff1e1e] px-4 py-1 text-[9px] font-bold text-white shadow-[0_0_10px_rgba(255,30,30,0.4)]"
-                                  >
-                                    SHOP NOW
-                                  </motion.button>
-                                </div>
-                              </div>
-                              <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Hero Top</div>
-                            </motion.div>
-                          )}
+                      {/* Fake content */}
+                      <div className="p-3 space-y-2">
+                        <div className="h-2.5 w-2/3 rounded bg-white/5" />
+                        <div className="h-2 w-full rounded bg-white/3" />
+                        <div className="h-2 w-4/5 rounded bg-white/3" />
+                        <div className="grid grid-cols-3 gap-1.5 mt-2">
+                          <div className="aspect-video rounded bg-white/3" />
+                          <div className="aspect-video rounded bg-white/3" />
+                          <div className="aspect-video rounded bg-white/3" />
+                        </div>
+                      </div>
 
-                          {/* Fake content */}
-                          <div className="p-3 space-y-2">
-                            <div className="h-2.5 w-2/3 rounded bg-white/5" />
-                            <div className="h-2 w-full rounded bg-white/3" />
-                            <div className="h-2 w-4/5 rounded bg-white/3" />
-                            <div className="grid grid-cols-3 gap-1.5 mt-2">
-                              <div className="aspect-video rounded bg-white/3" />
-                              <div className="aspect-video rounded bg-white/3" />
-                              <div className="aspect-video rounded bg-white/3" />
+                      {position === 'footer-top' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="relative overflow-hidden border-t border-white/5"
+                          style={{ aspectRatio: '970/250' }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a2e] via-[#1e3a5f] to-[#0f3460]" />
+                          <div className="absolute inset-0 flex items-center justify-center p-3">
+                            <div className="text-center">
+                              <p className="text-sm font-bold text-white">SUBSCRIBE & SAVE 30%</p>
+                              <p className="text-[8px] text-white/40 mt-0.5">Premium plans from $4.99/mo</p>
+                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-[#ff1e1e] px-3 py-0.5 text-[8px] font-bold text-white">GET STARTED</motion.button>
                             </div>
-                            <div className="h-2 w-3/4 rounded bg-white/3" />
-                            <div className="h-2 w-1/2 rounded bg-white/3" />
                           </div>
-
-                          {position === 'hero-bottom' && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="relative overflow-hidden"
-                              style={{ aspectRatio: '1600/300' }}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#0f2027] via-[#203a43] to-[#2c5364]" />
-                              <div className="absolute inset-0 flex items-center justify-center p-3">
-                                <div className="text-center">
-                                  <p className="text-sm font-bold text-white">NEW RELEASES THIS WEEK</p>
-                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-white px-3 py-0.5 text-[8px] font-bold text-black">EXPLORE</motion.button>
-                                </div>
-                              </div>
-                              <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Hero Bottom</div>
-                            </motion.div>
-                          )}
-                        </>
+                          <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Footer Top</div>
+                        </motion.div>
                       )}
 
-                      {/* FOOTER SECTION AD */}
-                      {(position === 'footer-top' || position === 'footer-bottom') && (
-                        <>
-                          {/* Fake content */}
-                          <div className="p-3 space-y-2">
-                            <div className="h-2.5 w-2/3 rounded bg-white/5" />
-                            <div className="h-2 w-full rounded bg-white/3" />
-                            <div className="h-2 w-4/5 rounded bg-white/3" />
-                            <div className="grid grid-cols-3 gap-1.5 mt-2">
-                              <div className="aspect-video rounded bg-white/3" />
-                              <div className="aspect-video rounded bg-white/3" />
-                              <div className="aspect-video rounded bg-white/3" />
-                            </div>
+                      {/* Fake footer */}
+                      <div className="border-t border-white/5 bg-[#060610] p-2">
+                        <div className="flex justify-between">
+                          <div className="space-y-1">
+                            <div className="h-1.5 w-16 rounded bg-white/5" />
+                            <div className="h-1 w-12 rounded bg-white/3" />
+                            <div className="h-1 w-14 rounded bg-white/3" />
                           </div>
-
-                          {position === 'footer-top' && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="relative overflow-hidden border-t border-white/5"
-                              style={{ aspectRatio: '970/250' }}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a2e] via-[#1e3a5f] to-[#0f3460]" />
-                              <div className="absolute inset-0 flex items-center justify-center p-3">
-                                <div className="text-center">
-                                  <p className="text-sm font-bold text-white">SUBSCRIBE & SAVE 30%</p>
-                                  <p className="text-[8px] text-white/40 mt-0.5">Premium plans from $4.99/mo</p>
-                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-[#ff1e1e] px-3 py-0.5 text-[8px] font-bold text-white">GET STARTED</motion.button>
-                                </div>
-                              </div>
-                              <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Footer Top</div>
-                            </motion.div>
-                          )}
-
-                          {/* Fake footer */}
-                          <div className="border-t border-white/5 bg-[#060610] p-2">
-                            <div className="flex justify-between">
-                              <div className="space-y-1">
-                                <div className="h-1.5 w-16 rounded bg-white/5" />
-                                <div className="h-1 w-12 rounded bg-white/3" />
-                                <div className="h-1 w-14 rounded bg-white/3" />
-                              </div>
-                              <div className="space-y-1">
-                                <div className="h-1.5 w-12 rounded bg-white/5" />
-                                <div className="h-1 w-10 rounded bg-white/3" />
-                              </div>
-                            </div>
+                          <div className="space-y-1">
+                            <div className="h-1.5 w-12 rounded bg-white/5" />
+                            <div className="h-1 w-10 rounded bg-white/3" />
                           </div>
+                        </div>
+                      </div>
 
-                          {position === 'footer-bottom' && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="relative overflow-hidden border-t border-white/5"
-                              style={{ aspectRatio: '728/90' }}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#2d1b69] to-[#1a0a2e]" />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <p className="text-xs font-bold text-white">DOWNLOAD OUR APP — FREE TRIAL</p>
-                              </div>
-                              <div className="absolute top-1 right-1 rounded bg-black/50 px-1 py-0.5 text-[6px] text-white/40">Ad • Footer Bottom</div>
-                            </motion.div>
-                          )}
-                        </>
+                      {position === 'footer-bottom' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="relative overflow-hidden border-t border-white/5"
+                          style={{ aspectRatio: '728/90' }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#2d1b69] to-[#1a0a2e]" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <p className="text-xs font-bold text-white">DOWNLOAD OUR APP — FREE TRIAL</p>
+                          </div>
+                          <div className="absolute top-1 right-1 rounded bg-black/50 px-1 py-0.5 text-[6px] text-white/40">Ad • Footer Bottom</div>
+                        </motion.div>
                       )}
                     </div>
                   </motion.div>
@@ -928,8 +822,8 @@ export function HeroFooterAdsPage() {
                 {/* Ad Details */}
                 <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
                   {[
-                    { label: 'Placement', value: position === 'hero-top' ? 'Hero Section - Top' : position === 'hero-bottom' ? 'Hero Section - Bottom' : position === 'footer-top' ? 'Footer Top' : 'Footer Bottom' },
-                    { label: 'File Name', value: 'hero_banner_2025.jpg' },
+                    { label: 'Placement', value: position === 'footer-top' ? 'Footer Top' : 'Footer Bottom' },
+                    { label: 'File Name', value: 'footer_banner_2025.jpg' },
                     { label: 'File Size', value: '2.35 MB' },
                     { label: 'Dimensions', value: '1920 × 600 px' },
                     { label: 'Format', value: 'JPG' },
@@ -966,10 +860,10 @@ export function HeroFooterAdsPage() {
                 <h2 className="mb-4 text-base font-bold text-white">Quick Actions</h2>
                 <div className="space-y-2.5">
                   {[
-                    { icon: ArrowUpFromLine, label: 'Create Hero Ad', desc: 'Hero section banner ads', color: '#ff1e1e', glowColor: 'rgba(255,30,30,0.15)', bgColor: 'from-red-500/10 to-red-600/5' },
-                    { icon: ArrowDownFromLine, label: 'Create Footer Ad', desc: 'Footer section banner ads', color: '#f97316', glowColor: 'rgba(249,115,22,0.15)', bgColor: 'from-orange-500/10 to-orange-600/5' },
-                    { icon: Megaphone, label: 'Manage Ads', desc: 'View, edit and manage ads', color: '#10b981', glowColor: 'rgba(16,185,129,0.15)', bgColor: 'from-emerald-500/10 to-emerald-600/5' },
-                    { icon: BarChart3, label: 'Ad Performance', desc: 'View analytics and reports', color: '#8b5cf6', glowColor: 'rgba(139,92,246,0.15)', bgColor: 'from-purple-500/10 to-purple-600/5' },
+                    { icon: ArrowDownFromLine, label: 'Create Footer Ad', desc: 'Footer section banner ads', color: '#ff1e1e', glowColor: 'rgba(255,30,30,0.15)', bgColor: 'from-red-500/10 to-red-600/5' },
+                    { icon: Megaphone, label: 'Manage Ads', desc: 'View, edit and manage ads', color: '#f97316', glowColor: 'rgba(249,115,22,0.15)', bgColor: 'from-orange-500/10 to-orange-600/5' },
+                    { icon: BarChart3, label: 'Ad Performance', desc: 'View analytics and reports', color: '#10b981', glowColor: 'rgba(16,185,129,0.15)', bgColor: 'from-emerald-500/10 to-emerald-600/5' },
+                    { icon: RefreshCw, label: 'Refresh Data', desc: 'Reload footer ads data', color: '#8b5cf6', glowColor: 'rgba(139,92,246,0.15)', bgColor: 'from-purple-500/10 to-purple-600/5' },
                   ].map((action) => (
                     <motion.button
                       key={action.label}
@@ -1070,7 +964,7 @@ export function HeroFooterAdsPage() {
           <div className="p-3 lg:p-4">
             {/* Table header */}
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-base font-bold text-white">Hero / Footer Ads List</h2>
+              <h2 className="text-base font-bold text-white">Footer Ads List</h2>
               <div className="flex items-center gap-2">
                 <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1) }}>
                   <SelectTrigger className="h-8 w-28 rounded-lg border-white/10 bg-[#0a0a0a] text-xs text-white/60 [&_svg]:text-white/30">
@@ -1127,7 +1021,7 @@ export function HeroFooterAdsPage() {
                             )}
                           </div>
                           <div className="absolute top-0.5 right-0.5 rounded bg-black/50 px-0.5 text-[5px] text-white/40">
-                            {sectionTab === 'hero' ? 'H' : 'F'}
+                            F
                           </div>
                         </div>
                       </td>
@@ -1144,9 +1038,9 @@ export function HeroFooterAdsPage() {
                       </td>
                       {/* Placement */}
                       <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 text-xs ${sectionTab === 'hero' ? 'text-red-400/70' : 'text-purple-400/70'}`}>
-                          {sectionTab === 'hero' ? <ArrowUpFromLine className="h-2.5 w-2.5" /> : <ArrowDownFromLine className="h-2.5 w-2.5" />}
-                          {sectionTab === 'hero' ? 'Hero' : 'Footer'}
+                        <span className="inline-flex items-center gap-1 text-xs text-purple-400/70">
+                          <ArrowDownFromLine className="h-2.5 w-2.5" />
+                          Footer
                         </span>
                       </td>
                       {/* Size */}
@@ -1175,13 +1069,13 @@ export function HeroFooterAdsPage() {
                       {/* Actions */}
                       <td className="py-2">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => (sectionTab === 'hero' ? toggleHeroAd : toggleFooterAd)(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title={ad.isActive ? 'Pause' : 'Activate'}>
+                          <button onClick={() => toggleFooterAd(ad.id)} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title={ad.isActive ? 'Pause' : 'Activate'}>
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Analytics">
                             <BarChart3 className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={() => { if (confirm('Delete this ad?')) (sectionTab === 'hero' ? deleteHeroAd : deleteFooterAd)(ad.id) }} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
+                          <button onClick={() => { if (confirm('Delete this ad?')) deleteFooterAd(ad.id) }} className="rounded-md p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Delete">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

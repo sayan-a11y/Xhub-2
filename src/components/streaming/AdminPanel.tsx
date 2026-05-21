@@ -54,7 +54,6 @@ const OverlayAdsPage = lazy(() => import('@/components/admin/OverlayAdsPage').th
 const PopupAdsPage = lazy(() => import('@/components/admin/PopupAdsPage').then(m => ({ default: m.PopupAdsPage })))
 const BannerAdsPage = lazy(() => import('@/components/admin/BannerAdsPage').then(m => ({ default: m.BannerAdsPage })))
 const HeroFooterAdsPage = lazy(() => import('@/components/admin/HeroFooterAdsPage').then(m => ({ default: m.HeroFooterAdsPage })))
-const HeroAdsPage = lazy(() => import('@/components/admin/HeroAdsPage').then(m => ({ default: m.HeroAdsPage })))
 const AllAdsPage = lazy(() => import('@/components/admin/AllAdsPage').then(m => ({ default: m.AllAdsPage })))
 const LiveTVPage = lazy(() => import('@/components/admin/LiveTVPage').then(m => ({ default: m.LiveTVPage })))
 const TransactionsPage = lazy(() => import('@/components/admin/TransactionsPage').then(m => ({ default: m.TransactionsPage })))
@@ -125,8 +124,7 @@ const navigationItems: NavItem[] = [
       { id: 'all-ads', label: 'All Ads', icon: Megaphone, section: 'all-ads' },
       { id: 'banner-ads', label: 'Banner Ads', icon: Image, section: 'banner-ads' },
       { id: 'popup-ads', label: 'Popup Ads', icon: Popcorn, section: 'popup-ads' },
-      { id: 'hero-footer-ads', label: 'Hero/Footer Ads', icon: Monitor, section: 'hero-footer-ads' },
-      { id: 'hero-ads', label: 'Hero Ads', icon: Monitor, section: 'hero-ads' },
+      { id: 'footer-ads', label: 'Footer Ads', icon: Monitor, section: 'footer-ads' },
       {
         id: 'video-ads-group',
         label: 'Video Ads',
@@ -160,8 +158,7 @@ const sectionTitles: Record<AdminSection, string> = {
   'all-ads': 'All Ads',
   'banner-ads': 'Banner Ads',
   'popup-ads': 'Popup Ads',
-  'hero-footer-ads': 'Hero / Footer Ads',
-  'hero-ads': 'Hero Ads',
+  'footer-ads': 'Footer Ads',
   'pre-roll-ads': 'Pre-roll Ads',
   'mid-roll-ads': 'Mid-roll Ads',
   'post-roll-ads': 'Post-roll Ads',
@@ -616,8 +613,7 @@ export function AdminPanel() {
     'all-ads',
     'banner-ads',
     'popup-ads',
-    'hero-footer-ads',
-    'hero-ads',
+    'footer-ads',
     'pre-roll-ads',
     'mid-roll-ads',
     'post-roll-ads',
@@ -665,10 +661,8 @@ export function AdminPanel() {
         return <PopupAdsPage />
       case 'banner-ads':
         return <BannerAdsPage />
-      case 'hero-footer-ads':
+      case 'footer-ads':
         return <HeroFooterAdsPage />
-      case 'hero-ads':
-        return <HeroAdsPage />
       case 'catalog':
         return <CatalogPage />
       case 'analytics':

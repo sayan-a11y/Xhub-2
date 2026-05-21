@@ -922,3 +922,44 @@ Stage Summary:
 - Realtime data from footer-ads API + Supabase subscriptions
 - No changes to admin panel
 - Database switched from broken Supabase to working SQLite
+
+---
+Task ID: footer-ads-only
+Agent: Main Agent
+Task: Convert Hero/Footer Ads to Footer Ads only - remove hero from user UI, keep footer ads with full realtime
+
+Work Log:
+- Removed HeroAdsSlider import from page.tsx
+- Removed HeroAdData interface from page.tsx
+- Removed realtimeHeroAds subscription from page.tsx
+- Removed apiHeroAds state from page.tsx
+- Removed hero-ads fetch from Promise.all in page.tsx
+- Removed heroAds derivation and heroAdsSliderData memoized data from page.tsx
+- Removed HeroAdsSlider component from renderHomeView in page.tsx
+- Updated hasAnyData check to use footerAds instead of heroAds
+- Renamed HeroFooterAdsPage admin component: "Hero / Footer Ads" → "Footer Ads"
+- Removed hero section tab from HeroFooterAdsPage (only footer section remains)
+- Removed useHeroAds hook import from HeroFooterAdsPage
+- Removed sectionTab state variable
+- Changed default position from 'hero-top' to 'footer-top'
+- Removed hero position options from Select dropdown
+- Replaced hero/footer conditional in save handler with footer-only creation
+- Replaced hero section preview with footer-only preview
+- Updated ad details label for footer placement
+- Updated quick actions to remove "Create Hero Ad" item
+- Renamed "Hero / Footer Ads List" to "Footer Ads List"
+- Fixed table section references from sectionTab to footer-only
+- Removed ArrowUpFromLine import (no longer needed)
+- Updated AdminPanel sidebar nav: "Hero/Footer Ads" → "Footer Ads", "hero-footer-ads" → "footer-ads"
+- Removed "Hero Ads" nav item from AdminPanel sidebar
+- Removed HeroAdsPage lazy import from AdminPanel
+- Removed hero-ads case from AdminPanel renderSection
+- Ran lint: 0 errors, clean compilation
+
+Stage Summary:
+- Hero Ads completely removed from user-facing UI
+- Only Footer Ads shown to users with full Supabase realtime sync
+- Admin panel "Hero/Footer Ads" page renamed to "Footer Ads"
+- Admin sidebar now shows single "Footer Ads" item instead of two separate entries
+- All footer ads data flows through Supabase Realtime (FooterAd table) + API fallback
+- Zero lint errors, dev server compiling successfully
