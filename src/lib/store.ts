@@ -11,6 +11,7 @@ export type AdminSection =
   | 'banner-ads'
   | 'popup-ads'
   | 'footer-ads'
+  | 'hero-ads'
   | 'pre-roll-ads'
   | 'mid-roll-ads'
   | 'post-roll-ads'

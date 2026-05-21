@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useHeroAds, type HeroAdItem } from '@/hooks/useAdsManager'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CloudUpload,
@@ -30,6 +31,7 @@ import {
   X,
   RefreshCw,
   Crown,
+  ArrowUpFromLine,
 } from 'lucide-react'
 import {
   Select,
@@ -50,26 +52,6 @@ import {
 
 type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
 type PreviewMode = 'desktop' | 'tablet' | 'mobile'
-
-interface HeroAd {
-  id: string
-  title: string
-  description: string | null
-  category: string | null
-  mediaUrl: string
-  thumbnailUrl: string | null
-  adType: string
-  mediaFormat: string
-  isActive: boolean
-  displayOrder: number
-  impressions: number
-  clicks: number
-  ctr: number
-  startDate: string | null
-  endDate: string | null
-  createdAt: string
-  updatedAt: string
-}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -172,9 +154,8 @@ function formatNumber(num: number): string {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function HeroAdsPage() {
-  // Data state
-  const [heroAds, setHeroAds] = useState<HeroAd[]>([])
-  const [loading, setLoading] = useState(true)
+  // Realtime data hook - HERO ADS with full realtime
+  const { ads: heroAds, loading, createAd: createHeroAd, deleteAd: deleteHeroAd, toggleAd: toggleHeroAd, refetch: refetchHeroAds } = useHeroAds()
 
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
@@ -206,33 +187,13 @@ export function HeroAdsPage() {
   const itemsPerPage = 10
 
   // Edit state
-  const [editingAd, setEditingAd] = useState<HeroAd | null>(null)
+  const [editingAd, setEditingAd] = useState<HeroAdItem | null>(null)
 
   // Delete confirmation
   const [deletingAdId, setDeletingAdId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  // ─── Fetch Data ────────────────────────────────────────────────────────
-
-  const fetchHeroAds = useCallback(async () => {
-    try {
-      const res = await fetch('/api/hero-ads')
-      if (res.ok) {
-        const data = await res.json()
-        setHeroAds(data.heroAds || [])
-      }
-    } catch (err) {
-      console.error('Error fetching hero ads:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchHeroAds()
-  }, [fetchHeroAds])
 
   // ─── Computed KPI Values ───────────────────────────────────────────────
 
@@ -338,81 +299,57 @@ export function HeroAdsPage() {
         if (res.ok) {
           setEditingAd(null)
           resetForm()
-          await fetchHeroAds()
+          await refetchHeroAds()
         }
       } else {
-        // Create new ad
-        const res = await fetch('/api/hero-ads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: adTitle,
-            description: adDescription || null,
-            category: adCategory || null,
-            mediaUrl: `https://cdn.xtube.com/hero/${Date.now()}.${adType === 'video' ? 'mp4' : 'jpg'}`,
-            thumbnailUrl: `https://cdn.xtube.com/hero/thumbs/${Date.now()}.jpg`,
-            adType,
-            mediaFormat: adType === 'video' ? 'mp4' : 'jpg',
-            isActive: statusActive,
-            displayOrder,
-            startDate: startDate || null,
-            endDate: endDate || null,
-          }),
+        // Create new ad via hook (realtime auto-updates)
+        await createHeroAd({
+          title: adTitle,
+          description: adDescription || null,
+          category: adCategory || null,
+          mediaUrl: `https://cdn.xtube.com/hero/${Date.now()}.${adType === 'video' ? 'mp4' : 'jpg'}`,
+          thumbnailUrl: `https://cdn.xtube.com/hero/thumbs/${Date.now()}.jpg`,
+          adType,
+          mediaFormat: adType === 'video' ? 'mp4' : 'jpg',
+          isActive: statusActive,
+          displayOrder,
+          startDate: startDate || null,
+          endDate: endDate || null,
         })
-        if (res.ok) {
-          resetForm()
-          handleResetUpload()
-          await fetchHeroAds()
-        }
+        resetForm()
+        handleResetUpload()
       }
     } catch (err) {
       console.error('Error saving hero ad:', err)
     } finally {
       setSaving(false)
     }
-  }, [adTitle, adDescription, adCategory, adType, statusActive, displayOrder, startDate, endDate, editingAd, fetchHeroAds, handleResetUpload])
+  }, [adTitle, adDescription, adCategory, adType, statusActive, displayOrder, startDate, endDate, editingAd, createHeroAd, refetchHeroAds, handleResetUpload])
 
   // ─── Delete Hero Ad ────────────────────────────────────────────────────
 
   const handleDelete = useCallback(async (id: string) => {
     try {
-      const res = await fetch('/api/hero-ads', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
-      if (res.ok) {
-        setDeletingAdId(null)
-        await fetchHeroAds()
-      }
+      await deleteHeroAd(id)
+      setDeletingAdId(null)
     } catch (err) {
       console.error('Error deleting hero ad:', err)
     }
-  }, [fetchHeroAds])
+  }, [deleteHeroAd])
 
   // ─── Toggle Active ─────────────────────────────────────────────────────
 
-  const handleToggleActive = useCallback(async (ad: HeroAd) => {
+  const handleToggleActive = useCallback(async (ad: HeroAdItem) => {
     try {
-      const res = await fetch('/api/hero-ads', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: ad.id,
-          isActive: !ad.isActive,
-        }),
-      })
-      if (res.ok) {
-        await fetchHeroAds()
-      }
+      await toggleHeroAd(ad.id, !ad.isActive)
     } catch (err) {
       console.error('Error toggling hero ad active status:', err)
     }
-  }, [fetchHeroAds])
+  }, [toggleHeroAd])
 
   // ─── Edit Hero Ad ──────────────────────────────────────────────────────
 
-  const handleEdit = useCallback((ad: HeroAd) => {
+  const handleEdit = useCallback((ad: HeroAdItem) => {
     setEditingAd(ad)
     setAdTitle(ad.title)
     setAdDescription(ad.description || '')
@@ -494,24 +431,29 @@ export function HeroAdsPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#ff1e1e]/10">
-              <Monitor className="h-5 w-5 text-[#ff1e1e]" />
+              <ArrowUpFromLine className="h-5 w-5 text-[#ff1e1e]" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-white md:text-2xl">Hero Ads</h1>
-              <p className="mt-0.5 text-sm text-white/40">Create and manage cinematic hero ads for your platform</p>
+              <p className="mt-0.5 text-sm text-white/40">Manage hero slider ads with realtime updates</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Date range picker */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
-              <Clock className="h-3.5 w-3.5" />
-              May 10 – Jun 10, 2025
-            </button>
-            {/* Export */}
-            <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white">
-              <Upload className="h-3.5 w-3.5" />
-              Export Report
-            </button>
+            {/* Realtime badge */}
+            <div className="flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Live</span>
+            </div>
+            {/* Refresh */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => refetchHeroAds()}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </motion.button>
             {/* Notification bell */}
             <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Bell className="h-4 w-4" />
@@ -1165,7 +1107,7 @@ export function HeroAdsPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={fetchHeroAds}
+                  onClick={refetchHeroAds}
                   className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#0a0a0a] text-white/40 transition-colors hover:bg-white/5 hover:text-white"
                   title="Refresh"
                 >

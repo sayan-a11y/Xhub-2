@@ -30,6 +30,8 @@ import {
   DollarSign,
   FileText,
   Terminal,
+  Crown,
+  ArrowUpFromLine,
 } from 'lucide-react'
 import { useAppStore, type AdminSection } from '@/lib/store'
 import { cachedFetch } from '@/lib/performance/api-cache'
@@ -54,6 +56,7 @@ const OverlayAdsPage = lazy(() => import('@/components/admin/OverlayAdsPage').th
 const PopupAdsPage = lazy(() => import('@/components/admin/PopupAdsPage').then(m => ({ default: m.PopupAdsPage })))
 const BannerAdsPage = lazy(() => import('@/components/admin/BannerAdsPage').then(m => ({ default: m.BannerAdsPage })))
 const FooterAdsPage = lazy(() => import('@/components/admin/FooterAdsPage').then(m => ({ default: m.FooterAdsPage })))
+const HeroAdsPage = lazy(() => import('@/components/admin/HeroAdsPage').then(m => ({ default: m.HeroAdsPage })))
 const AllAdsPage = lazy(() => import('@/components/admin/AllAdsPage').then(m => ({ default: m.AllAdsPage })))
 const LiveTVPage = lazy(() => import('@/components/admin/LiveTVPage').then(m => ({ default: m.LiveTVPage })))
 const TransactionsPage = lazy(() => import('@/components/admin/TransactionsPage').then(m => ({ default: m.TransactionsPage })))
@@ -125,6 +128,7 @@ const navigationItems: NavItem[] = [
       { id: 'banner-ads', label: 'Banner Ads', icon: Image, section: 'banner-ads' },
       { id: 'popup-ads', label: 'Popup Ads', icon: Popcorn, section: 'popup-ads' },
       { id: 'footer-ads', label: 'Footer Ads', icon: Monitor, section: 'footer-ads' },
+      { id: 'hero-ads', label: 'Hero Ads', icon: Crown, section: 'hero-ads' },
       {
         id: 'video-ads-group',
         label: 'Video Ads',
@@ -159,6 +163,7 @@ const sectionTitles: Record<AdminSection, string> = {
   'banner-ads': 'Banner Ads',
   'popup-ads': 'Popup Ads',
   'footer-ads': 'Footer Ads',
+  'hero-ads': 'Hero Ads',
   'pre-roll-ads': 'Pre-roll Ads',
   'mid-roll-ads': 'Mid-roll Ads',
   'post-roll-ads': 'Post-roll Ads',
@@ -614,6 +619,7 @@ export function AdminPanel() {
     'banner-ads',
     'popup-ads',
     'footer-ads',
+    'hero-ads',
     'pre-roll-ads',
     'mid-roll-ads',
     'post-roll-ads',
@@ -663,6 +669,8 @@ export function AdminPanel() {
         return <BannerAdsPage />
       case 'footer-ads':
         return <FooterAdsPage />
+      case 'hero-ads':
+        return <HeroAdsPage />
       case 'catalog':
         return <CatalogPage />
       case 'analytics':
