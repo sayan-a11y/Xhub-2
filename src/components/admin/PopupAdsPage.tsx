@@ -38,7 +38,6 @@ import {
   Tablet,
   MousePointerClick,
   LayoutGrid,
-  Code2,
   Type,
   Move,
   XCircle,
@@ -68,7 +67,7 @@ import { useAdsManager } from '@/hooks/useAdsManager'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
-type AdTab = 'image' | 'html5' | 'text'
+type AdTab = 'image' | 'video' | 'text'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -271,7 +270,7 @@ export function PopupAdsPage() {
   const displayAds = useMemo(() => ads.map((ad) => ({
     id: ad.id,
     name: ad.title,
-    type: (ad.mediaFormat === 'html5' ? 'HTML5' : ad.mediaFormat === 'text' ? 'Text' : 'Image') as 'Image' | 'HTML5' | 'Text',
+    type: (ad.mediaFormat === 'mp4' ? 'Video' : ad.mediaFormat === 'text' ? 'Text' : 'Image') as 'Image' | 'Video' | 'Text',
     trigger: ad.skipAfter ? `Time Delay (${ad.skipAfter}s)` : 'Time Delay (5s)',
     displayOn: ad.position || 'All Pages',
     impressions: formatNumber(ad.impressions),
@@ -292,11 +291,11 @@ export function PopupAdsPage() {
 
   // Donut chart data from real ads
   const donutData = useMemo(() => {
-    const imageImpressions = ads.filter(a => a.mediaFormat !== 'html5' && a.mediaFormat !== 'text').reduce((s, a) => s + a.impressions, 0)
-    const html5Impressions = ads.filter(a => a.mediaFormat === 'html5').reduce((s, a) => s + a.impressions, 0)
+    const imageImpressions = ads.filter(a => a.mediaFormat !== 'mp4' && a.mediaFormat !== 'text').reduce((s, a) => s + a.impressions, 0)
+    const videoImpressions = ads.filter(a => a.mediaFormat === 'mp4').reduce((s, a) => s + a.impressions, 0)
     return [
       { name: 'Image Ads', value: imageImpressions || 1 },
-      { name: 'HTML5 Ads', value: html5Impressions || 1 },
+      { name: 'Video Ads', value: videoImpressions || 1 },
     ]
   }, [ads])
 
@@ -316,7 +315,7 @@ export function PopupAdsPage() {
 
   const typeStyles: Record<string, string> = {
     Image: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    HTML5: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+    Video: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
     Text: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   }
 
@@ -324,13 +323,13 @@ export function PopupAdsPage() {
 
   const getAcceptTypes = () => {
     if (adTab === 'image') return 'image/jpeg,image/png,image/gif,image/webp'
-    if (adTab === 'html5') return '.zip,application/zip,application/x-zip-compressed'
+    if (adTab === 'video') return 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.avi,.mkv'
     return 'text/html,.html'
   }
 
   const getSupportedText = () => {
     if (adTab === 'image') return 'Max file size: 5GB | Supported: JPG, PNG, GIF, WEBP'
-    if (adTab === 'html5') return 'Max file size: 5GB | Supported: HTML5 ZIP'
+    if (adTab === 'video') return 'Max file size: 5GB | Supported: MP4, WebM, MOV, AVI, MKV'
     return 'Max file size: 5GB | Supported: HTML, Text'
   }
 
@@ -432,7 +431,7 @@ export function PopupAdsPage() {
                 />
               </div>
 
-              {/* Tabs: Image Ad / HTML5 Ad / Text Ad */}
+              {/* Tabs: Image Ad / Video Upload / Text Ad */}
               <div className="mb-4 flex items-center gap-0 border-b border-white/5">
                 <button
                   onClick={() => setAdTab('image')}
@@ -451,14 +450,14 @@ export function PopupAdsPage() {
                   )}
                 </button>
                 <button
-                  onClick={() => setAdTab('html5')}
+                  onClick={() => setAdTab('video')}
                   className={`relative flex items-center gap-2 px-4 pb-2.5 text-sm font-medium transition-colors ${
-                    adTab === 'html5' ? 'text-white' : 'text-white/40 hover:text-white/60'
+                    adTab === 'video' ? 'text-white' : 'text-white/40 hover:text-white/60'
                   }`}
                 >
-                  <Code2 className="h-3.5 w-3.5" />
-                  HTML5 Ad
-                  {adTab === 'html5' && (
+                  <Film className="h-3.5 w-3.5" />
+                  Video Upload
+                  {adTab === 'video' && (
                     <motion.div
                       layoutId="popup-tab-indicator"
                       className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#ff1e1e]"
@@ -514,7 +513,7 @@ export function PopupAdsPage() {
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-medium text-white">
-                        Drag &amp; drop your {adTab === 'image' ? 'image' : adTab === 'html5' ? 'HTML5 ZIP' : 'text'} here
+                        Drag &amp; drop your {adTab === 'image' ? 'image' : adTab === 'video' ? 'video' : 'text'} here
                       </p>
                       <p className="mt-1 text-xs text-white/40">
                         or <span className="text-[#ff1e1e] underline underline-offset-2">browse files</span>
@@ -785,7 +784,7 @@ export function PopupAdsPage() {
                       title: newAdTitle.trim(),
                       position: popupPosition,
                       imageUrl: '',
-                      mediaFormat: adTab === 'html5' ? 'html5' : adTab === 'text' ? 'text' : 'image',
+                      mediaFormat: adTab === 'video' ? 'mp4' : adTab === 'text' ? 'text' : 'image',
                       frequency: displayFrequency === 'once-per-session' ? 1 : displayFrequency === 'once-per-page' ? 2 : displayFrequency === 'every-visit' ? 3 : 4,
                       skipAfter: parseInt(timeDelay) || 5,
                       isActive: true,
@@ -973,7 +972,7 @@ export function PopupAdsPage() {
                 <div className="space-y-2.5">
                   {[
                     { icon: ImageIcon, label: 'Create Image Popup Ad', desc: 'Upload an image ad up to 5GB', color: '#3b82f6', glowColor: 'rgba(59,130,246,0.15)', bgColor: 'from-blue-500/10 to-blue-600/5' },
-                    { icon: Code2, label: 'Create HTML5 Popup Ad', desc: 'Upload an HTML5 interactive ad', color: '#f97316', glowColor: 'rgba(249,115,22,0.15)', bgColor: 'from-orange-500/10 to-orange-600/5' },
+                    { icon: Film, label: 'Create Video Popup Ad', desc: 'Upload a video ad up to 5GB', color: '#8b5cf6', glowColor: 'rgba(139,92,246,0.15)', bgColor: 'from-purple-500/10 to-purple-600/5' },
                     { icon: Megaphone, label: 'Manage Popup Ads', desc: 'View, edit and manage ads', color: '#10b981', glowColor: 'rgba(16,185,129,0.15)', bgColor: 'from-emerald-500/10 to-emerald-600/5' },
                     { icon: BarChart3, label: 'Ad Performance', desc: 'View analytics and reports', color: '#8b5cf6', glowColor: 'rgba(139,92,246,0.15)', bgColor: 'from-purple-500/10 to-purple-600/5' },
                   ].map((action, i) => (
@@ -1144,8 +1143,8 @@ export function PopupAdsPage() {
                             <div className="absolute inset-0 flex items-center justify-center">
                               {ad.type === 'Image' ? (
                                 <ImageIcon className="h-3 w-3 text-white/20" />
-                              ) : ad.type === 'HTML5' ? (
-                                <Code2 className="h-3 w-3 text-white/20" />
+                              ) : ad.type === 'Video' ? (
+                                <Film className="h-3 w-3 text-white/20" />
                               ) : (
                                 <Type className="h-3 w-3 text-white/20" />
                               )}
@@ -1160,7 +1159,7 @@ export function PopupAdsPage() {
                         <td className="py-2 pr-3">
                           <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${typeStyles[ad.type]}`}>
                             {ad.type === 'Image' && <ImageIcon className="h-2.5 w-2.5" />}
-                            {ad.type === 'HTML5' && <Code2 className="h-2.5 w-2.5" />}
+                            {ad.type === 'Video' && <Film className="h-2.5 w-2.5" />}
                             {ad.type === 'Text' && <Type className="h-2.5 w-2.5" />}
                             {ad.type}
                           </span>

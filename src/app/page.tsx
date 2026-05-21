@@ -474,12 +474,6 @@ export default function XtubeHome() {
           />
         </section>
       ))}
-      {/* Footer Ads Section - only shows when footer ads exist */}
-      {footerAdsData.length > 0 && (
-      <div className="mt-6">
-        <FooterAds ads={footerAdsData} />
-      </div>
-      )}
     </div>
     )
   }
@@ -736,6 +730,11 @@ export default function XtubeHome() {
                 {currentView === 'search' && renderSearchView()}
               </motion.div>
             </AnimatePresence>
+
+            {/* Footer Ads Section - shows on ALL views, above footer */}
+            <div className="pb-20 md:pb-6 pt-4">
+              <FooterAds ads={footerAdsData} />
+            </div>
           </motion.main>
         </>
       )}

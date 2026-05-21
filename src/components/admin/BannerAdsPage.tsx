@@ -38,7 +38,6 @@ import {
   Smartphone,
   Tablet,
   LayoutGrid,
-  Code2,
   Type,
   Sparkles,
   Zap,
@@ -69,7 +68,7 @@ import {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
-type AdTab = 'image' | 'html5' | 'animated'
+type AdTab = 'image' | 'video' | 'animated'
 type PreviewMode = 'desktop' | 'tablet' | 'mobile'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -306,7 +305,7 @@ export function BannerAdsPage() {
 
   const typeStyles: Record<string, string> = {
     Image: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    HTML5: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+    Video: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
     Animated: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   }
 
@@ -314,19 +313,19 @@ export function BannerAdsPage() {
 
   const getAcceptTypes = () => {
     if (adTab === 'image') return 'image/jpeg,image/png,image/gif,image/webp,image/svg+xml'
-    if (adTab === 'html5') return '.zip,application/zip,application/x-zip-compressed'
+    if (adTab === 'video') return 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.avi,.mkv'
     return 'image/gif,image/webp,video/mp4,video/webm'
   }
 
   const getSupportedText = () => {
     if (adTab === 'image') return 'Max size: 5GB | JPG, PNG, GIF, WEBP, SVG'
-    if (adTab === 'html5') return 'Max size: 5GB | HTML5 ZIP Package'
+    if (adTab === 'video') return 'Max size: 5GB | Supported: MP4, WebM, MOV, AVI, MKV'
     return 'Max size: 5GB | GIF, WebP, MP4, WebM'
   }
 
   const getTabLabel = () => {
     if (adTab === 'image') return 'image banner'
-    if (adTab === 'html5') return 'HTML5 banner'
+    if (adTab === 'video') return 'video banner'
     return 'animated banner'
   }
 
@@ -421,7 +420,7 @@ export function BannerAdsPage() {
                 )}
               </div>
 
-              {/* Tabs: Image Banner / HTML5 Banner / Animated Banner */}
+              {/* Tabs: Image Banner / Video Upload / Animated Banner */}
               <div className="mb-4 flex items-center gap-0 border-b border-white/5">
                 <button
                   onClick={() => setAdTab('image')}
@@ -440,14 +439,14 @@ export function BannerAdsPage() {
                   )}
                 </button>
                 <button
-                  onClick={() => setAdTab('html5')}
+                  onClick={() => setAdTab('video')}
                   className={`relative flex items-center gap-2 px-3 pb-2.5 text-sm font-medium transition-colors ${
-                    adTab === 'html5' ? 'text-white' : 'text-white/40 hover:text-white/60'
+                    adTab === 'video' ? 'text-white' : 'text-white/40 hover:text-white/60'
                   }`}
                 >
-                  <Code2 className="h-3.5 w-3.5" />
-                  HTML5
-                  {adTab === 'html5' && (
+                  <Film className="h-3.5 w-3.5" />
+                  Video Upload
+                  {adTab === 'video' && (
                     <motion.div
                       layoutId="banner-tab-indicator"
                       className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[#ff1e1e]"
@@ -982,7 +981,7 @@ export function BannerAdsPage() {
                 <div className="space-y-2.5">
                   {[
                     { icon: ImageIcon, label: 'Create Image Banner', desc: 'Upload image banners up to 5GB', color: '#3b82f6', glowColor: 'rgba(59,130,246,0.15)', bgColor: 'from-blue-500/10 to-blue-600/5' },
-                    { icon: Code2, label: 'Create HTML5 Banner', desc: 'Interactive HTML5 banners', color: '#f97316', glowColor: 'rgba(249,115,22,0.15)', bgColor: 'from-orange-500/10 to-orange-600/5' },
+                    { icon: Film, label: 'Create Video Banner', desc: 'Upload video banners up to 5GB', color: '#8b5cf6', glowColor: 'rgba(139,92,246,0.15)', bgColor: 'from-purple-500/10 to-purple-600/5' },
                     { icon: Megaphone, label: 'Manage Banner Ads', desc: 'View, edit and manage ads', color: '#10b981', glowColor: 'rgba(16,185,129,0.15)', bgColor: 'from-emerald-500/10 to-emerald-600/5' },
                     { icon: BarChart3, label: 'Ad Performance', desc: 'View analytics and reports', color: '#8b5cf6', glowColor: 'rgba(139,92,246,0.15)', bgColor: 'from-purple-500/10 to-purple-600/5' },
                   ].map((action) => (
@@ -1136,8 +1135,8 @@ export function BannerAdsPage() {
                           <div className="absolute inset-0 flex items-center justify-center">
                             {ad.type === 'Image' ? (
                               <ImageIcon className="h-3 w-3 text-white/20" />
-                            ) : ad.type === 'HTML5' ? (
-                              <Code2 className="h-3 w-3 text-white/20" />
+                            ) : ad.type === 'Video' ? (
+                              <Film className="h-3 w-3 text-white/20" />
                             ) : (
                               <Sparkles className="h-3 w-3 text-white/20" />
                             )}
@@ -1153,7 +1152,7 @@ export function BannerAdsPage() {
                       <td className="py-2 pr-3">
                         <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${typeStyles[ad.type]}`}>
                           {ad.type === 'Image' && <ImageIcon className="h-2.5 w-2.5" />}
-                          {ad.type === 'HTML5' && <Code2 className="h-2.5 w-2.5" />}
+                          {ad.type === 'Video' && <Film className="h-2.5 w-2.5" />}
                           {ad.type === 'Animated' && <Sparkles className="h-2.5 w-2.5" />}
                           {ad.type}
                         </span>
