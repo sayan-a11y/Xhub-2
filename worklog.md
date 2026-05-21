@@ -963,3 +963,39 @@ Stage Summary:
 - Admin sidebar now shows single "Footer Ads" item instead of two separate entries
 - All footer ads data flows through Supabase Realtime (FooterAd table) + API fallback
 - Zero lint errors, dev server compiling successfully
+---
+Task ID: 1
+Agent: main
+Task: Convert Hero/Footer Ads to Footer Ads Only with full realtime
+
+Work Log:
+- Removed HeroAdsSlider import and all hero ads related code from page.tsx
+- Removed HeroAdData interface, realtimeHeroAds subscription, apiHeroAds state
+- Removed hero-ads API fetch from initial data loading
+- Removed heroAdsSliderData memo and HeroAdsSlider component from renderHomeView
+- Created new FooterAdsPage.tsx component (replaces HeroFooterAdsPage.tsx)
+  - Uses only useFooterAds hook with full realtime
+  - Includes create/edit/delete/toggle functionality
+  - Has KPI stat cards computed from realtime data
+  - Includes ad preview, top performing ads, search/filter
+  - Realtime status indicator showing live connection
+  - Pagination support for ads list
+- Updated AdminPanel.tsx:
+  - Renamed nav item from "Hero/Footer Ads" to "Footer Ads"
+  - Removed "Hero Ads" nav item entirely
+  - Changed import from HeroFooterAdsPage to FooterAdsPage
+  - Updated section titles map
+  - Updated adsSections array
+  - Updated switch case routing
+- Updated store.ts:
+  - Changed AdminSection type from 'hero-footer-ads' | 'hero-ads' to 'footer-ads'
+- Updated AdsManager.tsx:
+  - Changed 'hero-footer-ads' to 'footer-ads' in sectionConfig
+  - Changed filter case from hero+footer to footer only
+
+Stage Summary:
+- Hero Ads completely removed from user-facing UI (page.tsx)
+- Footer Ads page in admin panel is fully functional with realtime updates
+- Admin panel navigation updated: "Footer Ads" replaces "Hero/Footer Ads" + "Hero Ads"
+- Lint passes clean, no errors
+- All changes are backwards compatible (old files still exist but unused)

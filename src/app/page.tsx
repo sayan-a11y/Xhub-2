@@ -6,7 +6,6 @@ import { useAppStore } from '@/lib/store'
 import { Sidebar } from '@/components/streaming/Sidebar'
 import { BottomNav } from '@/components/streaming/BottomNav'
 import { SearchBar } from '@/components/streaming/SearchBar'
-import { HeroAdsSlider } from '@/components/streaming/HeroAdsSlider'
 import { FooterAds } from '@/components/streaming/FooterAds'
 import { CategorySection } from '@/components/streaming/CategorySection'
 import { VideoGrid } from '@/components/streaming/VideoGrid'
@@ -66,24 +65,6 @@ interface AdData {
   createdAt: string
 }
 
-interface HeroAdData {
-  id: string
-  title: string
-  description?: string
-  category?: string
-  mediaUrl: string
-  thumbnailUrl?: string
-  adType: string
-  mediaFormat: string
-  isActive: boolean
-  displayOrder: number
-  impressions: number
-  clicks: number
-  ctr: number
-  startDate?: string | null
-  endDate?: string | null
-}
-
 interface FooterAdData {
   id: string
   title: string
@@ -141,14 +122,12 @@ export default function XtubeHome() {
   // ─── Supabase Realtime Subscriptions (supplements API data with live updates) ──
   const { data: realtimeVideos } = useRealtimeSubscription<VideoData>('Video', { filter: 'isPublished=eq.true' })
   const { data: realtimeCategories } = useRealtimeSubscription<CategoryData>('Category')
-  const { data: realtimeHeroAds } = useRealtimeSubscription<HeroAdData>('HeroAd', { filter: 'isActive=eq.true' })
   const { data: realtimeFooterAds } = useRealtimeSubscription<FooterAdData>('FooterAd', { filter: 'isActive=eq.true' })
   const { data: realtimeAds } = useRealtimeSubscription<AdData>('Ad', { filter: 'isActive=eq.true' })
 
   // ─── Initial API data fetching (populates data on first load) ──────────────
   const [apiVideos, setApiVideos] = useState<VideoData[]>([])
   const [apiCategories, setApiCategories] = useState<CategoryData[]>([])
-  const [apiHeroAds, setApiHeroAds] = useState<HeroAdData[]>([])
   const [apiFooterAds, setApiFooterAds] = useState<FooterAdData[]>([])
   const [apiAds, setApiAds] = useState<AdData[]>([])
   const [apiLoaded, setApiLoaded] = useState(false)
@@ -157,10 +136,9 @@ export default function XtubeHome() {
     let cancelled = false
     const fetchInitialData = async () => {
       try {
-        const [videosRes, categoriesRes, heroAdsRes, footerAdsRes, adsRes] = await Promise.all([
+        const [videosRes, categoriesRes, footerAdsRes, adsRes] = await Promise.all([
           fetch('/api/videos?limit=100'),
           fetch('/api/categories'),
-          fetch('/api/hero-ads?active=true'),
           fetch('/api/footer-ads?active=true'),
           fetch('/api/ads'),
         ])
@@ -172,10 +150,6 @@ export default function XtubeHome() {
         if (categoriesRes.ok) {
           const data = await categoriesRes.json()
           setApiCategories(data.categories || [])
-        }
-        if (heroAdsRes.ok) {
-          const data = await heroAdsRes.json()
-          setApiHeroAds(data.heroAds || [])
         }
         if (footerAdsRes.ok) {
           const data = await footerAdsRes.json()
@@ -208,7 +182,6 @@ export default function XtubeHome() {
   const videos = (realtimeVideos.length > 0 ? realtimeVideos : apiVideos) as VideoData[]
   const categories = (realtimeCategories.length > 0 ? realtimeCategories : apiCategories) as CategoryData[]
   const ads = (realtimeAds.length > 0 ? realtimeAds : apiAds) as AdData[]
-  const heroAds = ((realtimeHeroAds.length > 0 ? realtimeHeroAds : apiHeroAds) as HeroAdData[]).filter(isWithinSchedule)
   const footerAds = ((realtimeFooterAds.length > 0 ? realtimeFooterAds : apiFooterAds) as FooterAdData[]).filter(isWithinSchedule)
 
   // Progressive loading: show content as soon as ANY data arrives
@@ -346,22 +319,6 @@ export default function XtubeHome() {
     [currentVideo, videos]
   )
 
-  // ─── Prepare hero ads for slider (memoized) ────────────────────────────────
-
-  const heroAdsSliderData = useMemo(() =>
-    heroAds.map((ad) => ({
-      id: ad.id,
-      title: ad.title,
-      description: ad.description || undefined,
-      category: ad.category || undefined,
-      mediaUrl: ad.mediaUrl,
-      thumbnailUrl: ad.thumbnailUrl || undefined,
-      adType: ad.adType as 'image' | 'video',
-      mediaFormat: ad.mediaFormat,
-    })),
-    [heroAds]
-  )
-
   // ─── Prepare footer ads data (memoized) ────────────────────────────────────
   const footerAdsData = useMemo(() =>
     footerAds.map((ad) => ({
@@ -389,7 +346,7 @@ export default function XtubeHome() {
 
   const renderHomeView = () => {
     // Show skeleton ONLY while no data AND within timeout window
-    const hasAnyData = videos.length > 0 || heroAds.length > 0 || categories.length > 0
+    const hasAnyData = videos.length > 0 || categories.length > 0
     if (loading && !hasAnyData) {
       return (
         <div className="space-y-6 pb-20 md:pb-8">
@@ -435,8 +392,6 @@ export default function XtubeHome() {
 
     return (
     <div className="space-y-6 pb-20 md:pb-8">
-      {/* Hero Ads Slider - only shows when hero ads exist */}
-      {heroAdsSliderData.length > 0 && <HeroAdsSlider ads={heroAdsSliderData} />}
       {/* Trending section - only shows when videos exist */}
       {trendingVideos.length > 0 && (
       <section className="px-3 md:px-5">

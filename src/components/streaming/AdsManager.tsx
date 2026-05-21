@@ -103,7 +103,7 @@ const sectionConfig: Record<string, { title: string; description: string }> = {
   'all-ads': { title: 'All Ads', description: 'Manage all ad campaigns across every type and position' },
   'banner-ads': { title: 'Banner Ads', description: 'Display ads in banner format across the platform' },
   'popup-ads': { title: 'Popup Ads', description: 'Full-screen popup ad campaigns' },
-  'hero-footer-ads': { title: 'Hero & Footer Ads', description: 'High-visibility ads in hero and footer positions' },
+  'footer-ads': { title: 'Footer Ads', description: 'Footer position ads displayed across the platform' },
   'pre-roll-ads': { title: 'Pre-Roll Ads', description: 'Video ads played before content starts' },
   'mid-roll-ads': { title: 'Mid-Roll Ads', description: 'Video ads inserted during content playback' },
   'post-roll-ads': { title: 'Post-Roll Ads', description: 'Video ads shown after content ends' },
@@ -165,8 +165,8 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
         return ads.filter((ad) => ad.type === 'banner')
       case 'popup-ads':
         return ads.filter((ad) => ad.type === 'popup')
-      case 'hero-footer-ads':
-        return ads.filter((ad) => ad.position === 'hero' || ad.position === 'footer')
+      case 'footer-ads':
+        return ads.filter((ad) => ad.position === 'footer')
       case 'pre-roll-ads':
         return ads.filter((ad) => ad.position === 'pre-roll')
       case 'mid-roll-ads':
