@@ -20,10 +20,8 @@ export type AdminSection =
   | 'analytics'
   | 'users'
   | 'settings'
-  | 'live-tv'
   | 'transactions'
   | 'reports'
-  | 'system-logs'
 
 interface AppState {
   // Navigation

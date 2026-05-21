@@ -26,10 +26,8 @@ import {
   Layers,
   PanelLeftClose,
   PanelLeft,
-  Radio,
   DollarSign,
   FileText,
-  Terminal,
   Crown,
   ArrowUpFromLine,
 } from 'lucide-react'
@@ -58,10 +56,8 @@ const BannerAdsPage = lazy(() => import('@/components/admin/BannerAdsPage').then
 const FooterAdsPage = lazy(() => import('@/components/admin/FooterAdsPage').then(m => ({ default: m.FooterAdsPage })))
 const HeroAdsPage = lazy(() => import('@/components/admin/HeroAdsPage').then(m => ({ default: m.HeroAdsPage })))
 const AllAdsPage = lazy(() => import('@/components/admin/AllAdsPage').then(m => ({ default: m.AllAdsPage })))
-const LiveTVPage = lazy(() => import('@/components/admin/LiveTVPage').then(m => ({ default: m.LiveTVPage })))
 const TransactionsPage = lazy(() => import('@/components/admin/TransactionsPage').then(m => ({ default: m.TransactionsPage })))
 const ReportsPage = lazy(() => import('@/components/admin/ReportsPage').then(m => ({ default: m.ReportsPage })))
-const SystemLogsPage = lazy(() => import('@/components/admin/SystemLogsPage').then(m => ({ default: m.SystemLogsPage })))
 
 // ─── Custom Hook: Tablet Detection ────────────────────────────────────────────
 
@@ -144,11 +140,9 @@ const navigationItems: NavItem[] = [
     ],
   },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, section: 'analytics' },
-  { id: 'live-tv', label: 'Live TV', icon: Radio, section: 'live-tv' },
   { id: 'users', label: 'Users', icon: Users, section: 'users' },
   { id: 'transactions', label: 'Transactions', icon: DollarSign, section: 'transactions' },
   { id: 'reports', label: 'Reports', icon: FileText, section: 'reports' },
-  { id: 'system-logs', label: 'System Logs', icon: Terminal, section: 'system-logs' },
   { id: 'settings', label: 'Settings', icon: Settings, section: 'settings' },
 ]
 
@@ -172,10 +166,8 @@ const sectionTitles: Record<AdminSection, string> = {
   analytics: 'Analytics',
   users: 'Users',
   settings: 'Settings',
-  'live-tv': 'Live TV',
   transactions: 'Transactions',
   reports: 'Reports',
-  'system-logs': 'System Logs',
 }
 
 // ─── Placeholder Components ───────────────────────────────────────────────────
@@ -679,14 +671,10 @@ export function AdminPanel() {
         return <UsersPage />
       case 'settings':
         return <SettingsPage />
-      case 'live-tv':
-        return <LiveTVPage />
       case 'transactions':
         return <TransactionsPage />
       case 'reports':
         return <ReportsPage />
-      case 'system-logs':
-        return <SystemLogsPage />
       case 'video-ads-analytics':
         return (
           <VideoAdsAnalytics
