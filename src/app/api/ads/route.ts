@@ -14,8 +14,7 @@ export async function GET(request: NextRequest) {
 
     // Admin mode: return all ads with pagination & filters (no isActive filter, no impression increment)
     if (admin === 'true') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const where: any = {}
+      const where: Record<string, unknown> = {}
       if (position) where.position = position
       if (type) where.type = type
       if (status === 'active') where.isActive = true
@@ -49,8 +48,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Public mode: only active ads within date range, increment impressions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { isActive: true }
+    const where: Record<string, unknown> = { isActive: true }
     if (position) where.position = position
     if (type) where.type = type
 
@@ -115,13 +113,27 @@ export async function PUT(request: NextRequest) {
     }
 
     // Handle date fields
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = { ...data }
-    if ('startDate' in data) {
-      updateData.startDate = data.startDate ? new Date(data.startDate) : null
+    const updateData: Record<string, unknown> = {}
+
+    // Handle increment operations
+    if (data.incrementImpressions) {
+      updateData.impressions = { increment: 1 }
     }
-    if ('endDate' in data) {
-      updateData.endDate = data.endDate ? new Date(data.endDate) : null
+    if (data.incrementClicks) {
+      updateData.clicks = { increment: 1 }
+    }
+
+    // Handle regular field updates (skip increment flags)
+    const skipKeys = ['incrementImpressions', 'incrementClicks']
+    for (const [key, val] of Object.entries(data)) {
+      if (skipKeys.includes(key)) continue
+      if (key === 'startDate') {
+        updateData.startDate = val ? new Date(val as string) : null
+      } else if (key === 'endDate') {
+        updateData.endDate = val ? new Date(val as string) : null
+      } else {
+        updateData[key] = val
+      }
     }
 
     const ad = await db.ad.update({

@@ -37,7 +37,7 @@ interface HeroAdsSliderProps {
    Constants
    ──────────────────────────────────────────── */
 
-const AUTOPLAY_DELAY = 1_800_000  // 30 minutes in ms
+const AUTOPLAY_DELAY = 6_000  // 6 seconds in ms
 const TRANSITION_SPEED = 600    // ms - faster transition
 const SWIPE_THRESHOLD = 50        // px minimum swipe distance
 const MAX_VISIBLE_ADS = 6         // Maximum hero ads to display

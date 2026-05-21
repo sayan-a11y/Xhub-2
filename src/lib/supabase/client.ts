@@ -1,15 +1,26 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+export const isSupabaseConfigured = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 
 // Browser singleton via globalThis to avoid multiple instances
 const globalForSupabase = globalThis as unknown as {
   supabase: SupabaseClient | undefined
 }
 
+// Only create client if env vars are configured — prevents crash on missing config
+function createSupabaseClient(): SupabaseClient {
+  if (!isSupabaseConfigured) {
+    // Return a no-op client that won't crash but won't connect
+    return createClient('https://placeholder.supabase.co', 'placeholder-key')
+  }
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+}
+
 export const supabase: SupabaseClient =
-  globalForSupabase.supabase ?? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  globalForSupabase.supabase ?? createSupabaseClient()
 
 if (typeof window !== 'undefined') {
   globalForSupabase.supabase = supabase
@@ -17,7 +28,7 @@ if (typeof window !== 'undefined') {
 
 // Admin client — same anon key for now (RLS is public)
 // Swap to service_role key when elevated access is needed
-export const supabaseAdmin: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+export const supabaseAdmin: SupabaseClient = createSupabaseClient()
 
 // ── Storage helpers ──────────────────────────────────────────────
 

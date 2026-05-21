@@ -831,3 +831,25 @@ Stage Summary:
 - Proper pagination with real data counts
 - Zero new lint errors, all changes minimal and targeted
 
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix Application Error + Popup Ads Realtime + Hero/Footer Ads Timing
+
+Work Log:
+- Fixed Supabase client.ts crash when NEXT_PUBLIC_SUPABASE_URL/ANON_KEY env vars are missing (was using `!` non-null assertion causing crash)
+- Added `isSupabaseConfigured` export and safe client creation with placeholder fallback
+- Fixed HeroAdsSlider autoplay delay from 30 minutes (1,800,000ms) to 6 seconds (6,000ms)
+- Created new PopupAdOverlay component with full realtime support via useAdsManager hook
+- PopupAdOverlay features: initial delay (5s), cooldown (30s), scheduling check, impression/click tracking, dismiss, CTA navigation
+- Added PopupAdOverlay to main page.tsx render tree
+- Fixed ads API PUT endpoint to properly handle `incrementImpressions` and `incrementClicks` operations using Prisma increment
+- Cleaned up eslint warnings in ads/route.ts
+- Verified dev server compiles and renders without errors (lint passes clean)
+
+Stage Summary:
+- Application Error root cause: Supabase client.ts crashing on import with empty env vars - FIXED
+- Hero Ads timing: 30min → 6sec autoplay - FIXED
+- Popup Ads realtime: New PopupAdOverlay component with useAdsManager (uses Supabase realtime subscription) - CREATED
+- Ads API: incrementImpressions/incrementClicks now use Prisma { increment: 1 } instead of raw field update - FIXED
+- All lint checks pass with zero errors

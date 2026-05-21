@@ -13,6 +13,7 @@ import { VideoGrid } from '@/components/streaming/VideoGrid'
 import { AdminPanel } from '@/components/streaming/AdminPanel'
 import { Flame, Sparkles, Clock, Search, Film, History, Upload, Plus } from 'lucide-react'
 import { AgeVerificationPopup } from '@/components/streaming/AgeVerificationPopup'
+import { PopupAdOverlay } from '@/components/streaming/PopupAdOverlay'
 import { XtubeLogo } from '@/components/shared/XtubeLogo'
 import { AdminLoginModal } from '@/components/shared/AdminLoginModal'
 import { useDebounce } from '@/lib/performance/hooks'
@@ -741,6 +742,9 @@ export default function XtubeHome() {
 
       {/* Age Verification Popup */}
       <AgeVerificationPopup />
+
+      {/* Popup Ads Overlay (realtime) */}
+      <PopupAdOverlay initialDelay={5000} cooldownPeriod={30000} />
 
       {/* Admin Login Modal (triggered by 7th logo click on desktop) */}
       <AdminLoginModal />
