@@ -674,42 +674,24 @@ export function HeroAdsPage() {
                       )}
                     </div>
 
-                    {/* Thumbnails */}
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-medium text-white/60">Thumbnails <span className="text-[#ff1e1e]">(10 auto-generated)</span></p>
-                        <div className="flex items-center gap-2">
-                          <button className="text-[10px] text-[#ff1e1e] hover:text-[#ff3e3e]">Upload Manually</button>
-                        </div>
+                    {/* Uploaded Image Preview */}
+                    {uploadedFileUrl && (
+                      <div className="relative aspect-video overflow-hidden rounded-lg border border-white/10">
+                        {adType === 'video' ? (
+                          <video
+                            src={uploadedFileUrl}
+                            className="h-full w-full object-cover"
+                            muted
+                          />
+                        ) : (
+                          <img
+                            src={uploadedFileUrl}
+                            alt="Uploaded preview"
+                            className="h-full w-full object-cover"
+                          />
+                        )}
                       </div>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {thumbnailGradients.map((gradient, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setSelectedThumbnail(i)}
-                            className={`relative aspect-video overflow-hidden rounded border-2 transition-all ${
-                              selectedThumbnail === i
-                                ? 'border-[#ff1e1e] shadow-[0_0_8px_rgba(255,30,30,0.3)]'
-                                : 'border-transparent hover:border-white/20'
-                            }`}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              {adType === 'video' ? (
-                                <VideoIcon className="h-2.5 w-2.5 text-white/15" />
-                              ) : (
-                                <ImageIcon className="h-2.5 w-2.5 text-white/15" />
-                              )}
-                            </div>
-                            {selectedThumbnail === i && (
-                              <div className="absolute top-0.5 right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#ff1e1e]">
-                                <CheckCircle2 className="h-2 w-2 text-white" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -892,44 +874,69 @@ export function HeroAdsPage() {
                     {/* Content with hero ad placement */}
                     <div className="relative">
                       {/* HERO SECTION AD PREVIEW */}
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="relative overflow-hidden"
-                        style={{ aspectRatio: '1920/600' }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#16213e] to-[#0f3460]" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#ff1e1e]/10 to-transparent" />
-                        <div className="absolute inset-0 flex items-center justify-center p-3 lg:p-4">
-                          <div className="text-center">
-                            <div className="text-[8px] font-bold tracking-[0.2em] text-white/30 uppercase">
-                              {adCategory || 'Premium Collection'}
-                            </div>
-                            <p className="mt-1 text-lg font-bold text-white">
-                              {adTitle || 'HERO AD PREVIEW'}
-                            </p>
-                            <p className="text-[9px] text-white/40 mt-0.5">
-                              {adDescription || 'Your cinematic hero ad will appear here'}
-                            </p>
-                            {adType === 'video' && (
-                              <div className="mt-2 flex items-center justify-center gap-1">
-                                <Play className="h-3 w-3 text-white/50" />
-                                <span className="text-[8px] text-white/50">Video Ad</span>
-                              </div>
-                            )}
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              className="mt-2 rounded bg-[#ff1e1e] px-4 py-1 text-[9px] font-bold text-white shadow-[0_0_10px_rgba(255,30,30,0.4)]"
-                            >
-                              LEARN MORE
-                            </motion.button>
+                      {uploadedFileUrl || editingAd?.mediaUrl ? (
+                        <div className="relative overflow-hidden" style={{ aspectRatio: '1920/600' }}>
+                          {(editingAd?.adType === 'video' || adType === 'video') ? (
+                            <video
+                              src={uploadedFileUrl || editingAd?.mediaUrl}
+                              className="h-full w-full object-cover"
+                              autoPlay
+                              muted
+                              loop
+                              poster={editingAd?.thumbnailUrl || undefined}
+                            />
+                          ) : (
+                            <img
+                              src={uploadedFileUrl || editingAd?.mediaUrl}
+                              alt="Ad preview"
+                              className="h-full w-full object-cover"
+                            />
+                          )}
+                          {/* AD badge overlay */}
+                          <div className="absolute top-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[9px] font-bold text-white">
+                            AD
                           </div>
                         </div>
-                        <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">
-                          Ad • Hero Section
-                        </div>
-                      </motion.div>
+                      ) : (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="relative overflow-hidden"
+                          style={{ aspectRatio: '1920/600' }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#16213e] to-[#0f3460]" />
+                          <div className="absolute inset-0 bg-gradient-to-r from-[#ff1e1e]/10 to-transparent" />
+                          <div className="absolute inset-0 flex items-center justify-center p-3 lg:p-4">
+                            <div className="text-center">
+                              <div className="text-[8px] font-bold tracking-[0.2em] text-white/30 uppercase">
+                                {adCategory || 'Premium Collection'}
+                              </div>
+                              <p className="mt-1 text-lg font-bold text-white">
+                                {adTitle || 'HERO AD PREVIEW'}
+                              </p>
+                              <p className="text-[9px] text-white/40 mt-0.5">
+                                {adDescription || 'Your cinematic hero ad will appear here'}
+                              </p>
+                              {adType === 'video' && (
+                                <div className="mt-2 flex items-center justify-center gap-1">
+                                  <Play className="h-3 w-3 text-white/50" />
+                                  <span className="text-[8px] text-white/50">Video Ad</span>
+                                </div>
+                              )}
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="mt-2 rounded bg-[#ff1e1e] px-4 py-1 text-[9px] font-bold text-white shadow-[0_0_10px_rgba(255,30,30,0.4)]"
+                              >
+                                LEARN MORE
+                              </motion.button>
+                            </div>
+                          </div>
+                          <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">
+                            Ad • Hero Section
+                          </div>
+                        </motion.div>
+                      )}
 
                       {/* Fake content below hero */}
                       <div className="p-3 space-y-2">

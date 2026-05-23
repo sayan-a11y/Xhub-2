@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play,
@@ -19,16 +19,13 @@ import {
   DollarSign,
   MousePointer,
   Clock,
-  AlertCircle,
   Image as ImageIcon,
   BarChart3,
-  Pencil,
   Search,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   Radio,
-  Copy,
 } from 'lucide-react'
 import {
   Select,
@@ -45,134 +42,28 @@ import {
   Tooltip,
 } from 'recharts'
 import { useAdsManager } from '@/hooks/useAdsManager'
+import { useAdUpload } from '@/hooks/useAdUpload'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
 type AdTab = 'video' | 'image'
-
-interface MidRollAd {
-  id: string
-  name: string
-  type: 'Video' | 'Image'
-  placement: string
-  duration: string
-  impressions: string
-  ctr: string
-  revenue: string
-  status: 'Active' | 'Paused' | 'Draft'
-  date: string
-  gradient: string
-}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const STAT_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#EC4899', '#F59E0B']
 const DONUT_COLORS = ['#3B82F6', '#10B981']
 
-const thumbnailGradients = [
-  'from-blue-900/60 via-indigo-800/40 to-violet-900/30',
-  'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  'from-amber-900/60 via-orange-800/40 to-yellow-900/30',
-  'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  'from-lime-900/60 via-green-800/40 to-emerald-900/30',
-  'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  'from-indigo-900/60 via-blue-800/40 to-sky-900/30',
-  'from-pink-900/60 via-rose-800/40 to-fuchsia-900/30',
-]
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const thumbnailTimecodes = [
-  '00:02', '00:04', '00:06', '00:08', '00:10',
-  '00:02', '00:04', '00:06', '00:08', '00:10',
-]
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return n.toString()
+}
 
-const mockAds: MidRollAd[] = [
-  {
-    id: '1',
-    name: 'Nike Sneakers Mid-Roll Ad',
-    type: 'Video',
-    placement: 'Mid-Roll (During Video)',
-    duration: '00:15',
-    impressions: '785.4K',
-    ctr: '7.12%',
-    revenue: '$3,245.20',
-    status: 'Active',
-    date: 'May 10, 2025',
-    gradient: 'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  },
-  {
-    id: '2',
-    name: 'Samsung Galaxy Mid-Roll',
-    type: 'Video',
-    placement: 'Mid-Roll (During Video)',
-    duration: '00:20',
-    impressions: '642.7K',
-    ctr: '6.38%',
-    revenue: '$2,950.30',
-    status: 'Active',
-    date: 'May 09, 2025',
-    gradient: 'from-blue-900/60 via-indigo-800/40 to-violet-900/30',
-  },
-  {
-    id: '3',
-    name: 'BMW Car Mid-Roll Ad',
-    type: 'Video',
-    placement: 'Mid-Roll (During Video)',
-    duration: '00:15',
-    impressions: '521.6K',
-    ctr: '6.91%',
-    revenue: '$2,150.10',
-    status: 'Active',
-    date: 'May 08, 2025',
-    gradient: 'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  },
-  {
-    id: '4',
-    name: 'Summer Collection Banner',
-    type: 'Image',
-    placement: 'Mid-Roll (During Video)',
-    duration: '—',
-    impressions: '398.2K',
-    ctr: '4.82%',
-    revenue: '$1,650.15',
-    status: 'Active',
-    date: 'May 07, 2025',
-    gradient: 'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  },
-  {
-    id: '5',
-    name: 'Adidas Running Mid-Roll',
-    type: 'Video',
-    placement: 'Mid-Roll (During Video)',
-    duration: '00:12',
-    impressions: '312.8K',
-    ctr: '5.94%',
-    revenue: '$1,284.50',
-    status: 'Paused',
-    date: 'May 06, 2025',
-    gradient: 'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  },
-  {
-    id: '6',
-    name: 'Apple Watch Mid-Roll Ad',
-    type: 'Video',
-    placement: 'Mid-Roll (During Video)',
-    duration: '00:10',
-    impressions: '245.1K',
-    ctr: '7.45%',
-    revenue: '$1,565.50',
-    status: 'Active',
-    date: 'May 05, 2025',
-    gradient: 'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  },
-]
-
-const donutData = [
-  { name: 'Video Ads', value: 2200000 },
-  { name: 'Image Ads', value: 1040000 },
-]
+function formatCurrency(n: number): string {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 // ─── Mini Sparkline SVG ──────────────────────────────────────────────────────
 
@@ -244,89 +135,57 @@ function StatCard({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function MidRollAdsPage() {
-  const { deleteAd, toggleAd } = useAdsManager({ position: 'mid-roll' })
+  const { ads, loading, createAd, deleteAd, toggleAd } = useAdsManager({ position: 'mid-roll' })
+  const { uploadStage, uploadProgress, uploadedFile, isDragOver, fileInputRef, uploadError, resetUpload, handleDragOver, handleDragLeave, handleDrop, handleFileSelect } = useAdUpload('ads')
 
-  // Upload state
-  const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadSpeed, setUploadSpeed] = useState('0 MB/s')
-  const [uploadRemaining, setUploadRemaining] = useState('')
-  const [uploadedSize, setUploadedSize] = useState('0 GB')
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [selectedQuality, setSelectedQuality] = useState('auto')
-  const [selectedThumbnail, setSelectedThumbnail] = useState(0)
+  // Form state
   const [adTab, setAdTab] = useState<AdTab>('video')
   const [isPlaying, setIsPlaying] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [adTitle, setAdTitle] = useState('')
 
   // Table state
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // ─── Computed Stats ──────────────────────────────────────────────────
 
-  // ─── Simulated Upload ──────────────────────────────────────────────────
+  const totalAds = ads.length
+  const activeAds = ads.filter(a => a.isActive).length
+  const totalImpressions = ads.reduce((s, a) => s + a.impressions, 0)
+  const avgCTR = ads.length > 0 ? ads.reduce((s, a) => s + (a.impressions > 0 ? (a.clicks / a.impressions) * 100 : 0), 0) / ads.length : 0
+  const totalRevenue = ads.reduce((s, a) => s + a.revenue, 0)
 
-  const simulateUpload = useCallback((fileName: string) => {
-    setUploadStage('uploading')
-    setUploadProgress(0)
-    setUploadedSize('0 GB')
+  const donutData = [
+    { name: 'Video Ads', value: ads.filter(a => a.mediaFormat?.startsWith('video/')).reduce((s, a) => s + a.impressions, 0) },
+    { name: 'Image Ads', value: ads.filter(a => !a.mediaFormat?.startsWith('video/')).reduce((s, a) => s + a.impressions, 0) },
+  ]
 
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+  // ─── Save Handler ────────────────────────────────────────────────────
 
-    let progress = 0
-    const totalSize = 5.0
-
-    progressIntervalRef.current = setInterval(() => {
-      const increment = Math.random() * 4 + 1
-      progress = Math.min(progress + increment, 100)
-      setUploadProgress(progress)
-
-      const uploaded = (progress / 100) * totalSize
-      setUploadedSize(`${uploaded.toFixed(2)} GB`)
-      setUploadSpeed(`${(Math.random() * 2 + 2).toFixed(1)} MB/s`)
-
-      const remaining = ((100 - progress) / increment) * 0.15
-      setUploadRemaining(remaining > 60 ? `${Math.ceil(remaining / 60)} mins left` : `${Math.ceil(remaining)} secs left`)
-
-      if (progress >= 100) {
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-        setUploadStage('processing')
-        setTimeout(() => setUploadStage('success'), 1500)
-      }
-    }, 150)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-    }
-  }, [])
-
-  // ─── Drag & Drop ───────────────────────────────────────────────────────
-
-  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true) }, [])
-  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false) }, [])
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    const files = e.dataTransfer.files
-    if (files.length > 0) simulateUpload(files[0].name)
-  }, [simulateUpload])
-
-  const handleResetUpload = useCallback(() => {
-    setUploadStage('idle')
-    setUploadProgress(0)
-    setSelectedThumbnail(0)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }, [])
+  const handleSave = useCallback(async () => {
+    if (!uploadedFile?.url || !adTitle.trim()) return
+    setSaving(true)
+    await createAd({
+      title: adTitle,
+      type: uploadedFile.mimeType.startsWith('video/') ? 'video' : 'image',
+      position: 'mid-roll',
+      imageUrl: uploadedFile.mimeType.startsWith('image/') ? uploadedFile.url : '',
+      mediaUrl: uploadedFile.url,
+      mediaFormat: uploadedFile.mimeType,
+      isActive: true,
+    })
+    setSaving(false)
+    resetUpload()
+    setAdTitle('')
+  }, [uploadedFile, adTitle, createAd, resetUpload])
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
-  const filteredAds = mockAds.filter((ad) => {
-    if (statusFilter !== 'all' && ad.status.toLowerCase() !== statusFilter) return false
-    if (searchQuery && !ad.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+  const filteredAds = ads.filter((ad) => {
+    if (statusFilter !== 'all' && (ad.isActive ? 'active' : 'paused') !== statusFilter) return false
+    if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
 
@@ -385,11 +244,11 @@ export function MidRollAdsPage() {
             TOP ANALYTICS CARDS (5 cards)
             ═══════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <StatCard title="Total Mid-Roll Ads" value="36" change="+15.3%" icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
-          <StatCard title="Active Ads" value="28" change="+12.6%" icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
-          <StatCard title="Impressions" value="3.24M" change="+18.7%" icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
-          <StatCard title="CTR" value="7.12%" change="+9.4%" icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
-          <StatCard title="Revenue" value="$12,845.75" change="+16.9%" icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
+          <StatCard title="Total Mid-Roll Ads" value={String(totalAds)} change="+15.3%" icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
+          <StatCard title="Active Ads" value={String(activeAds)} change="+12.6%" icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
+          <StatCard title="Impressions" value={formatNumber(totalImpressions)} change="+18.7%" icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
+          <StatCard title="CTR" value={avgCTR.toFixed(2) + '%'} change="+9.4%" icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
+          <StatCard title="Revenue" value={formatCurrency(totalRevenue)} change="+16.9%" icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════
@@ -446,7 +305,7 @@ export function MidRollAdsPage() {
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className={`relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[20px] border-2 border-dashed transition-all duration-200 ${
+                    className={`relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-all duration-200 ${
                       isDragOver
                         ? 'border-[#FF0000] bg-[#FF0000]/5 shadow-[0_0_20px_rgba(255,0,0,0.15)]'
                         : 'border-[#1A1A1A] bg-[#050505]/60 hover:border-white/20'
@@ -455,9 +314,9 @@ export function MidRollAdsPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="video/mp4,video/mov,video/webm,video/x-mpegURL,application/x-mpegURL,image/*"
+                      accept="video/mp4,video/mov,video/webm,image/*"
                       className="hidden"
-                      onChange={(e) => { if (e.target.files?.length) simulateUpload(e.target.files[0].name) }}
+                      onChange={handleFileSelect}
                     />
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF0000]/10">
                       <CloudUpload className="h-6 w-6 text-[#FF0000]" />
@@ -478,15 +337,14 @@ export function MidRollAdsPage() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="rounded-[20px] border border-[#1A1A1A] bg-[#050505]/60 p-3 lg:p-4"
+                    className="rounded-xl border border-[#1A1A1A] bg-[#050505]/60 p-3 lg:p-4"
                   >
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-medium text-white truncate mr-2">
-                        {uploadStage === 'processing' ? 'Processing...' : 'Midroll_Sneakers_Ad.mp4'}
+                        {uploadStage === 'processing' ? 'Processing...' : 'Uploading...'}
                       </span>
                       <span className="text-xs font-bold text-[#FF0000]">{Math.round(uploadProgress)}%</span>
                     </div>
-                    {/* Progress bar */}
                     <div className="relative mb-3 h-1.5 overflow-hidden rounded-full bg-white/10">
                       <motion.div
                         initial={{ width: 0 }}
@@ -494,40 +352,14 @@ export function MidRollAdsPage() {
                         transition={{ duration: 0.3 }}
                         className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#FF0000] to-red-500"
                       />
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${uploadProgress}%` }}
-                        transition={{ duration: 0.3 }}
-                        className="absolute left-0 top-0 h-full rounded-full bg-[#FF0000] blur-sm opacity-40"
-                      />
                     </div>
-                    {uploadStage === 'uploading' ? (
-                      <>
-                        <div className="grid grid-cols-3 gap-3 text-center mb-3">
-                          <div>
-                            <p className="text-[10px] text-white/25">Uploaded</p>
-                            <p className="text-xs font-semibold text-white">{uploadedSize} / 5.00 GB</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-white/25">Speed</p>
-                            <p className="text-xs font-semibold text-white">{uploadSpeed}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-white/25">Time Left</p>
-                            <p className="text-xs font-semibold text-white">{uploadRemaining}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button className="flex-1 rounded-lg border border-[#1A1A1A] bg-white/5 py-1.5 text-[10px] font-medium text-white/50 hover:bg-white/10 hover:text-white transition-colors">Pause</button>
-                          <button onClick={handleResetUpload} className="flex-1 rounded-lg border border-[#1A1A1A] bg-[#FF0000]/5 py-1.5 text-[10px] font-medium text-[#FF0000] hover:bg-[#FF0000]/15 transition-colors">Cancel</button>
-                        </div>
-                      </>
-                    ) : (
+                    {uploadStage === 'processing' ? (
                       <div className="flex items-center gap-2 text-xs text-[#F59E0B]">
                         <div className="h-3 w-3 animate-spin rounded-full border-2 border-[#F59E0B] border-t-transparent" />
-                        <span>Generating thumbnails and detecting quality...</span>
+                        <span>Processing...</span>
                       </div>
-                    )}
+                    ) : null}
+                    <button onClick={resetUpload} className="mt-3 text-xs text-[#FF0000] hover:text-red-400">Cancel</button>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -538,84 +370,52 @@ export function MidRollAdsPage() {
                     className="space-y-4"
                   >
                     {/* File success card */}
-                    <div className="flex items-center gap-3 rounded-[20px] border border-[#00FF85]/20 bg-[#00FF85]/5 p-3">
+                    <div className="flex items-center gap-3 rounded-xl border border-[#00FF85]/20 bg-[#00FF85]/5 p-3">
                       <CheckCircle2 className="h-5 w-5 text-[#00FF85]" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-white">Midroll_Sneakers_Ad.mp4</p>
-                        <p className="text-[10px] text-white/30">5.00 GB • 1920×1080 • MP4</p>
+                        <p className="truncate text-xs font-medium text-white">{uploadedFile?.fileName}</p>
+                        <p className="text-[10px] text-white/30">{(uploadedFile ? (uploadedFile.size / (1024 * 1024)).toFixed(2) : '0')} MB • {uploadedFile?.mimeType}</p>
                       </div>
-                      <button onClick={handleResetUpload} className="text-xs text-[#FF0000] hover:text-red-400">Change</button>
+                      <button onClick={resetUpload} className="text-xs text-[#FF0000] hover:text-red-400">Change</button>
                     </div>
 
-                    {/* Quality options */}
-                    <div>
-                      <p className="mb-2 text-xs font-medium text-white/60">Upload Quality</p>
-                      <div className="flex gap-2">
-                        {[
-                          { value: 'auto', label: 'Auto', desc: 'Recommended' },
-                          { value: '1080p', label: '1080p', desc: '' },
-                          { value: '2k', label: '2K', desc: '' },
-                          { value: '4k', label: '4K', desc: '' },
-                        ].map((q) => (
-                          <button
-                            key={q.value}
-                            onClick={() => setSelectedQuality(q.value)}
-                            className={`flex-1 rounded-lg border px-2 py-1.5 text-center text-xs transition-all ${
-                              selectedQuality === q.value
-                                ? 'border-[#FF0000]/40 bg-[#FF0000]/10 text-white'
-                                : 'border-[#1A1A1A] bg-white/[0.02] text-white/40 hover:border-white/20'
-                            }`}
-                          >
-                            <span className="font-semibold">{q.label}</span>
-                            {q.desc && <span className="ml-0.5 text-[9px] text-[#FF0000]">{q.desc}</span>}
-                          </button>
-                        ))}
+                    {/* Thumbnail preview */}
+                    {uploadedFile?.url && (
+                      <div className="relative aspect-video overflow-hidden rounded-xl border border-[#1A1A1A]">
+                        {uploadedFile.mimeType.startsWith('video/') ? (
+                          <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                        ) : (
+                          <img src={uploadedFile.url} alt="Preview" className="h-full w-full object-cover" />
+                        )}
                       </div>
-                      {selectedQuality === 'auto' && (
-                        <p className="mt-1.5 text-[10px] text-white/25">Auto quality will deliver best experience across all devices.</p>
-                      )}
+                    )}
+
+                    {/* Ad Title input */}
+                    <div>
+                      <p className="mb-1.5 text-xs font-medium text-white/60">Ad Title</p>
+                      <input
+                        type="text"
+                        value={adTitle}
+                        onChange={(e) => setAdTitle(e.target.value)}
+                        placeholder="Enter ad title..."
+                        className="h-8 w-full rounded-lg border border-[#1A1A1A] bg-[#050505] px-3 text-xs text-white placeholder:text-white/25 outline-none focus:border-[#FF0000]/40"
+                      />
                     </div>
 
-                    {/* Thumbnails */}
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-medium text-white/60">Thumbnail <span className="text-[#FF0000]">(10 auto-generated)</span></p>
-                        <button className="text-[10px] text-[#FF0000] hover:text-red-400">Upload Manually</button>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {thumbnailGradients.map((gradient, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setSelectedThumbnail(i)}
-                            className={`relative aspect-video overflow-hidden rounded border-2 transition-all ${
-                              selectedThumbnail === i
-                                ? 'border-[#FF0000] shadow-[0_0_8px_rgba(255,0,0,0.3)]'
-                                : 'border-transparent hover:border-white/20'
-                            }`}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <Film className="h-2.5 w-2.5 text-white/15" />
-                            </div>
-                            <div className="absolute bottom-0 right-0.5 rounded bg-black/70 px-0.5 text-[6px] font-semibold text-white">
-                              {thumbnailTimecodes[i]}
-                            </div>
-                            {selectedThumbnail === i && (
-                              <div className="absolute top-0.5 right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#FF0000]">
-                                <CheckCircle2 className="h-2 w-2 text-white" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-2 flex items-start gap-1.5">
-                        <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0 text-white/20" />
-                        <p className="text-[10px] text-white/25">Thumbnails are auto-generated from your video. You can select or upload manually.</p>
-                      </div>
-                    </div>
+                    {/* Save button */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleSave}
+                      disabled={saving || !adTitle.trim()}
+                      className="w-full rounded-lg bg-[#FF0000] py-2 text-sm font-semibold text-white transition-all hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {saving ? 'Saving...' : 'Save Mid-Roll Ad'}
+                    </motion.button>
                   </motion.div>
                 )}
               </AnimatePresence>
+              {uploadError && <p className="mt-2 text-xs text-red-400">{uploadError}</p>}
             </div>
           </motion.div>
 
@@ -626,73 +426,76 @@ export function MidRollAdsPage() {
             transition={{ delay: 0.3, duration: 0.4 }}
             className="space-y-4"
           >
-            <div className="overflow-hidden rounded-[20px] border border-[#1A1A1A] bg-[#0B0B0F]">
+            <div className="overflow-hidden rounded-xl border border-[#1A1A1A] bg-[#0B0B0F]">
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-base font-bold text-white">Ad Preview</h2>
-                  <span className="text-xs text-white/30">Ad 1 of 1 &bull; 00:15</span>
+                  <span className="text-xs text-white/30">{uploadedFile ? uploadedFile.fileName : 'No file uploaded'}</span>
                 </div>
 
                 {/* Player */}
                 <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
-                  {/* Nike-style ad scene */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
-                  {/* Ad content overlay */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
-                    <div className="mb-1 text-xs font-bold tracking-wider text-white/40">NIKE</div>
-                    <p className="text-lg font-bold text-white md:text-xl">UNSTOPPABLE COMFORT</p>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="mt-1 rounded-md bg-[#FF0000] px-4 py-1.5 text-xs font-bold text-white shadow-[0_0_10px_rgba(255,0,0,0.3)]"
-                    >
-                      SHOP NOW
-                    </motion.button>
-                  </div>
-
-                  {/* Countdown */}
-                  <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-[#FF0000]/20 px-2 py-1 border border-[#FF0000]/30">
-                    <span className="text-[9px] font-bold text-white">Ad</span>
-                    <span className="text-[9px] text-white/60">00:05</span>
-                  </div>
-
-                  {/* Bottom controls */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-6">
-                    <div className="group/progress relative mb-1.5 h-1 cursor-pointer rounded-full bg-white/20">
-                      <div className="absolute left-0 top-0 h-full w-[33%] rounded-full bg-[#FF0000]" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setIsPlaying(!isPlaying)} className="text-white/70 hover:text-white">
-                          {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                        </button>
-                        <button className="text-white/70 hover:text-white"><Volume2 className="h-3.5 w-3.5" /></button>
-                        <span className="text-[10px] text-white/50">00:05/00:15</span>
+                  {uploadedFile?.url ? (
+                    uploadedFile.mimeType.startsWith('video/') ? (
+                      <video src={uploadedFile.url} className="h-full w-full object-cover" muted controls />
+                    ) : (
+                      <img src={uploadedFile.url} alt="Ad Preview" className="h-full w-full object-cover" />
+                    )
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
+                        <Film className="h-10 w-10 text-white/20" />
+                        <p className="text-sm text-white/40">Upload a file to preview</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button className="text-white/70 hover:text-white"><Settings className="h-3.5 w-3.5" /></button>
-                        <button className="text-white/70 hover:text-white"><Maximize className="h-3.5 w-3.5" /></button>
+                    </>
+                  )}
+
+                  {/* Bottom controls overlay for videos */}
+                  {uploadedFile?.mimeType?.startsWith('video/') && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-6">
+                      <div className="relative mb-1.5 h-1 cursor-pointer rounded-full bg-white/20">
+                        <div className="absolute left-0 top-0 h-full w-[40%] rounded-full bg-[#FF0000]" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setIsPlaying(!isPlaying)} className="text-white/70 hover:text-white">
+                            {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                          </button>
+                          <button className="text-white/70 hover:text-white"><Volume2 className="h-3.5 w-3.5" /></button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button className="text-white/70 hover:text-white"><Settings className="h-3.5 w-3.5" /></button>
+                          <button className="text-white/70 hover:text-white"><Maximize className="h-3.5 w-3.5" /></button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Learn More link */}
-                  <div className="absolute top-2 right-2">
-                    <button className="flex items-center gap-1 rounded-md bg-black/40 px-2 py-0.5 text-[9px] text-white/60 hover:text-white">
-                      Learn More <ExternalLink className="h-2.5 w-2.5" />
-                    </button>
-                  </div>
+                  {!uploadedFile?.mimeType?.startsWith('video/') && (
+                    <div className="absolute top-2 right-2">
+                      <button className="flex items-center gap-1 rounded-md bg-black/40 px-2 py-0.5 text-[9px] text-white/60 hover:text-white">
+                        Learn More <ExternalLink className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Ad Details */}
                 <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
-                  {[
+                  {uploadedFile ? [
                     { label: 'Placement', value: 'Mid-Roll (During Video)' },
-                    { label: 'Duration', value: '00:15 sec' },
-                    { label: 'File Name', value: 'Midroll_Sneakers_Ad.mp4' },
-                    { label: 'Resolution', value: '1920 × 1080' },
-                    { label: 'File Size', value: '5.00 GB' },
-                    { label: 'Format', value: 'MP4' },
+                    { label: 'File Name', value: uploadedFile.fileName },
+                    { label: 'File Size', value: `${(uploadedFile.size / (1024 * 1024)).toFixed(2)} MB` },
+                    { label: 'Format', value: uploadedFile.mimeType },
+                  ].map((detail) => (
+                    <div key={detail.label} className="flex items-center justify-between rounded-lg bg-[#050505]/50 px-3 py-1.5 border border-[#1A1A1A]/50">
+                      <span className="text-[10px] text-white/30">{detail.label}</span>
+                      <span className="text-[10px] font-medium text-white/70 truncate ml-2">{detail.value}</span>
+                    </div>
+                  )) : [
+                    { label: 'Placement', value: 'Mid-Roll (During Video)' },
+                    { label: 'Status', value: 'No file uploaded' },
                   ].map((detail) => (
                     <div key={detail.label} className="flex items-center justify-between rounded-lg bg-[#050505]/50 px-3 py-1.5 border border-[#1A1A1A]/50">
                       <span className="text-[10px] text-white/30">{detail.label}</span>
@@ -757,7 +560,7 @@ export function MidRollAdsPage() {
                         ))}
                       </Pie>
                       <text x="50%" y="44%" textAnchor="middle" dominantBaseline="middle" className="fill-white text-sm font-bold">
-                        3.24M
+                        {formatNumber(totalImpressions)}
                       </text>
                       <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" className="fill-white/30 text-[8px]">
                         Impressions
@@ -790,7 +593,7 @@ export function MidRollAdsPage() {
                           <span className="h-2 w-2 rounded-full" style={{ background: DONUT_COLORS[i] }} />
                           <span className="text-white/50">{item.name}</span>
                         </div>
-                        <span className="font-medium text-white/70">{pct}% • {(item.value / 1000000).toFixed(2)}M</span>
+                        <span className="font-medium text-white/70">{pct}% • {formatNumber(item.value)}</span>
                       </div>
                     )
                   })}
@@ -843,91 +646,97 @@ export function MidRollAdsPage() {
               <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b border-[#1A1A1A]">
-                    {['Preview', 'Ad Name', 'Type', 'Placement', 'Duration', 'Impressions', 'CTR', 'Revenue', 'Status', 'Actions'].map((h) => (
+                    {['Preview', 'Ad Name', 'Type', 'Placement', 'Impressions', 'CTR', 'Revenue', 'Status', 'Actions'].map((h) => (
                       <th key={h} className="pb-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-white/25">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1A1A1A]">
-                  {filteredAds.map((ad, i) => (
-                    <motion.tr
-                      key={ad.id}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.45 + i * 0.04, duration: 0.3 }}
-                      className="group transition-colors hover:bg-white/[0.02]"
-                    >
-                      {/* Preview */}
-                      <td className="py-2.5 pr-3">
-                        <div className="h-9 w-16 overflow-hidden rounded-md">
-                          <div className={`h-full w-full bg-gradient-to-br ${ad.gradient} flex items-center justify-center`}>
-                            <Film className="h-3.5 w-3.5 text-white/20" />
+                  {loading ? (
+                    <tr><td colSpan={9} className="py-8 text-center text-xs text-white/30">Loading ads...</td></tr>
+                  ) : filteredAds.length === 0 ? (
+                    <tr><td colSpan={9} className="py-8 text-center text-xs text-white/30">No ads found</td></tr>
+                  ) : filteredAds.map((ad, i) => {
+                    const adStatus = ad.isActive ? 'Active' : 'Paused'
+                    const adType = ad.mediaFormat?.startsWith('video/') ? 'Video' : 'Image'
+                    const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) + '%' : '0%'
+                    return (
+                      <motion.tr
+                        key={ad.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.45 + i * 0.04, duration: 0.3 }}
+                        className="group transition-colors hover:bg-white/[0.02]"
+                      >
+                        {/* Preview */}
+                        <td className="py-2.5 pr-3">
+                          <div className="relative h-9 w-16 overflow-hidden rounded-md bg-white/5">
+                            {ad.imageUrl || ad.mediaUrl ? (
+                              <img src={ad.imageUrl || ad.mediaUrl || ''} alt={ad.title} className="h-full w-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Film className="h-3.5 w-3.5 text-white/20" />
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      </td>
-                      {/* Ad Name */}
-                      <td className="py-2.5 pr-3">
-                        <span className="text-xs font-medium text-white group-hover:text-[#FF0000] transition-colors">{ad.name}</span>
-                        <p className="text-[9px] text-white/20">{ad.date}</p>
-                      </td>
-                      {/* Type */}
-                      <td className="py-2.5 pr-3">
-                        <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[9px] font-semibold ${typeStyles[ad.type]}`}>
-                          {ad.type}
-                        </span>
-                      </td>
-                      {/* Placement */}
-                      <td className="py-2.5 pr-3">
-                        <span className="text-[10px] text-white/40">{ad.placement}</span>
-                      </td>
-                      {/* Duration */}
-                      <td className="py-2.5 pr-3">
-                        <span className="text-xs text-white/50">{ad.duration}</span>
-                      </td>
-                      {/* Impressions */}
-                      <td className="py-2.5 pr-3">
-                        <span className="text-xs font-medium text-white">{formatNumber(ad.impressions)}</span>
-                      </td>
-                      {/* CTR */}
-                      <td className="py-2.5 pr-3">
-                        <span className="text-xs font-semibold text-[#FF0000]">{ad.ctr}</span>
-                      </td>
-                      {/* Revenue */}
-                      <td className="py-2.5 pr-3">
-                        <span className="text-xs font-medium text-[#00FF85]">{typeof ad.revenue === 'number' ? formatCurrency(ad.revenue) : ad.revenue}</span>
-                      </td>
-                      {/* Status */}
-                      <td className="py-2.5 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${statusStyles[ad.status]}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            ad.status === 'Active' ? 'bg-[#00FF85]' : ad.status === 'Paused' ? 'bg-[#F59E0B]' : 'bg-white/30'
-                          }`} />
-                          {ad.status}
-                        </span>
-                      </td>
-                      {/* Actions */}
-                      <td className="py-2.5">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1 text-white/30 transition-colors hover:bg-white/10 hover:text-white" aria-label="Edit">
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <button className="rounded-md p-1 text-white/30 transition-colors hover:bg-white/10 hover:text-[#3B82F6]" aria-label="Analytics">
-                            <BarChart3 className="h-3 w-3" />
-                          </button>
-                          <button onClick={() => { if (confirm('Delete this ad?')) deleteAd(ad.id) }} className="rounded-md p-1 text-white/30 transition-colors hover:bg-[#FF0000]/10 hover:text-[#FF0000]" aria-label="Delete">
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        {/* Ad Name */}
+                        <td className="py-2.5 pr-3">
+                          <span className="text-xs font-medium text-white group-hover:text-[#FF0000] transition-colors">{ad.title}</span>
+                          <p className="text-[9px] text-white/20">{ad.createdAt ? new Date(ad.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</p>
+                        </td>
+                        {/* Type */}
+                        <td className="py-2.5 pr-3">
+                          <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[9px] font-semibold ${typeStyles[adType] || typeStyles.Image}`}>
+                            {adType}
+                          </span>
+                        </td>
+                        {/* Placement */}
+                        <td className="py-2.5 pr-3">
+                          <span className="text-[10px] text-white/40">{ad.position}</span>
+                        </td>
+                        {/* Impressions */}
+                        <td className="py-2.5 pr-3">
+                          <span className="text-xs font-medium text-white">{formatNumber(ad.impressions)}</span>
+                        </td>
+                        {/* CTR */}
+                        <td className="py-2.5 pr-3">
+                          <span className="text-xs font-semibold text-[#FF0000]">{ctr}</span>
+                        </td>
+                        {/* Revenue */}
+                        <td className="py-2.5 pr-3">
+                          <span className="text-xs font-medium text-[#00FF85]">{formatCurrency(ad.revenue)}</span>
+                        </td>
+                        {/* Status */}
+                        <td className="py-2.5 pr-3">
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${statusStyles[adStatus] || statusStyles.Paused}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${
+                              adStatus === 'Active' ? 'bg-[#00FF85]' : 'bg-[#F59E0B]'
+                            }`} />
+                            {adStatus}
+                          </span>
+                        </td>
+                        {/* Actions */}
+                        <td className="py-2.5">
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => toggleAd(ad.id)} className="rounded-md p-1 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title={ad.isActive ? 'Pause' : 'Activate'}>
+                              {ad.isActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                            </button>
+                            <button onClick={() => { if (confirm('Delete this ad?')) deleteAd(ad.id) }} className="rounded-md p-1 text-white/30 transition-colors hover:bg-[#FF0000]/10 hover:text-[#FF0000]" title="Delete">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
 
             {/* Pagination */}
             <div className="mt-4 flex items-center justify-between border-t border-[#1A1A1A] pt-3">
-              <span className="text-[10px] text-white/25">Showing 1 to {filteredAds.length} of 36 ads</span>
+              <span className="text-[10px] text-white/25">Showing 1 to {filteredAds.length} of {ads.length} ads</span>
               <div className="flex items-center gap-1">
                 <button className="flex h-6 w-6 items-center justify-center rounded-md text-white/20 hover:bg-white/5 hover:text-white/60">
                   <ChevronLeft className="h-3 w-3" />

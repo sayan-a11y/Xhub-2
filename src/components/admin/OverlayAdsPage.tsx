@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState } from 'react'
+import { useAdUpload } from '@/hooks/useAdUpload'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play,
@@ -52,44 +53,20 @@ import { useAdsManager } from '@/hooks/useAdsManager'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
 type AdTab = 'image' | 'html5' | 'text'
 type OverlayPosition = 'top-left' | 'top-center' | 'top-right' | 'middle-left' | 'center' | 'middle-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
-
-interface OverlayAd {
-  id: string
-  name: string
-  type: 'Image' | 'HTML5'
-  placement: string
-  impressions: string
-  ctr: string
-  revenue: string
-  status: 'Active' | 'Paused' | 'Draft'
-  gradient: string
-}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const STAT_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#EC4899', '#F59E0B']
 const DONUT_COLORS = ['#3B82F6', '#8B5CF6']
 
-const thumbnailGradients = [
-  'from-blue-900/60 via-indigo-800/40 to-violet-900/30',
-  'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  'from-amber-900/60 via-orange-800/40 to-yellow-900/30',
-  'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  'from-lime-900/60 via-green-800/40 to-emerald-900/30',
-  'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  'from-indigo-900/60 via-blue-800/40 to-sky-900/30',
-  'from-pink-900/60 via-rose-800/40 to-fuchsia-900/30',
+const donutData = [
+  { name: 'Image Ads', value: 0 },
+  { name: 'HTML5 Ads', value: 0 },
 ]
 
-const thumbnailTimecodes = [
-  '00:01', '00:02', '00:03', '00:04', '00:05',
-  '00:06', '00:07', '00:08', '00:09', '00:10',
-]
+
 
 const positionOptions: { id: OverlayPosition; label: string }[] = [
   { id: 'top-left', label: 'TL' },
@@ -115,79 +92,7 @@ const positionLabels: Record<OverlayPosition, string> = {
   'bottom-right': 'Bottom Right',
 }
 
-const mockAds: OverlayAd[] = [
-  {
-    id: '1',
-    name: 'Nike Air Max Overlay Ad',
-    type: 'Image',
-    placement: 'Overlay (Bottom Center)',
-    impressions: '1.24M',
-    ctr: '5.82%',
-    revenue: '$3,845.20',
-    status: 'Active',
-    gradient: 'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  },
-  {
-    id: '2',
-    name: 'Samsung Galaxy Overlay',
-    type: 'HTML5',
-    placement: 'Overlay (Bottom Right)',
-    impressions: '986.5K',
-    ctr: '4.92%',
-    revenue: '$2,950.30',
-    status: 'Active',
-    gradient: 'from-blue-900/60 via-indigo-800/40 to-violet-900/30',
-  },
-  {
-    id: '3',
-    name: 'BMW Car Overlay Ad',
-    type: 'Image',
-    placement: 'Overlay (Top Right)',
-    impressions: '845.2K',
-    ctr: '5.14%',
-    revenue: '$2,650.10',
-    status: 'Active',
-    gradient: 'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  },
-  {
-    id: '4',
-    name: 'Summer Sale Overlay',
-    type: 'Image',
-    placement: 'Overlay (Center)',
-    impressions: '1.12M',
-    ctr: '6.24%',
-    revenue: '$3,800.00',
-    status: 'Active',
-    gradient: 'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  },
-  {
-    id: '5',
-    name: 'Adidas Sport Overlay',
-    type: 'HTML5',
-    placement: 'Overlay (Bottom Left)',
-    impressions: '424.8K',
-    ctr: '4.36%',
-    revenue: '$1,424.50',
-    status: 'Paused',
-    gradient: 'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  },
-  {
-    id: '6',
-    name: 'Apple iPhone Overlay Ad',
-    type: 'Image',
-    placement: 'Overlay (Top Left)',
-    impressions: '299.5K',
-    ctr: '5.68%',
-    revenue: '$1,575.50',
-    status: 'Draft',
-    gradient: 'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  },
-]
 
-const donutData = [
-  { name: 'Image Ads', value: 3440000 },
-  { name: 'HTML5 Ads', value: 1480000 },
-]
 
 // ─── Mini Sparkline SVG ──────────────────────────────────────────────────────
 
@@ -300,16 +205,12 @@ function PositionSelector({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function OverlayAdsPage() {
-  const { deleteAd, toggleAd } = useAdsManager({ type: 'overlay' })
+  const { ads, loading, createAd, deleteAd, toggleAd } = useAdsManager({ type: 'overlay' })
 
-  // Upload state
-  const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadSpeed, setUploadSpeed] = useState('0 MB/s')
-  const [uploadRemaining, setUploadRemaining] = useState('')
-  const [uploadedSize, setUploadedSize] = useState('0 MB')
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [selectedThumbnail, setSelectedThumbnail] = useState(0)
+  // Upload hook
+  const { uploadStage, uploadProgress, uploadedFile, isDragOver, fileInputRef, uploadError, resetUpload, handleDragOver, handleDragLeave, handleDrop, handleFileSelect } = useAdUpload('ads')
+
+  // UI state
   const [adTab, setAdTab] = useState<AdTab>('image')
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -326,70 +227,25 @@ export function OverlayAdsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // ─── Computed Stats ────────────────────────────────────────────────────
 
-  // ─── Simulated Upload ──────────────────────────────────────────────────
-
-  const simulateUpload = useCallback((fileName: string) => {
-    setUploadStage('uploading')
-    setUploadProgress(0)
-    setUploadedSize('0 MB')
-
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-
-    let progress = 0
-    const totalSize = 5.0 // MB for overlay
-
-    progressIntervalRef.current = setInterval(() => {
-      const increment = Math.random() * 6 + 2
-      progress = Math.min(progress + increment, 100)
-      setUploadProgress(progress)
-
-      const uploaded = (progress / 100) * totalSize
-      setUploadedSize(`${uploaded.toFixed(2)} MB`)
-      setUploadSpeed(`${(Math.random() * 1.5 + 1).toFixed(1)} MB/s`)
-
-      const remaining = ((100 - progress) / increment) * 0.08
-      setUploadRemaining(remaining > 60 ? `${Math.ceil(remaining / 60)} mins left` : `${Math.ceil(remaining)} sec left`)
-
-      if (progress >= 100) {
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-        setUploadStage('processing')
-        setTimeout(() => setUploadStage('success'), 1200)
-      }
-    }, 120)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-    }
-  }, [])
-
-  // ─── Drag & Drop ───────────────────────────────────────────────────────
-
-  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true) }, [])
-  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false) }, [])
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    const files = e.dataTransfer.files
-    if (files.length > 0) simulateUpload(files[0].name)
-  }, [simulateUpload])
-
-  const handleResetUpload = useCallback(() => {
-    setUploadStage('idle')
-    setUploadProgress(0)
-    setSelectedThumbnail(0)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }, [])
+  const totalAds = ads.length
+  const activeAds = ads.filter(a => a.isActive).length
+  const totalImpressions = ads.reduce((s, a) => s + a.impressions, 0)
+  const totalClicks = ads.reduce((s, a) => s + a.clicks, 0)
+  const totalRevenue = ads.reduce((s, a) => s + a.revenue, 0)
+  const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00'
+  const formatImpressions = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(2)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n)
+  const formatRevenue = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
-  const filteredAds = mockAds.filter((ad) => {
-    if (statusFilter !== 'all' && ad.status.toLowerCase() !== statusFilter) return false
-    if (searchQuery && !ad.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+  const filteredAds = ads.filter((ad) => {
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'active' && !ad.isActive) return false
+      if (statusFilter === 'paused' && ad.isActive) return false
+    }
+    if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
 
@@ -466,11 +322,11 @@ export function OverlayAdsPage() {
             TOP ANALYTICS CARDS (5 cards)
             ═══════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <StatCard title="Total Overlay Ads" value="41" change="+13.6%" icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
-          <StatCard title="Active Ads" value="33" change="+12.3%" icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
-          <StatCard title="Impressions" value="4.92M" change="+19.4%" icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
-          <StatCard title="CTR" value="5.23%" change="+7.8%" icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
-          <StatCard title="Revenue" value="$13,245.60" change="+16.1%" icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
+          <StatCard title="Total Overlay Ads" value={String(totalAds)} change={`${totalAds > 0 ? '+' : ''}${((totalAds / Math.max(totalAds, 1)) * 100).toFixed(1)}%`} icon={Megaphone} color={STAT_COLORS[0]} delay={0} index={0} />
+          <StatCard title="Active Ads" value={String(activeAds)} change={`${activeAds > 0 ? '+' : ''}${((activeAds / Math.max(totalAds, 1)) * 100).toFixed(1)}%`} icon={Radio} color={STAT_COLORS[1]} delay={0.05} index={1} />
+          <StatCard title="Impressions" value={formatImpressions(totalImpressions)} change="+19.4%" icon={Eye} color={STAT_COLORS[2]} delay={0.1} index={2} />
+          <StatCard title="CTR" value={`${avgCtr}%`} change="+7.8%" icon={MousePointer} color={STAT_COLORS[3]} delay={0.15} index={3} />
+          <StatCard title="Revenue" value={formatRevenue(totalRevenue)} change="+16.1%" icon={DollarSign} color={STAT_COLORS[4]} delay={0.2} index={4} />
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════
@@ -550,7 +406,7 @@ export function OverlayAdsPage() {
                       type="file"
                       accept="image/png,image/jpeg,image/gif,image/webp,.html,.htm"
                       className="hidden"
-                      onChange={(e) => { if (e.target.files?.length) simulateUpload(e.target.files[0].name) }}
+                      onChange={handleFileSelect}
                     />
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF0000]/10">
                       <CloudUpload className="h-6 w-6 text-[#FF0000]" />
@@ -575,7 +431,7 @@ export function OverlayAdsPage() {
                   >
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-medium text-white truncate mr-2">
-                        {uploadStage === 'processing' ? 'Processing...' : 'Overlay_Banner_Ad.png'}
+                        {uploadStage === 'processing' ? 'Processing...' : uploadedFile?.fileName || 'Uploading...'}
                       </span>
                       <span className="text-xs font-bold text-[#FF0000]">{Math.round(uploadProgress)}%</span>
                     </div>
@@ -595,29 +451,24 @@ export function OverlayAdsPage() {
                     </div>
                     {uploadStage === 'uploading' ? (
                       <>
-                        <div className="grid grid-cols-3 gap-3 text-center mb-3">
+                        <div className="grid grid-cols-2 gap-3 text-center mb-3">
                           <div>
-                            <p className="text-[10px] text-white/25">Uploaded</p>
-                            <p className="text-xs font-semibold text-white">{uploadedSize} / 5.00 MB</p>
+                            <p className="text-[10px] text-white/25">Progress</p>
+                            <p className="text-xs font-semibold text-white">{Math.round(uploadProgress)}%</p>
                           </div>
                           <div>
-                            <p className="text-[10px] text-white/25">Speed</p>
-                            <p className="text-xs font-semibold text-white">{uploadSpeed}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-white/25">Time Left</p>
-                            <p className="text-xs font-semibold text-white">{uploadRemaining}</p>
+                            <p className="text-[10px] text-white/25">Size</p>
+                            <p className="text-xs font-semibold text-white">{uploadedFile ? `${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB` : '—'}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button className="flex-1 rounded-lg border border-[#1A1A1A] bg-white/5 py-1.5 text-[10px] font-medium text-white/50 hover:bg-white/10 hover:text-white transition-colors">Pause</button>
-                          <button onClick={handleResetUpload} className="flex-1 rounded-lg border border-[#1A1A1A] bg-[#FF0000]/5 py-1.5 text-[10px] font-medium text-[#FF0000] hover:bg-[#FF0000]/15 transition-colors">Cancel</button>
+                          <button onClick={resetUpload} className="flex-1 rounded-lg border border-[#1A1A1A] bg-[#FF0000]/5 py-1.5 text-[10px] font-medium text-[#FF0000] hover:bg-[#FF0000]/15 transition-colors">Cancel</button>
                         </div>
                       </>
                     ) : (
                       <div className="flex items-center gap-2 text-xs text-[#F59E0B]">
                         <div className="h-3 w-3 animate-spin rounded-full border-2 border-[#F59E0B] border-t-transparent" />
-                        <span>Generating thumbnails and processing overlay...</span>
+                        <span>Processing your overlay ad...</span>
                       </div>
                     )}
                   </motion.div>
@@ -633,42 +484,41 @@ export function OverlayAdsPage() {
                     <div className="flex items-center gap-3 rounded-[18px] border border-[#00FF85]/20 bg-[#00FF85]/5 p-3">
                       <CheckCircle2 className="h-5 w-5 text-[#00FF85]" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-white">Overlay_Banner_Ad.png</p>
-                        <p className="text-[10px] text-white/30">2.25 MB • 300×250 • PNG</p>
+                        <p className="truncate text-xs font-medium text-white">{uploadedFile?.fileName || 'File uploaded'}</p>
+                        <p className="text-[10px] text-white/30">{uploadedFile ? `${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB • ${uploadedFile.mimeType}` : 'Upload complete'}</p>
                       </div>
-                      <button onClick={handleResetUpload} className="text-xs text-[#FF0000] hover:text-red-400">Change</button>
+                      <button onClick={resetUpload} className="text-xs text-[#FF0000] hover:text-red-400">Change</button>
                     </div>
 
-                    {/* Thumbnails */}
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-medium text-white/60">Thumbnail <span className="text-[#FF0000]">(10 auto-generated)</span></p>
-                        <button className="text-[10px] text-[#FF0000] hover:text-red-400">Upload Manually</button>
+                    {/* Uploaded Image Preview */}
+                    {uploadedFile && uploadedFile.mimeType.startsWith('image/') && (
+                      <div className="overflow-hidden rounded-lg border border-[#1A1A1A]">
+                        <img src={uploadedFile.url} alt="Uploaded ad" className="w-full h-auto max-h-40 object-contain bg-[#050505]" />
                       </div>
-                      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                        {thumbnailGradients.map((gradient, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setSelectedThumbnail(i)}
-                            className={`relative flex-shrink-0 h-12 w-16 overflow-hidden rounded border-2 transition-all ${
-                              selectedThumbnail === i
-                                ? 'border-[#FF0000] shadow-[0_0_8px_rgba(255,0,0,0.3)]'
-                                : 'border-transparent hover:border-white/20'
-                            }`}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <ImageIcon className="h-3 w-3 text-white/15" />
-                            </div>
-                            {selectedThumbnail === i && (
-                              <div className="absolute top-0.5 right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#FF0000]">
-                                <CheckCircle2 className="h-2 w-2 text-white" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    )}
+
+                    {/* Save Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(255,0,0,0.4)' }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={async () => {
+                        if (!uploadedFile) return
+                        await createAd({
+                          type: 'overlay',
+                          position: selectedPosition,
+                          title: uploadedFile.fileName,
+                          imageUrl: uploadedFile.url,
+                          mediaUrl: uploadedFile.url,
+                          mediaFormat: uploadedFile.mimeType,
+                          adDuration: parseInt(autoClose),
+                          skipAfter: parseInt(autoClose),
+                        })
+                        resetUpload()
+                      }}
+                      className="w-full rounded-lg bg-[#FF0000] py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,0,0,0.3)] transition-all hover:bg-red-600"
+                    >
+                      Save Overlay Ad
+                    </motion.button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -770,20 +620,26 @@ export function OverlayAdsPage() {
               <div className="p-3 lg:p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-base font-bold text-white">Ad Preview</h2>
-                  <span className="text-xs text-white/30">Nike Air Max Overlay</span>
+                  <span className="text-xs text-white/30">{uploadedFile?.fileName || 'Overlay Ad Preview'}</span>
                 </div>
 
                 {/* Player with overlay */}
                 <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
                   {/* Video background scene */}
                   <div className="absolute inset-0 bg-gradient-to-br from-[#1a2a4a] via-[#0d1b2a] to-[#0a1628]" />
-                  {/* Subtle video content */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center opacity-20">
-                      <Film className="h-10 w-10 text-white mx-auto mb-2" />
-                      <p className="text-xs text-white">Video Content Playing</p>
+                  {/* Uploaded image or default video content */}
+                  {uploadedFile && uploadedFile.mimeType.startsWith('image/') ? (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <img src={uploadedFile.url} alt="Ad preview" className="max-w-full max-h-full object-contain" />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center opacity-20">
+                        <Film className="h-10 w-10 text-white mx-auto mb-2" />
+                        <p className="text-xs text-white">Video Content Playing</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* ── Overlay Ad ── */}
                   <motion.div
@@ -846,12 +702,12 @@ export function OverlayAdsPage() {
                 <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
                   {[
                     { label: 'Placement', value: 'Overlay (During Video)' },
-                    { label: 'File', value: 'Overlay_Banner_Ad.png' },
-                    { label: 'Resolution', value: '300×250' },
-                    { label: 'File Size', value: '2.25 MB' },
-                    { label: 'Format', value: 'PNG' },
+                    { label: 'File', value: uploadedFile?.fileName || '—' },
+                    { label: 'Size', value: uploadedFile ? `${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB` : '—' },
+                    { label: 'Format', value: uploadedFile?.mimeType || '—' },
                     { label: 'Auto Close', value: `${autoClose} sec` },
                     { label: 'Position', value: positionLabels[selectedPosition] },
+                    { label: 'Ad Size', value: adSize },
                     { label: 'Display On', value: `${displayDesktop ? 'Desktop' : ''}${displayDesktop && displayTablet ? ', ' : ''}${displayTablet ? 'Tablet' : ''}${displayTablet && displayMobile ? ', ' : ''}${displayMobile ? 'Mobile' : ''}` },
                   ].map((detail) => (
                     <div key={detail.label} className="flex items-center justify-between rounded-lg bg-[#050505]/50 px-3 py-1.5 border border-[#1A1A1A]/50">
@@ -1019,56 +875,54 @@ export function OverlayAdsPage() {
                     >
                       {/* Preview */}
                       <td className="py-2 pr-3">
-                        <div className={`relative h-10 w-14 overflow-hidden rounded-md bg-gradient-to-br ${ad.gradient}`}>
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            {ad.type === 'Image' ? (
+                        <div className="relative h-10 w-14 overflow-hidden rounded-md bg-[#050505]">
+                          {(ad.imageUrl || ad.mediaUrl) ? (
+                            <img src={ad.imageUrl || ad.mediaUrl} alt={ad.title} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
                               <ImageIcon className="h-3.5 w-3.5 text-white/20" />
-                            ) : (
-                              <Code className="h-3.5 w-3.5 text-white/20" />
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </td>
 
                       {/* Ad Name */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-white">{ad.name}</span>
+                        <span className="text-xs font-medium text-white">{ad.title}</span>
                       </td>
 
                       {/* Type */}
                       <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${typeStyles[ad.type]}`}>
+                        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${typeStyles[ad.type] || typeStyles[ad.mediaFormat?.startsWith('video') ? 'Video' : 'Image']}`}>
                           {ad.type}
                         </span>
                       </td>
 
                       {/* Placement */}
                       <td className="py-2 pr-3">
-                        <span className="text-[10px] text-white/50">{ad.placement}</span>
+                        <span className="text-[10px] text-white/50">{ad.position || 'overlay'}</span>
                       </td>
 
                       {/* Impressions */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-white/80">{ad.impressions}</span>
+                        <span className="text-xs font-medium text-white/80">{formatImpressions(ad.impressions)}</span>
                       </td>
 
                       {/* CTR */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-[#00FF85]">{ad.ctr}</span>
+                        <span className="text-xs font-medium text-[#00FF85]">{ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) + '%' : '0%'}</span>
                       </td>
 
                       {/* Revenue */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs font-semibold text-white">{ad.revenue}</span>
+                        <span className="text-xs font-semibold text-white">{formatRevenue(ad.revenue)}</span>
                       </td>
 
                       {/* Status */}
                       <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusStyles[ad.status]}`}>
-                          <span className={`mr-1 h-1.5 w-1.5 rounded-full ${
-                            ad.status === 'Active' ? 'bg-[#00FF85]' : ad.status === 'Paused' ? 'bg-[#F59E0B]' : 'bg-white/30'
-                          }`} />
-                          {ad.status}
+                        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${ad.isActive ? statusStyles.Active : statusStyles.Paused}`}>
+                          <span className={`mr-1 h-1.5 w-1.5 rounded-full ${ad.isActive ? 'bg-[#00FF85]' : 'bg-[#F59E0B]'}`} />
+                          {ad.isActive ? 'Active' : 'Paused'}
                         </span>
                       </td>
 

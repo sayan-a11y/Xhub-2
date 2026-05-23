@@ -544,49 +544,16 @@ export function FooterAdsPage() {
                       )}
                     </div>
 
-                    {/* Thumbnails */}
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-medium text-white/60">Thumbnails <span className="text-[#ff1e1e]">(10 auto-generated)</span></p>
-                        <div className="flex items-center gap-2">
-                          <button className="text-[10px] text-[#ff1e1e] hover:text-[#ff3e3e]">Upload Manually</button>
-                          <button className="text-[10px] text-[#ff1e1e] hover:text-[#ff3e3e] flex items-center gap-1">
-                            <Sparkles className="h-2.5 w-2.5" /> AI
-                          </button>
-                        </div>
+                    {/* Uploaded Image Preview */}
+                    {uploadedFile?.url && (
+                      <div className="relative aspect-video overflow-hidden rounded-lg border border-white/10">
+                        {uploadedFile.mimeType.startsWith('video/') ? (
+                          <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                        ) : (
+                          <img src={uploadedFile.url} alt="Uploaded preview" className="h-full w-full object-cover" />
+                        )}
                       </div>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {thumbnailGradients.map((gradient, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setSelectedThumbnail(i)}
-                            className={`relative aspect-video overflow-hidden rounded border-2 transition-all ${
-                              selectedThumbnail === i
-                                ? 'border-[#ff1e1e] shadow-[0_0_8px_rgba(255,30,30,0.3)]'
-                                : 'border-transparent hover:border-white/20'
-                            }`}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <ImageIcon className="h-2.5 w-2.5 text-white/15" />
-                            </div>
-                            {selectedThumbnail === i && (
-                              <div className="absolute top-0.5 right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#ff1e1e]">
-                                <CheckCircle2 className="h-2 w-2 text-white" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-2 flex items-center gap-3 text-[10px] text-white/25">
-                        <span>970×250</span>
-                        <span>728×90</span>
-                        <span>320×100</span>
-                        <span>16:9</span>
-                        <span>1:1</span>
-                        <span className="text-[#ff1e1e] cursor-pointer">Crop</span>
-                      </div>
-                    </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -850,21 +817,45 @@ export function FooterAdsPage() {
                           className="relative overflow-hidden"
                           style={{ aspectRatio: '970/250' }}
                         >
-                          <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#0f3460] to-[#16213e]" />
-                          <div className="absolute inset-0 bg-gradient-to-r from-[#ff1e1e]/10 to-transparent" />
-                          {/* Ad content */}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-center space-y-1">
-                              <div className="inline-flex items-center gap-1 rounded-md bg-[#ff1e1e]/20 px-2 py-0.5">
-                                <Megaphone className="h-2 w-2 text-[#ff1e1e]" />
-                                <span className="text-[7px] font-bold uppercase tracking-wider text-[#ff1e1e]">AD</span>
+                          {uploadedFile?.url ? (
+                            <>
+                              {uploadedFile.mimeType.startsWith('video/') ? (
+                                <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                              ) : (
+                                <img src={uploadedFile.url} alt="Ad preview" className="h-full w-full object-cover" />
+                              )}
+                              <div className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-md bg-[#ff1e1e]/80 px-1.5 py-0.5">
+                                <Megaphone className="h-2 w-2 text-white" />
+                                <span className="text-[7px] font-bold uppercase tracking-wider text-white">AD</span>
                               </div>
-                              <p className="text-xs font-bold text-white/80">
-                                {adTitle || 'Footer Ad Preview'}
-                              </p>
-                              <p className="text-[8px] text-white/40">970×250</p>
-                            </div>
-                          </div>
+                            </>
+                          ) : editingAd?.mediaUrl ? (
+                            <>
+                              <img src={editingAd.mediaUrl} alt="Ad preview" className="h-full w-full object-cover" />
+                              <div className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-md bg-[#ff1e1e]/80 px-1.5 py-0.5">
+                                <Megaphone className="h-2 w-2 text-white" />
+                                <span className="text-[7px] font-bold uppercase tracking-wider text-white">AD</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#0f3460] to-[#16213e]" />
+                              <div className="absolute inset-0 bg-gradient-to-r from-[#ff1e1e]/10 to-transparent" />
+                              {/* Ad content */}
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-center space-y-1">
+                                  <div className="inline-flex items-center gap-1 rounded-md bg-[#ff1e1e]/20 px-2 py-0.5">
+                                    <Megaphone className="h-2 w-2 text-[#ff1e1e]" />
+                                    <span className="text-[7px] font-bold uppercase tracking-wider text-[#ff1e1e]">AD</span>
+                                  </div>
+                                  <p className="text-xs font-bold text-white/80">
+                                    {adTitle || 'Footer Ad Preview'}
+                                  </p>
+                                  <p className="text-[8px] text-white/40">970×250</p>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </motion.div>
                       </div>
                     </div>

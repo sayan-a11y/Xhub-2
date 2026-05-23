@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useHeroAds, useFooterAds, type HeroAdItem, type FooterAdItem } from '@/hooks/useAdsManager'
+import { useAdUpload } from '@/hooks/useAdUpload'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CloudUpload,
@@ -54,7 +55,6 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
 type SectionTab = 'hero' | 'footer'
 type PreviewMode = 'desktop' | 'tablet' | 'mobile'
 
@@ -62,19 +62,6 @@ type PreviewMode = 'desktop' | 'tablet' | 'mobile'
 
 const STAT_COLORS = ['#ff1e1e', '#8b5cf6', '#10b981', '#ec4899', '#f97316']
 const DONUT_COLORS = ['#ff1e1e', '#8b5cf6']
-
-const thumbnailGradients = [
-  'from-red-900/60 via-rose-800/40 to-pink-900/30',
-  'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  'from-amber-900/60 via-orange-800/40 to-yellow-900/30',
-  'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  'from-lime-900/60 via-green-800/40 to-emerald-900/30',
-  'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  'from-indigo-900/60 via-blue-800/40 to-sky-900/30',
-  'from-pink-900/60 via-rose-800/40 to-fuchsia-900/30',
-]
 
 // ─── Format helpers ──────────────────────────────────────────────────────────
 
@@ -163,14 +150,10 @@ export function HeroFooterAdsPage() {
   const { ads: heroAds, loading: heroLoading, createAd: createHeroAd, deleteAd: deleteHeroAd, toggleAd: toggleHeroAd } = useHeroAds()
   const { ads: footerAds, loading: footerLoading, createAd: createFooterAd, deleteAd: deleteFooterAd, toggleAd: toggleFooterAd } = useFooterAds()
 
-  // Upload state
-  const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadSpeed, setUploadSpeed] = useState('0 MB/s')
-  const [uploadRemaining, setUploadRemaining] = useState('')
-  const [uploadedSize, setUploadedSize] = useState('0 GB')
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [selectedThumbnail, setSelectedThumbnail] = useState(0)
+  // Upload hook
+  const { uploadStage, uploadProgress, uploadedFile, isDragOver, fileInputRef, resetUpload, handleDragOver, handleDragLeave, handleDrop, handleFileSelect, openFilePicker } = useAdUpload('hero')
+
+  // Upload UI state
   const [sectionTab, setSectionTab] = useState<SectionTab>('hero')
   const [saving, setSaving] = useState(false)
 
@@ -193,65 +176,6 @@ export function HeroFooterAdsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  // ─── Simulated Upload ──────────────────────────────────────────────────
-
-  const simulateUpload = useCallback((fileName: string) => {
-    setUploadStage('uploading')
-    setUploadProgress(0)
-    setUploadedSize('0 GB')
-
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-
-    let progress = 0
-    const totalSize = 5.0
-
-    progressIntervalRef.current = setInterval(() => {
-      const increment = Math.random() * 4 + 1
-      progress = Math.min(progress + increment, 100)
-      setUploadProgress(progress)
-
-      const uploaded = (progress / 100) * totalSize
-      setUploadedSize(`${uploaded.toFixed(2)} GB`)
-      setUploadSpeed(`${(Math.random() * 2 + 1.5).toFixed(1)} MB/s`)
-
-      const remaining = ((100 - progress) / increment) * 0.15
-      setUploadRemaining(remaining > 60 ? `${Math.ceil(remaining / 60)} mins left` : `${Math.ceil(remaining)} secs left`)
-
-      if (progress >= 100) {
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-        setUploadStage('processing')
-        setTimeout(() => setUploadStage('success'), 1500)
-      }
-    }, 150)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-    }
-  }, [])
-
-  // ─── Drag & Drop ───────────────────────────────────────────────────────
-
-  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true) }, [])
-  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false) }, [])
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    const files = e.dataTransfer.files
-    if (files.length > 0) simulateUpload(files[0].name)
-  }, [simulateUpload])
-
-  const handleResetUpload = useCallback(() => {
-    setUploadStage('idle')
-    setUploadProgress(0)
-    setSelectedThumbnail(0)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }, [])
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
@@ -365,7 +289,7 @@ export function HeroFooterAdsPage() {
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-base font-bold text-white">Create Hero / Footer Ad</h2>
                 {uploadStage === 'success' && (
-                  <button onClick={handleResetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Reset</button>
+                  <button onClick={resetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Reset</button>
                 )}
               </div>
 
@@ -416,7 +340,7 @@ export function HeroFooterAdsPage() {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={openFilePicker}
                     className={`relative flex min-h-[170px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-all duration-200 ${
                       isDragOver
                         ? 'border-[#ff1e1e] bg-[#ff1e1e]/5 shadow-[0_0_20px_rgba(255,30,30,0.15)]'
@@ -428,7 +352,7 @@ export function HeroFooterAdsPage() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/svg+xml,image/gif,.zip,application/zip"
                       className="hidden"
-                      onChange={(e) => { if (e.target.files?.length) simulateUpload(e.target.files[0].name) }}
+                      onChange={handleFileSelect}
                     />
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ff1e1e]/10">
                       <CloudUpload className="h-6 w-6 text-[#ff1e1e]" />
@@ -461,7 +385,7 @@ export function HeroFooterAdsPage() {
                         {uploadStage === 'uploading' && (
                           <>
                             <button className="rounded px-2 py-0.5 text-[10px] text-white/40 hover:text-white/60 border border-white/10">Pause</button>
-                            <button onClick={handleResetUpload} className="rounded px-2 py-0.5 text-[10px] text-red-400 hover:text-red-300 border border-red-500/20">Cancel</button>
+                            <button onClick={resetUpload} className="rounded px-2 py-0.5 text-[10px] text-red-400 hover:text-red-300 border border-red-500/20">Cancel</button>
                           </>
                         )}
                       </div>
@@ -480,22 +404,7 @@ export function HeroFooterAdsPage() {
                         className="absolute left-0 top-0 h-full rounded-full bg-[#ff1e1e] blur-sm opacity-30"
                       />
                     </div>
-                    {uploadStage === 'uploading' ? (
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-[10px] text-white/25">Uploaded</p>
-                          <p className="text-xs font-semibold text-white">{uploadedSize} / 5.00 GB</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-white/25">Speed</p>
-                          <p className="text-xs font-semibold text-white">{uploadSpeed}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-white/25">Time Left</p>
-                          <p className="text-xs font-semibold text-white">{uploadRemaining}</p>
-                        </div>
-                      </div>
-                    ) : (
+                    {uploadStage === 'processing' && (
                       <div className="flex items-center gap-2 text-xs text-amber-400">
                         <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
                         <span>Optimizing &amp; generating thumbnails...</span>
@@ -514,56 +423,22 @@ export function HeroFooterAdsPage() {
                     <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
                       <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-white">hero_banner_2025.jpg</p>
-                        <p className="text-[10px] text-white/30">2.35MB • 1920×600 • JPG</p>
+                        <p className="truncate text-xs font-medium text-white">{uploadedFile?.fileName || 'Uploaded file'}</p>
+                        <p className="text-[10px] text-white/30">{(uploadedFile?.size ? (uploadedFile.size / 1024 / 1024).toFixed(2) : '0')}MB • {uploadedFile?.mimeType || 'unknown'}</p>
                       </div>
-                      <button onClick={handleResetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Change</button>
+                      <button onClick={resetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Change</button>
                     </div>
 
-                    {/* Thumbnails */}
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-medium text-white/60">Thumbnails <span className="text-[#ff1e1e]">(10 auto-generated)</span></p>
-                        <div className="flex items-center gap-2">
-                          <button className="text-[10px] text-[#ff1e1e] hover:text-[#ff3e3e]">Upload Manually</button>
-                          <button className="text-[10px] text-[#ff1e1e] hover:text-[#ff3e3e] flex items-center gap-1">
-                            <Sparkles className="h-2.5 w-2.5" /> AI
-                          </button>
-                        </div>
+                    {/* Uploaded image preview */}
+                    {uploadedFile?.url && (
+                      <div className="relative aspect-video overflow-hidden rounded-lg border border-white/10">
+                        {uploadedFile.mimeType.startsWith('video/') ? (
+                          <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                        ) : (
+                          <img src={uploadedFile.url} alt="Preview" className="h-full w-full object-cover" />
+                        )}
                       </div>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {thumbnailGradients.map((gradient, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setSelectedThumbnail(i)}
-                            className={`relative aspect-video overflow-hidden rounded border-2 transition-all ${
-                              selectedThumbnail === i
-                                ? 'border-[#ff1e1e] shadow-[0_0_8px_rgba(255,30,30,0.3)]'
-                                : 'border-transparent hover:border-white/20'
-                            }`}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <ImageIcon className="h-2.5 w-2.5 text-white/15" />
-                            </div>
-                            {selectedThumbnail === i && (
-                              <div className="absolute top-0.5 right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#ff1e1e]">
-                                <CheckCircle2 className="h-2 w-2 text-white" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-2 flex items-center gap-3 text-[10px] text-white/25">
-                        <span>1920×600</span>
-                        <span>1600×300</span>
-                        <span>970×250</span>
-                        <span>728×90</span>
-                        <span>16:9</span>
-                        <span>1:1</span>
-                        <span className="text-[#ff1e1e] cursor-pointer">Crop</span>
-                      </div>
-                    </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -710,8 +585,9 @@ export function HeroFooterAdsPage() {
                       title: adTitle,
                       linkUrl: adLink || undefined,
                       adType: 'image',
-                      mediaUrl: 'https://placehold.co/1920x600/1a0a2e/ffffff?text=' + encodeURIComponent(adTitle),
-                      mediaFormat: 'image/jpeg',
+                      mediaUrl: uploadedFile?.url || '',
+                      thumbnailUrl: uploadedFile?.url || '',
+                      mediaFormat: uploadedFile?.mimeType || 'image/jpeg',
                       isActive: statusActive,
                       startDate: startDate || null,
                       endDate: endDate || null,
@@ -728,6 +604,7 @@ export function HeroFooterAdsPage() {
                       setStartDate('')
                       setEndDate('')
                       setStatusActive(true)
+                      resetUpload()
                     } finally {
                       setSaving(false)
                     }
@@ -802,22 +679,32 @@ export function HeroFooterAdsPage() {
                               className="relative overflow-hidden"
                               style={{ aspectRatio: '1920/600' }}
                             >
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#16213e] to-[#0f3460]" />
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#ff1e1e]/10 to-transparent" />
-                              <div className="absolute inset-0 flex items-center justify-center p-3 lg:p-4">
-                                <div className="text-center">
-                                  <div className="text-[8px] font-bold tracking-[0.2em] text-white/30 uppercase">Summer Collection 2025</div>
-                                  <p className="mt-1 text-lg font-bold text-white">SUMMER MEGA SALE</p>
-                                  <p className="text-[9px] text-white/40 mt-0.5">Up to 50% Off • Limited Time</p>
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    className="mt-2 rounded bg-[#ff1e1e] px-4 py-1 text-[9px] font-bold text-white shadow-[0_0_10px_rgba(255,30,30,0.4)]"
-                                  >
-                                    SHOP NOW
-                                  </motion.button>
-                                </div>
-                              </div>
+                              {uploadedFile?.url ? (
+                                uploadedFile.mimeType.startsWith('video/') ? (
+                                  <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                                ) : (
+                                  <img src={uploadedFile.url} alt="Hero Top Ad" className="h-full w-full object-cover" />
+                                )
+                              ) : (
+                                <>
+                                  <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#16213e] to-[#0f3460]" />
+                                  <div className="absolute inset-0 bg-gradient-to-r from-[#ff1e1e]/10 to-transparent" />
+                                  <div className="absolute inset-0 flex items-center justify-center p-3 lg:p-4">
+                                    <div className="text-center">
+                                      <div className="text-[8px] font-bold tracking-[0.2em] text-white/30 uppercase">Summer Collection 2025</div>
+                                      <p className="mt-1 text-lg font-bold text-white">SUMMER MEGA SALE</p>
+                                      <p className="text-[9px] text-white/40 mt-0.5">Up to 50% Off • Limited Time</p>
+                                      <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className="mt-2 rounded bg-[#ff1e1e] px-4 py-1 text-[9px] font-bold text-white shadow-[0_0_10px_rgba(255,30,30,0.4)]"
+                                      >
+                                        SHOP NOW
+                                      </motion.button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                               <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Hero Top</div>
                             </motion.div>
                           )}
@@ -843,13 +730,23 @@ export function HeroFooterAdsPage() {
                               className="relative overflow-hidden"
                               style={{ aspectRatio: '1600/300' }}
                             >
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#0f2027] via-[#203a43] to-[#2c5364]" />
-                              <div className="absolute inset-0 flex items-center justify-center p-3">
-                                <div className="text-center">
-                                  <p className="text-sm font-bold text-white">NEW RELEASES THIS WEEK</p>
-                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-white px-3 py-0.5 text-[8px] font-bold text-black">EXPLORE</motion.button>
-                                </div>
-                              </div>
+                              {uploadedFile?.url ? (
+                                uploadedFile.mimeType.startsWith('video/') ? (
+                                  <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                                ) : (
+                                  <img src={uploadedFile.url} alt="Hero Bottom Ad" className="h-full w-full object-cover" />
+                                )
+                              ) : (
+                                <>
+                                  <div className="absolute inset-0 bg-gradient-to-r from-[#0f2027] via-[#203a43] to-[#2c5364]" />
+                                  <div className="absolute inset-0 flex items-center justify-center p-3">
+                                    <div className="text-center">
+                                      <p className="text-sm font-bold text-white">NEW RELEASES THIS WEEK</p>
+                                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-white px-3 py-0.5 text-[8px] font-bold text-black">EXPLORE</motion.button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                               <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Hero Bottom</div>
                             </motion.div>
                           )}
@@ -878,14 +775,24 @@ export function HeroFooterAdsPage() {
                               className="relative overflow-hidden border-t border-white/5"
                               style={{ aspectRatio: '970/250' }}
                             >
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a2e] via-[#1e3a5f] to-[#0f3460]" />
-                              <div className="absolute inset-0 flex items-center justify-center p-3">
-                                <div className="text-center">
-                                  <p className="text-sm font-bold text-white">SUBSCRIBE & SAVE 30%</p>
-                                  <p className="text-[8px] text-white/40 mt-0.5">Premium plans from $4.99/mo</p>
-                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-[#ff1e1e] px-3 py-0.5 text-[8px] font-bold text-white">GET STARTED</motion.button>
-                                </div>
-                              </div>
+                              {uploadedFile?.url ? (
+                                uploadedFile.mimeType.startsWith('video/') ? (
+                                  <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                                ) : (
+                                  <img src={uploadedFile.url} alt="Footer Top Ad" className="h-full w-full object-cover" />
+                                )
+                              ) : (
+                                <>
+                                  <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a2e] via-[#1e3a5f] to-[#0f3460]" />
+                                  <div className="absolute inset-0 flex items-center justify-center p-3">
+                                    <div className="text-center">
+                                      <p className="text-sm font-bold text-white">SUBSCRIBE & SAVE 30%</p>
+                                      <p className="text-[8px] text-white/40 mt-0.5">Premium plans from $4.99/mo</p>
+                                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-1 rounded bg-[#ff1e1e] px-3 py-0.5 text-[8px] font-bold text-white">GET STARTED</motion.button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                               <div className="absolute top-1.5 right-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">Ad • Footer Top</div>
                             </motion.div>
                           )}
@@ -912,10 +819,20 @@ export function HeroFooterAdsPage() {
                               className="relative overflow-hidden border-t border-white/5"
                               style={{ aspectRatio: '728/90' }}
                             >
-                              <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#2d1b69] to-[#1a0a2e]" />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <p className="text-xs font-bold text-white">DOWNLOAD OUR APP — FREE TRIAL</p>
-                              </div>
+                              {uploadedFile?.url ? (
+                                uploadedFile.mimeType.startsWith('video/') ? (
+                                  <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                                ) : (
+                                  <img src={uploadedFile.url} alt="Footer Bottom Ad" className="h-full w-full object-cover" />
+                                )
+                              ) : (
+                                <>
+                                  <div className="absolute inset-0 bg-gradient-to-r from-[#1a0a2e] via-[#2d1b69] to-[#1a0a2e]" />
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <p className="text-xs font-bold text-white">DOWNLOAD OUR APP — FREE TRIAL</p>
+                                  </div>
+                                </>
+                              )}
                               <div className="absolute top-1 right-1 rounded bg-black/50 px-1 py-0.5 text-[6px] text-white/40">Ad • Footer Bottom</div>
                             </motion.div>
                           )}
