@@ -216,6 +216,10 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
   const [autoPlayNext, setAutoPlayNext] = useState(true)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
 
+  // Track if video has started playing at least once (for thumbnail auto-hide on mobile/tablet)
+  const [hasStartedPlaying, setHasStartedPlaying] = useState(false)
+  const hasStartedPlayingRef = useRef(false)
+
   // ─── Premium Upgrade: New State ────────────────────────────────────────────
 
   // Settings menu
@@ -636,7 +640,13 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
     }
     onTimeUpdate._lastUpdate = 0 as number
     const onLoadedMetadata = () => setDuration(vid.duration)
-    const onPlay = () => setIsPlaying(true)
+    const onPlay = () => {
+      setIsPlaying(true)
+      if (!hasStartedPlayingRef.current) {
+        hasStartedPlayingRef.current = true
+        setHasStartedPlaying(true)
+      }
+    }
     const onPause = () => setIsPlaying(false)
     const onProgress = () => {
       if (vid.buffered.length > 0) {
@@ -891,11 +901,30 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
               }}
               onTouchStart={handleTouchStart}
             >
-              {/* Video Element */}
+              {/* Custom Thumbnail Overlay - auto-hides when video plays on mobile/tablet */}
+              <AnimatePresence>
+                {!hasStartedPlaying && (
+                  <motion.div
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute inset-0 z-10 pointer-events-none"
+                  >
+                    <img
+                      src={video.thumbnail}
+                      alt={video.title}
+                      className="h-full w-full object-cover"
+                    />
+                    {/* Dark overlay for play button visibility */}
+                    <div className="absolute inset-0 bg-black/30" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Video Element - no poster, thumbnail handled by custom overlay */}
               <video
                 ref={videoRef}
                 className="h-full w-full cursor-pointer aspect-video bg-black"
-                poster={video.thumbnail}
                 preload="metadata"
                 onClick={togglePlay}
                 onDoubleClick={toggleFullscreen}

@@ -48,7 +48,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
+type UploadStage = 'idle' | 'uploading' | 'success' | 'error'
 type PreviewMode = 'desktop' | 'tablet' | 'mobile'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -157,9 +157,8 @@ export function FooterAdsPage() {
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadSpeed, setUploadSpeed] = useState('0 MB/s')
-  const [uploadRemaining, setUploadRemaining] = useState('')
-  const [uploadedSize, setUploadedSize] = useState('0 GB')
+  const [uploadError, setUploadError] = useState('')
+  const [uploadedFile, setUploadedFile] = useState<{ url: string; fileName: string; mimeType: string; size: number } | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [selectedThumbnail, setSelectedThumbnail] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -192,7 +191,6 @@ export function FooterAdsPage() {
   const [deletingAdId, setDeletingAdId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ─── Computed KPIs from realtime data ───────────────────────────────────
 
@@ -202,41 +200,55 @@ export function FooterAdsPage() {
   const totalClicks = footerAds.reduce((sum, ad) => sum + ad.clicks, 0)
   const avgCtr = totalAds > 0 ? footerAds.reduce((sum, ad) => sum + ad.ctr, 0) / totalAds : 0
 
-  // ─── Simulated Upload ──────────────────────────────────────────────────
+  // ─── Real Upload ───────────────────────────────────────────────────────
 
-  const simulateUpload = useCallback((fileName: string) => {
+  const uploadFile = useCallback(async (file: File) => {
     setUploadStage('uploading')
     setUploadProgress(0)
-    setUploadedSize('0 GB')
+    setUploadError('')
+    setUploadedFile(null)
 
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'ads')
 
-    let progress = 0
-    const totalSize = 5.0
+      const xhr = new XMLHttpRequest()
 
-    progressIntervalRef.current = setInterval(() => {
-      const increment = Math.random() * 4 + 1
-      progress = Math.min(progress + increment, 100)
-      setUploadProgress(progress)
+      await new Promise<void>((resolve, reject) => {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const pct = (e.loaded / e.total) * 100
+            setUploadProgress(pct)
+          }
+        })
 
-      const uploaded = (progress / 100) * totalSize
-      setUploadedSize(`${uploaded.toFixed(2)} GB`)
-      setUploadSpeed(`${(Math.random() * 2 + 1.5).toFixed(1)} MB/s`)
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`))
+          }
+        })
 
-      const remaining = ((100 - progress) / increment) * 0.15
-      setUploadRemaining(remaining > 60 ? `${Math.ceil(remaining / 60)} mins left` : `${Math.ceil(remaining)} secs left`)
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')))
 
-      if (progress >= 100) {
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-        setUploadStage('processing')
-        setTimeout(() => setUploadStage('success'), 1500)
-      }
-    }, 150)
-  }, [])
+        xhr.open('POST', '/api/upload')
+        xhr.send(formData)
+      })
 
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+      const response = JSON.parse(xhr.responseText)
+      setUploadedFile({
+        url: response.url,
+        fileName: response.fileName || file.name,
+        mimeType: response.mimeType || file.type,
+        size: response.size || file.size,
+      })
+      setUploadStage('success')
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed')
+      setUploadStage('error')
     }
   }, [])
 
@@ -248,12 +260,14 @@ export function FooterAdsPage() {
     e.preventDefault()
     setIsDragOver(false)
     const files = e.dataTransfer.files
-    if (files.length > 0) simulateUpload(files[0].name)
-  }, [simulateUpload])
+    if (files.length > 0) uploadFile(files[0])
+  }, [uploadFile])
 
   const handleResetUpload = useCallback(() => {
     setUploadStage('idle')
     setUploadProgress(0)
+    setUploadError('')
+    setUploadedFile(null)
     setSelectedThumbnail(0)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
@@ -287,6 +301,8 @@ export function FooterAdsPage() {
     setEditingAd(null)
     setUploadStage('idle')
     setUploadProgress(0)
+    setUploadError('')
+    setUploadedFile(null)
     setSelectedThumbnail(0)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
@@ -435,9 +451,9 @@ export function FooterAdsPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/svg+xml,image/gif,.zip,application/zip"
+                      accept="image/jpeg,image/png,image/webp,image/svg+xml,image/gif,video/mp4,video/webm,video/quicktime"
                       className="hidden"
-                      onChange={(e) => { if (e.target.files?.length) simulateUpload(e.target.files[0].name) }}
+                      onChange={(e) => { if (e.target.files?.length) uploadFile(e.target.files[0]) }}
                     />
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ff1e1e]/10">
                       <CloudUpload className="h-6 w-6 text-[#ff1e1e]" />
@@ -450,10 +466,10 @@ export function FooterAdsPage() {
                         or <span className="text-[#ff1e1e] underline underline-offset-2">browse files</span>
                       </p>
                     </div>
-                    <p className="text-[10px] text-white/25">Max size: 5GB | JPG, PNG, WEBP, SVG, GIF, HTML5 ZIP</p>
+                    <p className="text-[10px] text-white/25">Max size: 5GB | JPG, PNG, WEBP, SVG, GIF, MP4, WEBM</p>
                     <p className="text-[10px] text-white/20">Cloudflare R2 Storage • Multipart Upload • Auto Retry</p>
                   </motion.div>
-                ) : uploadStage === 'uploading' || uploadStage === 'processing' ? (
+                ) : uploadStage === 'uploading' ? (
                   <motion.div
                     key="upload-progress"
                     initial={{ opacity: 0 }}
@@ -462,17 +478,10 @@ export function FooterAdsPage() {
                     className="rounded-xl border border-white/5 bg-[#0a0a0a]/60 p-3 lg:p-4"
                   >
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-medium text-white">
-                        {uploadStage === 'processing' ? 'Processing...' : 'Uploading...'}
-                      </span>
+                      <span className="text-xs font-medium text-white">Uploading...</span>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-[#ff1e1e]">{Math.round(uploadProgress)}%</span>
-                        {uploadStage === 'uploading' && (
-                          <>
-                            <button className="rounded px-2 py-0.5 text-[10px] text-white/40 hover:text-white/60 border border-white/10">Pause</button>
-                            <button onClick={handleResetUpload} className="rounded px-2 py-0.5 text-[10px] text-red-400 hover:text-red-300 border border-red-500/20">Cancel</button>
-                          </>
-                        )}
+                        <button onClick={handleResetUpload} className="rounded px-2 py-0.5 text-[10px] text-red-400 hover:text-red-300 border border-red-500/20">Cancel</button>
                       </div>
                     </div>
                     <div className="relative mb-3 h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -489,27 +498,27 @@ export function FooterAdsPage() {
                         className="absolute left-0 top-0 h-full rounded-full bg-[#ff1e1e] blur-sm opacity-30"
                       />
                     </div>
-                    {uploadStage === 'uploading' ? (
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-[10px] text-white/25">Uploaded</p>
-                          <p className="text-xs font-semibold text-white">{uploadedSize} / 5.00 GB</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-white/25">Speed</p>
-                          <p className="text-xs font-semibold text-white">{uploadSpeed}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-white/25">Time Left</p>
-                          <p className="text-xs font-semibold text-white">{uploadRemaining}</p>
-                        </div>
+                    <div className="flex items-center gap-2 text-xs text-white/50">
+                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-transparent" />
+                      <span>Uploading to server...</span>
+                    </div>
+                  </motion.div>
+                ) : uploadStage === 'error' ? (
+                  <motion.div
+                    key="upload-error"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                      <X className="h-5 w-5 text-red-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-white">Upload Failed</p>
+                        <p className="text-[10px] text-white/30">{uploadError}</p>
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-xs text-amber-400">
-                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-                        <span>Optimizing &amp; generating thumbnails...</span>
-                      </div>
-                    )}
+                      <button onClick={handleResetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Retry</button>
+                    </div>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -524,9 +533,11 @@ export function FooterAdsPage() {
                       <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-medium text-white">
-                          {editingAd ? editingAd.mediaUrl.split('/').pop() : 'footer_banner_2025.jpg'}
+                          {editingAd ? editingAd.mediaUrl.split('/').pop() : uploadedFile?.fileName || 'Uploaded file'}
                         </p>
-                        <p className="text-[10px] text-white/30">970×250 • JPG</p>
+                        <p className="text-[10px] text-white/30">
+                          {editingAd ? 'Existing media' : uploadedFile ? `${(uploadedFile.size / 1024).toFixed(1)} KB • ${uploadedFile.mimeType}` : 'File uploaded'}
+                        </p>
                       </div>
                       {!editingAd && (
                         <button onClick={handleResetUpload} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">Change</button>
@@ -734,12 +745,15 @@ export function FooterAdsPage() {
                         setEditingAd(null)
                       } else {
                         // Create new ad
+                        if (!uploadedFile) return
+                        const isVideo = uploadedFile.mimeType.startsWith('video/')
+                        const isGif = uploadedFile.mimeType === 'image/gif'
                         await createFooterAd({
                           title: adTitle,
                           linkUrl: adLink || undefined,
-                          adType: 'image',
-                          mediaUrl: 'https://placehold.co/970x250/1a0a2e/ffffff?text=' + encodeURIComponent(adTitle),
-                          mediaFormat: 'image/jpeg',
+                          adType: isVideo ? 'video' : isGif ? 'gif' : 'image',
+                          mediaUrl: uploadedFile.url,
+                          mediaFormat: uploadedFile.mimeType,
                           isActive: statusActive,
                           startDate: startDate || null,
                           endDate: endDate || null,
@@ -753,7 +767,7 @@ export function FooterAdsPage() {
                       setSaving(false)
                     }
                   }}
-                  disabled={saving || !adTitle.trim()}
+                  disabled={saving || !adTitle.trim() || (!editingAd && !uploadedFile)}
                   className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e] disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {saving ? (

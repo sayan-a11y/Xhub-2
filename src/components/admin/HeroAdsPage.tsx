@@ -50,7 +50,7 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
+type UploadStage = 'idle' | 'uploading' | 'processing' | 'success' | 'error'
 type PreviewMode = 'desktop' | 'tablet' | 'mobile'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -160,11 +160,11 @@ export function HeroAdsPage() {
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadSpeed, setUploadSpeed] = useState('0 MB/s')
-  const [uploadRemaining, setUploadRemaining] = useState('')
-  const [uploadedSize, setUploadedSize] = useState('0 GB')
+  const [uploadError, setUploadError] = useState('')
   const [isDragOver, setIsDragOver] = useState(false)
   const [selectedThumbnail, setSelectedThumbnail] = useState(0)
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null)
+  const [uploadedFileName, setUploadedFileName] = useState<string>('')
 
   // Form state
   const [adTitle, setAdTitle] = useState('')
@@ -193,7 +193,6 @@ export function HeroAdsPage() {
   const [deletingAdId, setDeletingAdId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ─── Computed KPI Values ───────────────────────────────────────────────
 
@@ -217,43 +216,66 @@ export function HeroAdsPage() {
 
   const topAds = [...heroAds].sort((a, b) => b.ctr - a.ctr).slice(0, 5)
 
-  // ─── Simulated Upload ──────────────────────────────────────────────────
+  // ─── Upload File to Server ────────────────────────────────────────────
 
-  const simulateUpload = useCallback((fileName: string) => {
+  const uploadFileToServer = useCallback(async (file: File, category: string = 'hero'): Promise<{ url: string; key: string; size: number; fileName: string; mimeType: string }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('category', category)
+
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ error: 'Upload failed' }))
+      throw new Error(errData.error || 'Upload failed')
+    }
+
+    return await res.json()
+  }, [])
+
+  // ─── Handle File Selection (Real Upload) ─────────────────────────────────
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    // Reset previous state
+    setUploadError('')
     setUploadStage('uploading')
     setUploadProgress(0)
-    setUploadedSize('0 GB')
+    setUploadedFileUrl(null)
+    setUploadedFileName(file.name)
 
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-
-    let progress = 0
-    const totalSize = 5.0
-
-    progressIntervalRef.current = setInterval(() => {
-      const increment = Math.random() * 4 + 1
-      progress = Math.min(progress + increment, 100)
-      setUploadProgress(progress)
-
-      const uploaded = (progress / 100) * totalSize
-      setUploadedSize(`${uploaded.toFixed(2)} GB`)
-      setUploadSpeed(`${(Math.random() * 2 + 1.5).toFixed(1)} MB/s`)
-
-      const remaining = ((100 - progress) / increment) * 0.15
-      setUploadRemaining(remaining > 60 ? `${Math.ceil(remaining / 60)} mins left` : `${Math.ceil(remaining)} secs left`)
-
-      if (progress >= 100) {
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-        setUploadStage('processing')
-        setTimeout(() => setUploadStage('success'), 1500)
-      }
-    }, 150)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+    // Auto-detect ad type based on file
+    if (file.type.startsWith('video/')) {
+      setAdType('video')
+    } else if (file.type.startsWith('image/')) {
+      setAdType('image')
     }
-  }, [])
+
+    try {
+      setUploadProgress(20)
+
+      // Upload the file to the server
+      const result = await uploadFileToServer(file, 'hero')
+      setUploadedFileUrl(result.url)
+      setUploadProgress(80)
+
+      // Processing stage
+      setUploadStage('processing')
+      setUploadProgress(95)
+
+      // Small delay for "processing" feel
+      await new Promise(r => setTimeout(r, 600))
+
+      setUploadProgress(100)
+      setUploadStage('success')
+    } catch (err: any) {
+      console.error('Upload error:', err)
+      setUploadError(err.message || 'File upload failed. Please try again.')
+      setUploadStage('error')
+    }
+  }, [uploadFileToServer])
 
   // ─── Drag & Drop ───────────────────────────────────────────────────────
 
@@ -263,13 +285,16 @@ export function HeroAdsPage() {
     e.preventDefault()
     setIsDragOver(false)
     const files = e.dataTransfer.files
-    if (files.length > 0) simulateUpload(files[0].name)
-  }, [simulateUpload])
+    if (files.length > 0) handleFileSelect(files[0])
+  }, [handleFileSelect])
 
   const handleResetUpload = useCallback(() => {
     setUploadStage('idle')
     setUploadProgress(0)
+    setUploadError('')
     setSelectedThumbnail(0)
+    setUploadedFileUrl(null)
+    setUploadedFileName('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 
@@ -303,14 +328,16 @@ export function HeroAdsPage() {
         }
       } else {
         // Create new ad via hook (realtime auto-updates)
+        const mediaUrl = uploadedFileUrl || ''
+        const mediaFormat = adType === 'video' ? 'mp4' : 'jpg'
         await createHeroAd({
           title: adTitle,
           description: adDescription || null,
           category: adCategory || null,
-          mediaUrl: `https://cdn.xtube.com/hero/${Date.now()}.${adType === 'video' ? 'mp4' : 'jpg'}`,
-          thumbnailUrl: `https://cdn.xtube.com/hero/thumbs/${Date.now()}.jpg`,
+          mediaUrl,
+          thumbnailUrl: mediaUrl,
           adType,
-          mediaFormat: adType === 'video' ? 'mp4' : 'jpg',
+          mediaFormat,
           isActive: statusActive,
           displayOrder,
           startDate: startDate || null,
@@ -324,7 +351,8 @@ export function HeroAdsPage() {
     } finally {
       setSaving(false)
     }
-  }, [adTitle, adDescription, adCategory, adType, statusActive, displayOrder, startDate, endDate, editingAd, createHeroAd, refetchHeroAds, handleResetUpload])
+  }, [adTitle, adDescription, adCategory, adType, statusActive, displayOrder, startDate, endDate, editingAd, uploadedFileUrl, createHeroAd, refetchHeroAds, handleResetUpload])
+
 
   // ─── Delete Hero Ad ────────────────────────────────────────────────────
 
@@ -376,7 +404,10 @@ export function HeroAdsPage() {
     setEditingAd(null)
     setUploadStage('idle')
     setUploadProgress(0)
+    setUploadError('')
     setSelectedThumbnail(0)
+    setUploadedFileUrl(null)
+    setUploadedFileName('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 
@@ -536,7 +567,7 @@ export function HeroAdsPage() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/svg+xml,image/gif,video/mp4,video/webm"
                       className="hidden"
-                      onChange={(e) => { if (e.target.files?.length) simulateUpload(e.target.files[0].name) }}
+                      onChange={(e) => { if (e.target.files?.length) handleFileSelect(e.target.files[0]) }}
                     />
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ff1e1e]/10">
                       <CloudUpload className="h-6 w-6 text-[#ff1e1e]" />
@@ -567,10 +598,7 @@ export function HeroAdsPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-[#ff1e1e]">{Math.round(uploadProgress)}%</span>
                         {uploadStage === 'uploading' && (
-                          <>
-                            <button className="rounded px-2 py-0.5 text-[10px] text-white/40 hover:text-white/60 border border-white/10">Pause</button>
-                            <button onClick={handleResetUpload} className="rounded px-2 py-0.5 text-[10px] text-red-400 hover:text-red-300 border border-red-500/20">Cancel</button>
-                          </>
+                          <button onClick={handleResetUpload} className="rounded px-2 py-0.5 text-[10px] text-red-400 hover:text-red-300 border border-red-500/20">Cancel</button>
                         )}
                       </div>
                     </div>
@@ -589,19 +617,9 @@ export function HeroAdsPage() {
                       />
                     </div>
                     {uploadStage === 'uploading' ? (
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-[10px] text-white/25">Uploaded</p>
-                          <p className="text-xs font-semibold text-white">{uploadedSize} / 5.00 GB</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-white/25">Speed</p>
-                          <p className="text-xs font-semibold text-white">{uploadSpeed}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-white/25">Time Left</p>
-                          <p className="text-xs font-semibold text-white">{uploadRemaining}</p>
-                        </div>
+                      <div className="flex items-center gap-2 text-xs text-white/60">
+                        <Upload className="h-3.5 w-3.5 animate-pulse text-[#ff1e1e]" />
+                        <span>Uploading {uploadedFileName}...</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-xs text-amber-400">
@@ -609,6 +627,28 @@ export function HeroAdsPage() {
                         <span>Optimizing &amp; generating thumbnails...</span>
                       </div>
                     )}
+                  </motion.div>
+                ) : uploadStage === 'error' ? (
+                  <motion.div
+                    key="upload-error"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="rounded-xl border border-red-500/20 bg-red-500/5 p-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <X className="h-5 w-5 flex-shrink-0 text-red-400 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-red-400">Upload Failed</p>
+                        <p className="mt-1 text-[11px] text-white/50">{uploadError}</p>
+                        <button
+                          onClick={handleResetUpload}
+                          className="mt-2 text-[10px] text-[#ff1e1e] hover:text-[#ff3e3e]"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    </div>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -623,10 +663,10 @@ export function HeroAdsPage() {
                       <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-medium text-white">
-                          {editingAd ? editingAd.mediaUrl.split('/').pop() : 'hero_banner_2025.jpg'}
+                          {editingAd ? editingAd.mediaUrl.split('/').pop() : uploadedFileName || 'hero_banner_2025.jpg'}
                         </p>
                         <p className="text-[10px] text-white/30">
-                          {adType === 'video' ? '1920×1080 • MP4' : '1920×600 • JPG'}
+                          {uploadedFileUrl ? 'Uploaded successfully' : adType === 'video' ? '1920×1080 • MP4' : '1920×600 • JPG'}
                         </p>
                       </div>
                       {!editingAd && (
@@ -787,7 +827,7 @@ export function HeroAdsPage() {
                   whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(255,30,30,0.4)' }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSave}
-                  disabled={saving || !adTitle.trim()}
+                  disabled={saving || !adTitle.trim() || (!editingAd && uploadStage !== 'success')}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? (

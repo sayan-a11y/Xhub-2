@@ -28,21 +28,33 @@ export async function POST(request: NextRequest) {
     // Validate file type
     const validVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska', 'application/x-mpegURL']
     const validImageTypes = ['image/jpeg', 'image/png', 'image/webp']
-    const validTypes = [...validVideoTypes, ...validImageTypes]
+    const validAdsTypes = ['image/gif', 'image/svg+xml', ...validVideoTypes, ...validImageTypes]
+    const validTypes = [...validVideoTypes, ...validImageTypes, ...validAdsTypes]
 
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|webm|mov|mkv|m3u8|jpg|jpeg|png|webp)$/i)) {
+    const isAdsCategory = category === 'ads' || category === 'hero'
+
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|webm|mov|mkv|m3u8|jpg|jpeg|png|webp|gif|svg)$/i)) {
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 })
     }
 
     // Determine subfolder based on category
     const isImage = validImageTypes.includes(file.type) || file.name.match(/\.(jpg|jpeg|png|webp)$/i)
-    const subfolder = isImage ? 'thumbnails' : 'videos'
+    const isGif = file.type === 'image/gif' || file.name.match(/\.gif$/i)
+    const isSvg = file.type === 'image/svg+xml' || file.name.match(/\.svg$/i)
+    let subfolder: string
+    if (isAdsCategory) {
+      subfolder = 'ads'
+    } else if (isImage) {
+      subfolder = 'thumbnails'
+    } else {
+      subfolder = 'videos'
+    }
 
     // Generate unique filename
     const now = new Date()
     const year = now.getFullYear().toString()
     const month = (now.getMonth() + 1).toString().padStart(2, '0')
-    const ext = file.name.split('.').pop() || (isImage ? 'jpg' : 'mp4')
+    const ext = file.name.split('.').pop() || (isGif ? 'gif' : isSvg ? 'svg' : isImage ? 'jpg' : 'mp4')
     const uuid = randomUUID().replace(/-/g, '').substring(0, 12)
     const fileName = `${uuid}.${ext}`
     const storageKey = `${subfolder}/${year}/${month}/${fileName}`
