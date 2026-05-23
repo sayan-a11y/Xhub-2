@@ -89,3 +89,31 @@ Stage Summary:
 - URL paste mode allows adding streaming URLs directly
 - Upload progress and error states properly handled
 - Video records are created in database with all metadata
+---
+Task ID: 3
+Agent: main
+Task: Auto-hide hero banner/image when video is opened on mobile/tablet
+
+Work Log:
+- Analyzed uploaded screenshot showing video player with hero banner visible in background on mobile
+- Updated HeroAdsSlider component with auto-hide behavior:
+  1. Auto-hide when `currentView === 'video'` (derived from store, no effect needed)
+  2. Auto-hide on scroll down (mobile/tablet only, >200px scroll down hides, ≤100px shows again)
+  3. Smooth height animation when hiding (motion.div with height 0)
+- Reduced HeroAdsSlider height on mobile/tablet:
+  - Before: h-[40vh] sm:h-[45vh] md:h-[50vh] lg:h-[65vh] (too tall on mobile)
+  - After: h-[180px] sm:h-[220px] md:h-[300px] lg:h-[50vh] xl:h-[65vh] (compact on mobile)
+- Made hero content responsive for smaller height:
+  - Title: text-lg on mobile (was text-2xl)
+  - Description: hidden on mobile (hidden sm:block)
+  - CTA buttons: compact on mobile, "Watch" instead of "Watch Now", "More Info" hidden
+  - Padding: reduced bottom padding on mobile
+- Added bg-black to video element in VideoPlayer to ensure poster/thumbnail doesn't bleed through
+- All lint checks pass
+
+Stage Summary:
+- Hero banner auto-hides when video is opened (currentView === 'video')
+- Hero banner auto-hides on scroll down on mobile/tablet
+- Hero banner is much more compact on mobile (180px vs 40vh)
+- Content adapts to smaller banner size on mobile
+- Smooth animation when banner hides/shows

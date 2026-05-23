@@ -436,7 +436,7 @@ export default function XtubeHome() {
 
     return (
     <div className="space-y-6 pb-20 md:pb-8">
-      {/* Hero Ads Slider - cinematic hero banner at top */}
+      {/* Hero Ads Slider - cinematic hero banner at top, auto-hides on mobile/tablet */}
       <HeroAdsSlider ads={heroAdsData} />
 
       {/* Trending section - only shows when videos exist */}

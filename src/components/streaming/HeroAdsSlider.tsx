@@ -84,6 +84,32 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
   const [videoLoaded, setVideoLoaded] = useState<Record<string, boolean>>({})
   const [isHovering, setIsHovering] = useState(false)
 
+  // ─── Auto-hide on mobile/tablet when video is playing ──────────────────
+  const [scrollHidden, setScrollHidden] = useState(false)
+  const currentView = useAppStore((s) => s.currentView)
+
+  // Hide hero ads when watching a video (derived from currentView, no effect needed)
+  const isVideoView = currentView === 'video'
+
+  // Auto-hide on scroll (mobile/tablet) - hide banner when user scrolls down
+  useEffect(() => {
+    let lastScrollY = window.scrollY
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      const isMobileOrTablet = window.innerWidth < 1024
+      if (isMobileOrTablet && currentScrollY > 200 && currentScrollY > lastScrollY) {
+        setScrollHidden(true)
+      } else if (isMobileOrTablet && currentScrollY <= 100) {
+        setScrollHidden(false)
+      }
+      lastScrollY = currentScrollY
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const isVisible = !isVideoView && !scrollHidden
+
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -274,6 +300,20 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
   }, [])
 
   /* ────────────────────────────────────────────
+     Auto-hide: animate height to 0 when hidden
+     ──────────────────────────────────────────── */
+  if (!isVisible) {
+    return (
+      <motion.div
+        initial={{ height: 180 }}
+        animate={{ height: 0 }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        className="overflow-hidden"
+      />
+    )
+  }
+
+  /* ────────────────────────────────────────────
      No Ads Placeholder
      ──────────────────────────────────────────── */
   if (!visibleAds.length) {
@@ -284,7 +324,7 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
         role="region"
         aria-label="Hero advertisement space"
       >
-        <div className="relative h-[40vh] sm:h-[45vh] md:h-[50vh] lg:h-[65vh] flex items-center justify-center">
+        <div className="relative h-[180px] sm:h-[220px] md:h-[300px] lg:h-[50vh] xl:h-[65vh] flex items-center justify-center">
           {/* Cinematic dark background with subtle gradients */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#050505] to-[#080810]" />
           
@@ -361,7 +401,7 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
       aria-roledescription="carousel"
     >
       {/* ── Slide area: responsive heights ── */}
-      <div className="relative h-[40vh] sm:h-[45vh] md:h-[50vh] lg:h-[65vh]">
+      <div className="relative h-[180px] sm:h-[220px] md:h-[300px] lg:h-[50vh] xl:h-[65vh]">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentAd.id}
@@ -459,7 +499,7 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
             exit="exit"
             className="absolute inset-0 flex items-end"
           >
-            <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 md:px-8 pb-16 sm:pb-20 md:pb-24 lg:pb-28 xl:pb-32">
+            <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 md:px-8 pb-8 sm:pb-12 md:pb-20 lg:pb-24 xl:pb-32">
               <div className="max-w-xl space-y-3 sm:space-y-4">
                 {/* Sponsored badge */}
                 <motion.div variants={contentItem} className="flex items-center gap-2">
@@ -493,7 +533,7 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
                 {/* Title */}
                 <motion.h2
                   variants={contentItem}
-                  className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold text-white leading-[1.05] tracking-tight"
+                  className="text-lg sm:text-2xl md:text-3xl lg:text-5xl xl:text-6xl font-extrabold text-white leading-[1.05] tracking-tight"
                 >
                   {currentAd.title}
                 </motion.h2>
@@ -502,28 +542,29 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
                 {currentAd.description && (
                   <motion.p
                     variants={contentItem}
-                    className="line-clamp-2 text-sm sm:text-base text-white/50 max-w-md leading-relaxed"
+                    className="hidden sm:block line-clamp-2 text-sm sm:text-base text-white/50 max-w-md leading-relaxed"
                   >
                     {currentAd.description}
                   </motion.p>
                 )}
 
                 {/* CTA buttons */}
-                <motion.div variants={contentItem} className="flex items-center gap-3 pt-2 sm:pt-3">
+                <motion.div variants={contentItem} className="flex items-center gap-2 sm:gap-3 pt-1 sm:pt-3">
                   <motion.button
                     whileHover={{ scale: 1.04, boxShadow: '0 0 25px rgba(229,9,20,0.5)' }}
                     whileTap={{ scale: 0.96 }}
                     onClick={handleWatchNow}
-                    className="flex items-center gap-2 rounded-md bg-[#ff1e1e] px-5 py-2.5 sm:px-7 sm:py-3 md:px-8 md:py-3.5 text-sm sm:text-base font-semibold text-white transition-all hover:bg-[#ff2e2e] shadow-[0_0_20px_rgba(255,30,30,0.4)]"
+                    className="flex items-center gap-1.5 sm:gap-2 rounded-md bg-[#ff1e1e] px-3 py-1.5 sm:px-7 sm:py-3 md:px-8 md:py-3.5 text-xs sm:text-base font-semibold text-white transition-all hover:bg-[#ff2e2e] shadow-[0_0_20px_rgba(255,30,30,0.4)]"
                   >
-                    <Play className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" />
-                    Watch Now
+                    <Play className="h-3 w-3 sm:h-5 sm:w-5" fill="currentColor" />
+                    <span className="hidden sm:inline">Watch Now</span>
+                    <span className="sm:hidden">Watch</span>
                   </motion.button>
 
                   <motion.button
                     whileHover={{ scale: 1.04, backgroundColor: 'rgba(255,255,255,0.12)' }}
                     whileTap={{ scale: 0.96 }}
-                    className="glass flex items-center gap-2 rounded-md px-5 py-2.5 sm:px-7 sm:py-3 md:px-8 md:py-3.5 text-sm sm:text-base font-semibold text-white transition-colors hover:bg-white/10"
+                    className="glass hidden sm:flex items-center gap-2 rounded-md px-5 py-2.5 sm:px-7 sm:py-3 md:px-8 md:py-3.5 text-sm sm:text-base font-semibold text-white transition-colors hover:bg-white/10"
                   >
                     <Info className="h-4 w-4 sm:h-5 sm:w-5" />
                     More Info

@@ -894,7 +894,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
               {/* Video Element */}
               <video
                 ref={videoRef}
-                className="h-full w-full cursor-pointer aspect-video"
+                className="h-full w-full cursor-pointer aspect-video bg-black"
                 poster={video.thumbnail}
                 preload="metadata"
                 onClick={togglePlay}
