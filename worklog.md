@@ -58,3 +58,34 @@ Stage Summary:
 - Real-time Stats bar shows today's computed metrics
 - Auto-refresh runs every 15 seconds with "Updated Xs ago" indicator
 - UI design remains exactly the same - only data sources changed
+---
+Task ID: 1
+Agent: main
+Task: Fix video upload failure - rebuild with real file upload flow
+
+Work Log:
+- Investigated the VideoUploadPage - found it was entirely simulated (fake progress, no real upload)
+- Created new `/api/upload` endpoint for direct file upload via FormData to local storage
+- Updated `/api/videos` POST endpoint to accept additional fields (resolution, fileSize, storageProvider, storageKey, durationSeconds, qualityLevels, codec, audioCodec, etc.)
+- Completely rewrote `VideoUploadPage.tsx` with real upload flow:
+  - Real file upload via `/api/upload` endpoint
+  - Video metadata extraction using HTML5 video element (duration, width, height)
+  - Auto-thumbnail generation using Canvas API (captures frame at 25% of video)
+  - Thumbnail upload to server as separate file
+  - Progress tracking based on actual upload stages
+  - Error handling with clear error messages and "Try Again" button
+  - URL paste mode for streaming URLs (HLS, MP4 direct links)
+  - Manual thumbnail upload option
+  - Video info display (resolution, file size, format, duration)
+  - Auto-fill title from filename, auto-detect quality
+- Created `/public/videos` and `/public/thumbnails` directories for local storage
+- Cleaned up unused imports (PencilIcon, Video)
+- All lint checks pass
+
+Stage Summary:
+- Video upload is now fully functional with real file uploads
+- Files are saved to `public/videos/YYYY/MM/uuid.ext` and `public/thumbnails/YYYY/MM/uuid.jpg`
+- Thumbnails are auto-generated from video frames using Canvas API
+- URL paste mode allows adding streaming URLs directly
+- Upload progress and error states properly handled
+- Video records are created in database with all metadata

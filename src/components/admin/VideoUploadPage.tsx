@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   Link,
   Image as ImageIcon,
-  Shield,
   Clock,
   ChevronDown,
   RefreshCw,
@@ -24,6 +23,9 @@ import {
   TrendingUp,
   Radio,
   AlertCircle,
+  XCircle,
+  Loader2,
+  FileVideo,
 } from 'lucide-react'
 import {
   Select,
@@ -36,33 +38,28 @@ import { Checkbox } from '@/components/ui/checkbox'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type UploadStage = 'idle' | 'uploading' | 'processing' | 'success'
+type UploadStage = 'idle' | 'uploading' | 'processing' | 'success' | 'error'
 
-interface FileInfo {
+interface VideoMetadata {
   name: string
-  resolution: string
-  size: string
-  duration: string
+  size: number
+  type: string
+  duration: number
+  width: number
+  height: number
 }
 
 // ─── Thumbnail Gradients ─────────────────────────────────────────────────────
 
 const thumbnailGradients = [
   'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  'from-blue-900/60 via-indigo-800/40 to-violet-900/30',
   'from-amber-900/60 via-orange-800/40 to-yellow-900/30',
   'from-rose-900/60 via-pink-800/40 to-red-900/30',
   'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
   'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
   'from-lime-900/60 via-green-800/40 to-emerald-900/30',
   'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  'from-indigo-900/60 via-blue-800/40 to-sky-900/30',
   'from-pink-900/60 via-rose-800/40 to-fuchsia-900/30',
-]
-
-const thumbnailTimecodes = [
-  '00:03', '00:08', '00:14', '00:22', '00:31',
-  '00:42', '00:55', '01:05', '01:18', '01:25',
 ]
 
 // ─── Quality Options ─────────────────────────────────────────────────────────
@@ -89,95 +86,223 @@ const categoryOptions = [
   'Horror',
 ]
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB'
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB'
+  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return bytes + ' B'
+}
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = Math.floor(seconds % 60)
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function getResolutionLabel(w: number, h: number): string {
+  if (h >= 2160) return '4K'
+  if (h >= 1440) return '2K'
+  if (h >= 1080) return '1080p'
+  if (h >= 720) return '720p'
+  if (h >= 480) return '480p'
+  return `${w}×${h}`
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function VideoUploadPage() {
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadSpeed, setUploadSpeed] = useState('0 MB/s')
-  const [uploadRemaining, setUploadRemaining] = useState('')
-  const [uploadedSize, setUploadedSize] = useState('0 GB')
+  const [uploadError, setUploadError] = useState('')
   const [isDragOver, setIsDragOver] = useState(false)
-  const [selectedQuality, setSelectedQuality] = useState('auto')
-  const [selectedThumbnail, setSelectedThumbnail] = useState(0)
 
-  // File info
-  const [fileInfo, setFileInfo] = useState<FileInfo | null>(null)
+  // File references
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [videoMeta, setVideoMeta] = useState<VideoMetadata | null>(null)
+  const [thumbnailDataUrl, setThumbnailDataUrl] = useState<string | null>(null)
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
+
+  // Upload result
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null)
+  const [uploadedThumbnailUrl, setUploadedThumbnailUrl] = useState<string | null>(null)
 
   // Form state
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
   const [quality, setQuality] = useState('1080p')
-  const [duration, setDuration] = useState('')
   const [isFeatured, setIsFeatured] = useState(false)
   const [isTrending, setIsTrending] = useState(false)
   const [isLive, setIsLive] = useState(false)
 
+  // Publish state
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishSuccess, setPublishSuccess] = useState(false)
+
   // Video player state
   const [isPlaying, setIsPlaying] = useState(false)
 
+  // URL paste mode
+  const [urlMode, setUrlMode] = useState(false)
+  const [pastedUrl, setPastedUrl] = useState('')
+
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const thumbnailInputRef = useRef<HTMLInputElement>(null)
+  const videoElementRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // ─── Simulated Upload ──────────────────────────────────────────────────
+  // ─── Extract Video Metadata & Generate Thumbnail ─────────────────────────
 
-  const simulateUpload = useCallback((fileName: string) => {
-    setFileInfo({
-      name: fileName || 'Nature Cinematic Trailer.mp4',
-      resolution: '1920 × 1080',
-      size: '2.45 GB',
-      duration: '01:28',
+  const extractVideoInfo = useCallback((file: File): Promise<{ meta: VideoMetadata; thumbUrl: string; thumbFile: File }> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.muted = true
+      video.playsInline = true
+      videoElementRef.current = video
+
+      const url = URL.createObjectURL(file)
+
+      video.onloadedmetadata = () => {
+        const meta: VideoMetadata = {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          duration: video.duration,
+          width: video.videoWidth,
+          height: video.videoHeight,
+        }
+        setVideoMeta(meta)
+
+        // Auto-fill duration
+        const dur = formatDuration(video.duration)
+        setTitle(file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '))
+        setQuality(getResolutionLabel(video.videoWidth, video.videoHeight).toLowerCase())
+
+        // Seek to 25% for thumbnail
+        video.currentTime = Math.min(video.duration * 0.25, 5)
+      }
+
+      video.onseeked = () => {
+        try {
+          // Generate thumbnail using Canvas
+          const canvas = document.createElement('canvas')
+          const maxW = 640
+          const scale = maxW / video.videoWidth
+          canvas.width = maxW
+          canvas.height = Math.floor(video.videoHeight * scale)
+          canvasRef.current = canvas
+
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            URL.revokeObjectURL(url)
+            reject(new Error('Canvas not supported'))
+            return
+          }
+
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+          // Convert to blob
+          canvas.toBlob((blob) => {
+            URL.revokeObjectURL(url)
+            if (!blob) {
+              reject(new Error('Thumbnail generation failed'))
+              return
+            }
+
+            const thumbUrl = URL.createObjectURL(blob)
+            setThumbnailDataUrl(thumbUrl)
+
+            const thumbFile = new File([blob], `thumbnail_${Date.now()}.jpg`, { type: 'image/jpeg' })
+            setThumbnailFile(thumbFile)
+
+            resolve({ meta, thumbUrl, thumbFile })
+          }, 'image/jpeg', 0.85)
+        } catch (err) {
+          URL.revokeObjectURL(url)
+          reject(err)
+        }
+      }
+
+      video.onerror = () => {
+        URL.revokeObjectURL(url)
+        reject(new Error('Failed to load video'))
+      }
+
+      video.src = url
     })
+  }, [])
+
+  // ─── Upload File to Server ──────────────────────────────────────────────────
+
+  const uploadFileToServer = useCallback(async (file: File, category: string = 'video'): Promise<{ url: string; key: string; size: number }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('category', category)
+
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ error: 'Upload failed' }))
+      throw new Error(errData.error || 'Upload failed')
+    }
+
+    return await res.json()
+  }, [])
+
+  // ─── Handle File Selection ──────────────────────────────────────────────────
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    // Reset previous state
+    setUploadError('')
     setUploadStage('uploading')
     setUploadProgress(0)
-    setUploadedSize('0 GB')
-    setUploadSpeed('0 MB/s')
+    setSelectedFile(file)
+    setUploadedVideoUrl(null)
+    setUploadedThumbnailUrl(null)
 
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+    try {
+      // Step 1: Extract video metadata & generate thumbnail
+      setUploadProgress(10)
+      const { meta, thumbFile } = await extractVideoInfo(file)
+      setUploadProgress(30)
 
-    let progress = 0
-    const totalSize = 5.0 // GB
+      // Step 2: Upload the video file
+      setUploadStage('uploading')
+      const videoResult = await uploadFileToServer(file, 'video')
+      setUploadedVideoUrl(videoResult.url)
+      setUploadProgress(70)
 
-    progressIntervalRef.current = setInterval(() => {
-      const increment = Math.random() * 4 + 1
-      progress = Math.min(progress + increment, 100)
-      setUploadProgress(progress)
+      // Step 3: Upload the thumbnail
+      const thumbResult = await uploadFileToServer(thumbFile, 'thumbnail')
+      setUploadedThumbnailUrl(thumbResult.url)
+      setUploadProgress(90)
 
-      const uploaded = (progress / 100) * totalSize
-      setUploadedSize(`${uploaded.toFixed(2)} GB`)
-      setUploadSpeed(`${(Math.random() * 2 + 1.5).toFixed(1)} MB/s`)
+      // Step 4: Processing
+      setUploadStage('processing')
+      setUploadProgress(95)
 
-      const remaining = ((100 - progress) / increment) * 0.15
-      if (remaining > 60) {
-        setUploadRemaining(`${Math.ceil(remaining / 60)} mins left`)
-      } else {
-        setUploadRemaining(`${Math.ceil(remaining)} secs left`)
-      }
+      // Small delay for "processing" feel
+      await new Promise(r => setTimeout(r, 800))
 
-      if (progress >= 100) {
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-        setUploadStage('processing')
-        setTimeout(() => {
-          setUploadStage('success')
-          setTitle('Nature Cinematic Trailer')
-          setDescription('A cinematic trailer showcasing the beauty of nature, stunning landscapes, and peaceful moments.')
-          setCategory('Travel & Nature')
-          setQuality('1080p')
-          setDuration('01:28')
-        }, 1500)
-      }
-    }, 150)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+      setUploadProgress(100)
+      setUploadStage('success')
+    } catch (err: any) {
+      console.error('Upload error:', err)
+      setUploadError(err.message || 'Video upload failed. Please try again.')
+      setUploadStage('error')
     }
-  }, [])
+  }, [extractVideoInfo, uploadFileToServer])
 
-  // ─── Drag & Drop ───────────────────────────────────────────────────────
+  // ─── Drag & Drop ───────────────────────────────────────────────────────────
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -191,43 +316,75 @@ export function VideoUploadPage() {
     setIsDragOver(false)
   }, [])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setIsDragOver(false)
-      const files = e.dataTransfer.files
-      if (files.length > 0) simulateUpload(files[0].name)
-    },
-    [simulateUpload]
-  )
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    const files = e.dataTransfer.files
+    if (files.length > 0 && files[0].type.startsWith('video/')) {
+      handleFileSelect(files[0])
+    }
+  }, [handleFileSelect])
 
-  const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files
-      if (files && files.length > 0) simulateUpload(files[0].name)
-    },
-    [simulateUpload]
-  )
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      handleFileSelect(files[0])
+    }
+  }, [handleFileSelect])
 
   const handleBrowseClick = useCallback(() => {
     fileInputRef.current?.click()
   }, [])
 
+  // ─── Handle Thumbnail Upload Manually ───────────────────────────────────────
+
+  const handleThumbnailUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    const file = files[0]
+    if (!file.type.startsWith('image/')) return
+
+    try {
+      const thumbUrl = URL.createObjectURL(file)
+      setThumbnailDataUrl(thumbUrl)
+      setThumbnailFile(file)
+
+      // Upload to server
+      const result = await uploadFileToServer(file, 'thumbnail')
+      setUploadedThumbnailUrl(result.url)
+    } catch (err) {
+      console.error('Thumbnail upload error:', err)
+    }
+  }, [uploadFileToServer])
+
+  // ─── Reset ──────────────────────────────────────────────────────────────────
+
   const handleResetUpload = useCallback(() => {
     setUploadStage('idle')
     setUploadProgress(0)
-    setFileInfo(null)
+    setUploadError('')
+    setSelectedFile(null)
+    setVideoMeta(null)
+    setThumbnailDataUrl(null)
+    setThumbnailFile(null)
+    setUploadedVideoUrl(null)
+    setUploadedThumbnailUrl(null)
     setTitle('')
     setDescription('')
     setCategory('')
     setQuality('1080p')
-    setDuration('')
     setIsFeatured(false)
     setIsTrending(false)
     setIsLive(false)
-    setSelectedThumbnail(0)
+    setPublishSuccess(false)
+    setUrlMode(false)
+    setPastedUrl('')
     if (fileInputRef.current) fileInputRef.current.value = ''
+    if (videoElementRef.current) {
+      videoElementRef.current.pause()
+      videoElementRef.current.src = ''
+    }
   }, [])
 
   const handleClearForm = useCallback(() => {
@@ -235,50 +392,90 @@ export function VideoUploadPage() {
     setDescription('')
     setCategory('')
     setQuality('1080p')
-    setDuration('')
     setIsFeatured(false)
     setIsTrending(false)
     setIsLive(false)
   }, [])
 
-  // ─── Create video in database via API ──────────────────────────────────────
-  const [isPublishing, setIsPublishing] = useState(false)
-  const [publishSuccess, setPublishSuccess] = useState(false)
+  // ─── Publish Video ──────────────────────────────────────────────────────────
 
   const handlePublishVideo = useCallback(async () => {
     if (!title.trim() || !category) return
+
     setIsPublishing(true)
     try {
-      const res = await fetch('/api/videos', {
+      const videoUrl = urlMode ? pastedUrl : uploadedVideoUrl
+      const thumbnailUrl = uploadedThumbnailUrl || thumbnailDataUrl || '/placeholder.jpg'
+      const durationSec = videoMeta?.duration || 0
+      const res = getResolutionLabel(videoMeta?.width || 1920, videoMeta?.height || 1080).toLowerCase()
+
+      const res2 = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || `Watch ${title.trim()} on Xtube.`,
-          thumbnail: `https://picsum.photos/seed/${Date.now()}/640/360`,
-          videoUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+          thumbnail: thumbnailUrl,
+          videoUrl: videoUrl || pastedUrl,
           category,
-          duration: duration || '0:00',
-          isHd: quality === '1080p' || quality === '2k' || quality === '4k',
+          duration: formatDuration(durationSec),
+          isHd: res === '1080p' || res === '2k' || res === '4k',
           isPublished: true,
-          resolution: quality,
+          resolution: quality || res,
+          fileSize: videoMeta?.size || 0,
+          storageProvider: 'local',
+          storageKey: null,
+          durationSeconds: Math.floor(durationSec),
+          qualityLevels: JSON.stringify([res]),
+          codec: 'h264',
+          audioCodec: 'aac',
         }),
       })
-      if (res.ok) {
+
+      if (res2.ok) {
         setPublishSuccess(true)
         setTimeout(() => {
           handleResetUpload()
-          setPublishSuccess(false)
-        }, 2000)
+        }, 2500)
+      } else {
+        const errData = await res2.json().catch(() => ({ error: 'Failed to publish' }))
+        setUploadError(errData.error || 'Failed to publish video')
+        setUploadStage('error')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating video:', err)
+      setUploadError(err.message || 'Failed to publish video')
+      setUploadStage('error')
     } finally {
       setIsPublishing(false)
     }
-  }, [title, description, category, quality, duration, handleResetUpload])
+  }, [title, description, category, quality, uploadedVideoUrl, uploadedThumbnailUrl, thumbnailDataUrl, videoMeta, urlMode, pastedUrl, handleResetUpload])
 
-  // ─── Render ────────────────────────────────────────────────────────────
+  // ─── Handle URL Paste Submit ────────────────────────────────────────────────
+
+  const handleUrlSubmit = useCallback(() => {
+    if (!pastedUrl.trim()) return
+    setUploadStage('success')
+    setUploadedVideoUrl(pastedUrl.trim())
+    setTitle('Streamed Video')
+    setCategory('Action')
+  }, [pastedUrl])
+
+  // ─── Cleanup ────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    return () => {
+      if (videoElementRef.current) {
+        videoElementRef.current.pause()
+        videoElementRef.current.src = ''
+      }
+      if (thumbnailDataUrl) {
+        URL.revokeObjectURL(thumbnailDataUrl)
+      }
+    }
+  }, [])
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <motion.div
@@ -294,25 +491,83 @@ export function VideoUploadPage() {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-xl font-bold text-white md:text-2xl">Upload Video</h1>
-              <p className="mt-1 text-sm text-white/40">Upload a video — preview is auto-generated</p>
+              <p className="mt-1 text-sm text-white/40">Upload a video file or paste a stream URL</p>
             </div>
           </div>
 
           {/* Tab */}
           <div className="mt-4 flex items-center gap-0 border-b border-white/5">
-            <button className="relative flex items-center gap-2 px-4 pb-3 text-sm font-semibold text-white">
+            <button
+              onClick={() => { if (urlMode) { setUrlMode(false); handleResetUpload() } }}
+              className={`relative flex items-center gap-2 px-4 pb-3 text-sm font-semibold transition-colors ${!urlMode ? 'text-white' : 'text-white/40 hover:text-white/60'}`}
+            >
               <Film className="h-4 w-4 text-xtube-red" />
-              Video
-              <motion.div
-                layoutId="upload-tab-indicator"
-                className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-xtube-red"
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
+              File Upload
+              {!urlMode && (
+                <motion.div
+                  layoutId="upload-tab-indicator"
+                  className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-xtube-red"
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </button>
+            <button
+              onClick={() => { if (!urlMode) { setUrlMode(true); handleResetUpload() } }}
+              className={`relative flex items-center gap-2 px-4 pb-3 text-sm font-semibold transition-colors ${urlMode ? 'text-white' : 'text-white/40 hover:text-white/60'}`}
+            >
+              <Link className="h-4 w-4 text-xtube-red" />
+              Paste URL
+              {urlMode && (
+                <motion.div
+                  layoutId="upload-tab-indicator"
+                  className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-xtube-red"
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
             </button>
           </div>
         </div>
 
+        {/* ── URL Paste Mode ── */}
+        {urlMode && uploadStage === 'idle' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Link className="h-4 w-4 text-xtube-red" />
+                <span className="text-sm font-semibold text-white">Video Stream URL</span>
+              </div>
+              <div className="flex gap-3">
+                <input
+                  type="url"
+                  value={pastedUrl}
+                  onChange={(e) => setPastedUrl(e.target.value)}
+                  placeholder="https://example.com/video.m3u8 or .mp4"
+                  className="flex-1 rounded-lg border border-white/10 bg-[#0a0a0a] px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 outline-none transition-all focus:border-xtube-red/40 focus:ring-1 focus:ring-xtube-red/20"
+                />
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleUrlSubmit}
+                  disabled={!pastedUrl.trim()}
+                  className="flex items-center gap-2 rounded-xl bg-xtube-red px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(229,9,20,0.3)] transition-all hover:bg-xtube-red-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Use URL
+                </motion.button>
+              </div>
+              <p className="mt-2 text-[11px] text-white/30">
+                Supports HLS (.m3u8), MP4, WebM direct URLs
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── Two Column Layout ── */}
+        {(!urlMode || uploadStage !== 'idle') && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_460px]">
           {/* ═══════════════════════════════════════════════════════════════════
               LEFT COLUMN — Upload Video
@@ -325,7 +580,7 @@ export function VideoUploadPage() {
                 <h2 className="text-lg font-bold text-white">Upload Video</h2>
                 <CloudUpload className="h-5 w-5 text-xtube-red" />
               </div>
-              {fileInfo && (
+              {selectedFile && (
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleBrowseClick}
@@ -344,9 +599,9 @@ export function VideoUploadPage() {
               )}
             </div>
 
-            {/* ── File Info Card (shown after file is uploaded) ── */}
+            {/* ── File Info Card ── */}
             <AnimatePresence mode="wait">
-              {fileInfo && (
+              {videoMeta && (
                 <motion.div
                   key="file-info"
                   initial={{ opacity: 0, y: 10 }}
@@ -356,25 +611,28 @@ export function VideoUploadPage() {
                 >
                   <div className="flex items-center gap-3 p-3 lg:p-4">
                     {/* Thumbnail Preview */}
-                    <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg">
-                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/60 via-teal-800/40 to-cyan-900/30" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Film className="h-6 w-6 text-white/25" />
-                      </div>
+                    <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-black">
+                      {thumbnailDataUrl ? (
+                        <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-emerald-900/60 via-teal-800/40 to-cyan-900/30">
+                          <Film className="h-6 w-6 text-white/25" />
+                        </div>
+                      )}
                       <div className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-semibold text-white">
-                        {fileInfo.duration}
+                        {formatDuration(videoMeta.duration)}
                       </div>
                     </div>
 
                     {/* File Details */}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-white">{fileInfo.name}</p>
+                      <p className="truncate text-sm font-semibold text-white">{videoMeta.name}</p>
                       <p className="mt-0.5 text-xs text-white/40">
-                        {fileInfo.resolution} &bull; {fileInfo.size} &bull; {fileInfo.duration}
+                        {videoMeta.width} × {videoMeta.height} &bull; {formatFileSize(videoMeta.size)} &bull; {formatDuration(videoMeta.duration)}
                       </p>
                     </div>
 
-                    {/* Success Indicator */}
+                    {/* Status Indicator */}
                     {uploadStage === 'success' && (
                       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
                         <CheckCircle2 className="h-5 w-5 text-emerald-400" />
@@ -382,12 +640,17 @@ export function VideoUploadPage() {
                     )}
                     {uploadStage === 'processing' && (
                       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/10">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+                        <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
                       </div>
                     )}
-                    {(uploadStage === 'uploading' || uploadStage === 'idle') && fileInfo && (
+                    {uploadStage === 'uploading' && (
                       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-xtube-red/10">
                         <Upload className="h-4 w-4 text-xtube-red animate-pulse" />
+                      </div>
+                    )}
+                    {uploadStage === 'error' && (
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-500/10">
+                        <XCircle className="h-5 w-5 text-red-400" />
                       </div>
                     )}
                   </div>
@@ -395,18 +658,17 @@ export function VideoUploadPage() {
               )}
             </AnimatePresence>
 
-            {/* ── Video Player Preview (shown after upload success) ── */}
+            {/* ── Video Player Preview ── */}
             <AnimatePresence>
-              {uploadStage === 'success' && (
+              {uploadStage === 'success' && thumbnailDataUrl && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80"
                 >
-                  <div className="relative aspect-video bg-gradient-to-br from-[#1a2a4a] via-[#0d1b2a] to-[#0a1628]">
-                    {/* Video scene gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                  <div className="relative aspect-video bg-black">
+                    <img src={thumbnailDataUrl} alt="Video preview" className="h-full w-full object-cover" />
 
                     {/* Play/Pause overlay */}
                     <button
@@ -416,7 +678,7 @@ export function VideoUploadPage() {
                       <motion.div
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
-                        className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+                        className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm transition-colors hover:bg-white/20"
                       >
                         {isPlaying ? (
                           <Pause className="h-6 w-6 text-white" fill="white" />
@@ -428,28 +690,18 @@ export function VideoUploadPage() {
 
                     {/* Bottom controls */}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-8">
-                      {/* Progress bar */}
-                      <div className="group/progress relative mb-2 h-1 cursor-pointer rounded-full bg-white/20">
-                        <div className="absolute left-0 top-0 h-full w-[30%] rounded-full bg-xtube-red" />
-                        <div className="absolute left-[30%] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-xtube-red bg-white opacity-0 transition-opacity group-hover/progress:opacity-100" />
+                      <div className="relative mb-2 h-1 cursor-pointer rounded-full bg-white/20">
+                        <div className="absolute left-0 top-0 h-full w-[0%] rounded-full bg-xtube-red" />
                       </div>
-
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => setIsPlaying(!isPlaying)}
-                            className="text-white/70 transition-colors hover:text-white"
-                          >
-                            {isPlaying ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
+                          <button className="text-white/70 transition-colors hover:text-white">
+                            <Play className="h-4 w-4" />
                           </button>
                           <button className="text-white/70 transition-colors hover:text-white">
                             <Volume2 className="h-4 w-4" />
                           </button>
-                          <span className="text-xs text-white/50">0:00 / 1:28</span>
+                          <span className="text-xs text-white/50">0:00 / {videoMeta ? formatDuration(videoMeta.duration) : '0:00'}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <button className="text-white/70 transition-colors hover:text-white">
@@ -466,9 +718,9 @@ export function VideoUploadPage() {
               )}
             </AnimatePresence>
 
-            {/* ── Upload Area (shown when idle) ── */}
+            {/* ── Upload Area (idle) ── */}
             <AnimatePresence>
-              {uploadStage === 'idle' && (
+              {uploadStage === 'idle' && !urlMode && (
                 <motion.div
                   key="upload-area"
                   initial={{ opacity: 0, y: 10 }}
@@ -487,9 +739,9 @@ export function VideoUploadPage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="video/mp4,video/mov,video/webm,video/x-mpegURL,application/x-mpegURL"
+                    accept="video/mp4,video/webm,video/quicktime,video/x-matroska,.mp4,.webm,.mov,.mkv"
                     className="hidden"
-                    onChange={handleFileSelect}
+                    onChange={handleFileInputChange}
                   />
 
                   <motion.div
@@ -510,37 +762,13 @@ export function VideoUploadPage() {
                   </div>
 
                   <p className="text-xs text-white/25">
-                    MP4, MOV, WebM, HLS &bull; Max 5GB
+                    MP4, MOV, WebM, MKV &bull; Max 5GB
                   </p>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* ── Upload Options (shown when idle) ── */}
-            <AnimatePresence>
-              {uploadStage === 'idle' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex items-center gap-3"
-                >
-                  <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111]/60 px-3 py-2 text-sm font-medium text-white/60 transition-all hover:border-white/20 hover:bg-[#111111]/80 hover:text-white">
-                    <Link className="h-4 w-4" />
-                    Paste Video URL
-                  </button>
-                  <button
-                    onClick={handleBrowseClick}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111]/60 px-3 py-2 text-sm font-medium text-white/60 transition-all hover:border-white/20 hover:bg-[#111111]/80 hover:text-white"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Manual Upload
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Upload Progress (shown when uploading) ── */}
+            {/* ── Upload Progress ── */}
             <AnimatePresence>
               {(uploadStage === 'uploading' || uploadStage === 'processing') && (
                 <motion.div
@@ -566,7 +794,6 @@ export function VideoUploadPage() {
                       transition={{ duration: 0.3, ease: 'easeOut' }}
                       className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-xtube-red to-red-500"
                     />
-                    {/* Glow effect */}
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${uploadProgress}%` }}
@@ -575,34 +802,50 @@ export function VideoUploadPage() {
                     />
                   </div>
 
-                  {uploadStage === 'uploading' ? (
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <p className="text-xs text-white/30">Uploaded</p>
-                        <p className="text-sm font-semibold text-white">
-                          {uploadedSize} / 5.00 GB
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-white/30">Speed</p>
-                        <p className="text-sm font-semibold text-white">{uploadSpeed}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-white/30">Time Left</p>
-                        <p className="text-sm font-semibold text-white">{uploadRemaining}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-amber-400">
-                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-                      <span>Generating thumbnails and detecting quality...</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 text-sm text-white/60">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-xtube-red" />
+                    <span>
+                      {uploadStage === 'processing'
+                        ? 'Generating thumbnails and detecting quality...'
+                        : videoMeta
+                          ? `${formatFileSize(videoMeta.size)} — ${videoMeta.width}×${videoMeta.height}`
+                          : 'Preparing upload...'}
+                    </span>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* ── Quality Options (shown after upload success) ── */}
+            {/* ── Error State ── */}
+            <AnimatePresence>
+              {uploadStage === 'error' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="overflow-hidden rounded-xl border border-red-500/20 bg-red-500/5 p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <XCircle className="h-5 w-5 flex-shrink-0 text-red-400 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-400">Upload Failed</p>
+                      <p className="mt-1 text-sm text-white/50">{uploadError}</p>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleResetUpload}
+                        className="mt-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Try Again
+                      </motion.button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Quality Options ── */}
             <AnimatePresence>
               {uploadStage === 'success' && (
                 <motion.div
@@ -614,6 +857,11 @@ export function VideoUploadPage() {
                   <div className="mb-3 flex items-center gap-2">
                     <Settings className="h-4 w-4 text-white/40" />
                     <span className="text-sm font-semibold text-white">Video Quality</span>
+                    {videoMeta && (
+                      <span className="ml-auto text-xs text-white/30">
+                        Detected: {getResolutionLabel(videoMeta.width, videoMeta.height)}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex gap-2">
@@ -622,9 +870,9 @@ export function VideoUploadPage() {
                         key={opt.value}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedQuality(opt.value)}
+                        onClick={() => setQuality(opt.value)}
                         className={`relative flex-1 rounded-lg border px-3 py-2.5 text-center transition-all ${
-                          selectedQuality === opt.value
+                          quality === opt.value
                             ? 'border-xtube-red/40 bg-xtube-red/10 text-white shadow-[0_0_12px_rgba(229,9,20,0.15)]'
                             : 'border-white/10 bg-white/[0.02] text-white/50 hover:border-white/20 hover:text-white/70'
                         }`}
@@ -633,27 +881,14 @@ export function VideoUploadPage() {
                         {opt.desc && (
                           <span className="ml-1 text-[10px] text-xtube-red">{opt.desc}</span>
                         )}
-                        {selectedQuality === opt.value && (
-                          <motion.div
-                            layoutId="quality-selected"
-                            className="absolute -top-px left-0 right-0 h-[2px] rounded-full bg-xtube-red"
-                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                          />
-                        )}
                       </motion.button>
                     ))}
                   </div>
-
-                  {selectedQuality === 'auto' && (
-                    <p className="mt-2 text-[11px] text-white/30">
-                      Auto quality will deliver best experience across all devices.
-                    </p>
-                  )}
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* ── Thumbnail Section (shown after upload success) ── */}
+            {/* ── Thumbnail Section ── */}
             <AnimatePresence>
               {uploadStage === 'success' && (
                 <motion.div
@@ -666,51 +901,40 @@ export function VideoUploadPage() {
                     <div className="flex items-center gap-2">
                       <ImageIcon className="h-4 w-4 text-white/40" />
                       <span className="text-sm font-semibold text-white">Thumbnail</span>
+                      {uploadedThumbnailUrl && (
+                        <span className="text-[10px] text-emerald-400">✓ Uploaded</span>
+                      )}
                     </div>
-                    <button className="text-sm font-medium text-xtube-red transition-colors hover:text-xtube-red-hover">
+                    <button
+                      onClick={() => thumbnailInputRef.current?.click()}
+                      className="text-sm font-medium text-xtube-red transition-colors hover:text-xtube-red-hover"
+                    >
                       Upload Manually
                     </button>
+                    <input
+                      ref={thumbnailInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleThumbnailUpload}
+                    />
                   </div>
 
-                  {/* Thumbnails Grid */}
-                  <div className="grid grid-cols-5 gap-2">
-                    {thumbnailGradients.map((gradient, i) => (
-                      <motion.button
-                        key={i}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setSelectedThumbnail(i)}
-                        className={`group relative aspect-video overflow-hidden rounded-lg border-2 transition-all ${
-                          selectedThumbnail === i
-                            ? 'border-xtube-red shadow-[0_0_12px_rgba(229,9,20,0.3)]'
-                            : 'border-transparent hover:border-white/20'
-                        }`}
-                      >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Film className="h-3 w-3 text-white/15" />
-                        </div>
-                        {/* Timecode */}
-                        <div className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 py-0.5 text-[7px] font-semibold text-white">
-                          {thumbnailTimecodes[i]}
-                        </div>
-                        {/* Selected indicator */}
-                        {selectedThumbnail === i && (
-                          <div className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-xtube-red">
-                            <CheckCircle2 className="h-3 w-3 text-white" />
-                          </div>
-                        )}
-                        {/* Hover overlay */}
-                        <div className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
-                      </motion.button>
-                    ))}
-                  </div>
+                  {/* Thumbnail Preview */}
+                  {thumbnailDataUrl && (
+                    <div className="relative aspect-video overflow-hidden rounded-lg border border-white/5">
+                      <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
+                      <div className="absolute bottom-2 right-2 rounded bg-black/80 px-2 py-1 text-xs text-white/70 backdrop-blur-sm">
+                        Auto-generated from video
+                      </div>
+                    </div>
+                  )}
 
                   {/* Info note */}
                   <div className="mt-3 flex items-start gap-2">
                     <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-white/25" />
                     <p className="text-[11px] text-white/30">
-                      Video thumbnail and duration are auto-generated after upload.
+                      Thumbnail is auto-generated from video. You can upload a custom one.
                     </p>
                   </div>
                 </motion.div>
@@ -726,7 +950,7 @@ export function VideoUploadPage() {
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold text-xtube-red">2.</span>
               <h2 className="text-lg font-bold text-white">Video Details</h2>
-              <PencilIcon className="h-5 w-5 text-xtube-red" />
+              <FileVideo className="h-5 w-5 text-xtube-red" />
             </div>
 
             {/* ── Form Card ── */}
@@ -771,7 +995,7 @@ export function VideoUploadPage() {
                 {/* Category + Quality */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-white">Category</label>
+                    <label className="text-sm font-medium text-white">Category <span className="text-xtube-red">*</span></label>
                     <Select value={category} onValueChange={setCategory}>
                       <SelectTrigger className="w-full rounded-lg border-white/10 bg-[#0a0a0a] text-sm text-white/70 focus:ring-xtube-red/20 [&_svg]:text-white/30">
                         <SelectValue placeholder="Select category" />
@@ -801,21 +1025,44 @@ export function VideoUploadPage() {
                   </div>
                 </div>
 
-                {/* Duration */}
+                {/* Duration (auto) */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-white">Duration</label>
                   <div className="relative">
                     <input
                       type="text"
-                      value={duration}
-                      onChange={(e) => setDuration(e.target.value)}
-                      placeholder="Auto-generated"
-                      readOnly={!!fileInfo}
-                      className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-3.5 py-2.5 pr-10 text-sm text-white placeholder:text-white/25 outline-none transition-all focus:border-xtube-red/40 focus:ring-1 focus:ring-xtube-red/20 disabled:cursor-not-allowed disabled:opacity-70"
+                      value={videoMeta ? formatDuration(videoMeta.duration) : (urlMode ? '' : 'Auto-generated')}
+                      readOnly
+                      className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-3.5 py-2.5 pr-10 text-sm text-white/70 outline-none cursor-not-allowed"
                     />
                     <Clock className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/25" />
                   </div>
                 </div>
+
+                {/* Video Info (shown after upload) */}
+                {videoMeta && (
+                  <div className="rounded-lg border border-white/5 bg-[#0a0a0a]/50 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">Video Info</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-white/30">Resolution</span>
+                        <p className="text-white/70">{videoMeta.width} × {videoMeta.height}</p>
+                      </div>
+                      <div>
+                        <span className="text-white/30">File Size</span>
+                        <p className="text-white/70">{formatFileSize(videoMeta.size)}</p>
+                      </div>
+                      <div>
+                        <span className="text-white/30">Format</span>
+                        <p className="text-white/70">{videoMeta.type || 'video/mp4'}</p>
+                      </div>
+                      <div>
+                        <span className="text-white/30">Duration</span>
+                        <p className="text-white/70">{formatDuration(videoMeta.duration)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Checkboxes */}
                 <div className="space-y-3 rounded-lg border border-white/5 bg-[#0a0a0a]/50 p-3 lg:p-4">
@@ -869,64 +1116,42 @@ export function VideoUploadPage() {
                     whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(229,9,20,0.4)' }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handlePublishVideo}
-                    disabled={isPublishing || !title.trim() || !category}
+                    disabled={isPublishing || !title.trim() || !category || (uploadStage !== 'success' && !urlMode)}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-xtube-red px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(229,9,20,0.3)] transition-all hover:bg-xtube-red-hover disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPublishing ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : publishSuccess ? (
                       <CheckCircle2 className="h-4 w-4" />
                     ) : (
                       <Upload className="h-4 w-4" />
                     )}
-                    {isPublishing ? 'Publishing...' : publishSuccess ? 'Published!' : 'Upload Video'}
+                    {isPublishing ? 'Publishing...' : publishSuccess ? 'Published!' : 'Publish Video'}
                   </motion.button>
                 </div>
-              </div>
-            </div>
 
-            {/* ── Legal Notice ── */}
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/50">
-              <div className="flex items-start gap-3 p-3 lg:p-4">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-xtube-red/10">
-                  <Shield className="h-4 w-4 text-xtube-red" />
-                </div>
-                <p className="text-[11px] leading-relaxed text-white/35">
-                  By uploading, you confirm that you own the rights to this content and agree to our{' '}
-                  <span className="cursor-pointer text-xtube-red hover:text-xtube-red-hover">
-                    Terms of Service
-                  </span>{' '}
-                  and{' '}
-                  <span className="cursor-pointer text-xtube-red hover:text-xtube-red-hover">
-                    Community Guidelines
-                  </span>
-                  .
-                </p>
+                {/* Publish Success */}
+                <AnimatePresence>
+                  {publishSuccess && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <p className="text-sm text-emerald-400">Video published successfully! Resetting form...</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
         </div>
+        )}
       </div>
     </motion.div>
   )
 }
 
-// ─── Pencil Icon ─────────────────────────────────────────────────────────────
 
-function PencilIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      <path d="m15 5 4 4" />
-    </svg>
-  )
-}

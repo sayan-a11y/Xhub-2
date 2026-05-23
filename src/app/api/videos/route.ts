@@ -67,7 +67,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { title, description, thumbnail, videoUrl, category, duration, isHd } = body
+    const {
+      title, description, thumbnail, videoUrl, category, duration, isHd,
+      resolution, fileSize, storageProvider, storageKey, hlsUrl, durationSeconds,
+      qualityLevels, codec, audioCodec, frameRate, bitrate, thumbnailUrls,
+    } = body
 
     if (!title || !videoUrl || !category) {
       return NextResponse.json({ error: 'Title, video URL, and category are required' }, { status: 400 })
@@ -82,6 +86,19 @@ export async function POST(request: NextRequest) {
         category,
         duration: duration || '0:00',
         isHd: isHd || false,
+        isPublished: body.isPublished !== false,
+        resolution: resolution || '1080p',
+        fileSize: fileSize || 0,
+        storageProvider: storageProvider || 'local',
+        storageKey: storageKey || null,
+        hlsUrl: hlsUrl || null,
+        durationSeconds: durationSeconds || 0,
+        qualityLevels: qualityLevels || '[]',
+        codec: codec || 'h264',
+        audioCodec: audioCodec || 'aac',
+        frameRate: frameRate || 30,
+        bitrate: bitrate || 0,
+        thumbnailUrls: thumbnailUrls || '[]',
       },
     })
 
