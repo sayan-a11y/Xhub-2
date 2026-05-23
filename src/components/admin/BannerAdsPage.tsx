@@ -849,11 +849,15 @@ export function BannerAdsPage() {
                           className="relative overflow-hidden rounded border border-[#ff1e1e]/20"
                           style={{ aspectRatio: bannerSize === '970x250' ? '970/250' : bannerSize === '728x90' ? '728/90' : bannerSize === '300x250' ? '300/250' : '320/50' }}
                         >
-                          <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a3e] via-[#16213e] to-[#0f3460]" />
+                          {uploadedFile?.url ? (
+                            <img src={uploadedFile.url} alt="Banner preview" className="absolute inset-0 h-full w-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a3e] via-[#16213e] to-[#0f3460]" />
+                          )}
                           <div className="absolute inset-0 flex items-center justify-center gap-3 p-3">
                             <div className="text-center">
-                              <div className="text-[8px] font-bold tracking-[0.15em] text-white/30 uppercase">Summer Sale</div>
-                              <p className="text-sm font-bold text-white">UP TO 50% OFF</p>
+                              <div className="text-[8px] font-bold tracking-[0.15em] text-white/30 uppercase">{bannerName || 'Summer Sale'}</div>
+                              <p className="text-sm font-bold text-white">{bannerName || 'UP TO 50% OFF'}</p>
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
@@ -882,11 +886,15 @@ export function BannerAdsPage() {
                           className="relative overflow-hidden rounded border border-[#ff1e1e]/20"
                           style={{ aspectRatio: bannerSize === '970x250' ? '970/250' : bannerSize === '728x90' ? '728/90' : bannerSize === '300x250' ? '300/250' : '320/50' }}
                         >
-                          <div className="absolute inset-0 bg-gradient-to-r from-[#1a2a3e] via-[#16213e] to-[#0f3460]" />
+                          {uploadedFile?.url ? (
+                            <img src={uploadedFile.url} alt="Banner preview" className="absolute inset-0 h-full w-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-r from-[#1a2a3e] via-[#16213e] to-[#0f3460]" />
+                          )}
                           <div className="absolute inset-0 flex items-center justify-center gap-3 p-3">
                             <div className="text-center">
-                              <div className="text-[8px] font-bold tracking-[0.15em] text-white/30 uppercase">New Collection</div>
-                              <p className="text-sm font-bold text-white">FASHION WEEK 2025</p>
+                              <div className="text-[8px] font-bold tracking-[0.15em] text-white/30 uppercase">{bannerName || 'New Collection'}</div>
+                              <p className="text-sm font-bold text-white">{bannerName || 'FASHION WEEK 2025'}</p>
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
@@ -914,10 +922,14 @@ export function BannerAdsPage() {
                           className="relative overflow-hidden rounded border border-[#ff1e1e]/20"
                           style={{ aspectRatio: bannerSize === '970x250' ? '970/250' : bannerSize === '728x90' ? '728/90' : bannerSize === '300x250' ? '300/250' : '320/50' }}
                         >
-                          <div className="absolute inset-0 bg-gradient-to-r from-[#1a3a2e] via-[#163e21] to-[#0f6034]" />
+                          {uploadedFile?.url ? (
+                            <img src={uploadedFile.url} alt="Banner preview" className="absolute inset-0 h-full w-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-r from-[#1a3a2e] via-[#163e21] to-[#0f6034]" />
+                          )}
                           <div className="absolute inset-0 flex items-center justify-center gap-3 p-3">
                             <div className="text-center">
-                              <div className="text-[8px] font-bold tracking-[0.15em] text-white/30 uppercase">Electronics</div>
+                              <div className="text-[8px] font-bold tracking-[0.15em] text-white/30 uppercase">{bannerName || 'Electronics'}</div>
                               <p className="text-sm font-bold text-white">MEGA DEALS</p>
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
@@ -1131,35 +1143,28 @@ export function BannerAdsPage() {
                       {/* Preview */}
                       <td className="py-2 pr-3">
                         <div className="relative h-8 w-20 overflow-hidden rounded-lg">
-                          <div className={`absolute inset-0 bg-gradient-to-br ${ad.gradient}`} />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            {ad.type === 'Image' ? (
-                              <ImageIcon className="h-3 w-3 text-white/20" />
-                            ) : ad.type === 'Video' ? (
-                              <Film className="h-3 w-3 text-white/20" />
-                            ) : (
-                              <Sparkles className="h-3 w-3 text-white/20" />
-                            )}
-                          </div>
+                          {ad.imageUrl ? (
+                            <img src={ad.imageUrl} alt={ad.title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          ) : (
+                            <div className={`absolute inset-0 bg-gradient-to-br ${thumbnailGradients[i % thumbnailGradients.length]}`} />
+                          )}
                           <div className="absolute top-0.5 right-0.5 rounded bg-black/50 px-0.5 text-[5px] text-white/40">Ad</div>
                         </div>
                       </td>
                       {/* Banner Name */}
                       <td className="py-2 pr-3">
-                        <p className="text-xs font-medium text-white">{ad.name}</p>
+                        <p className="text-xs font-medium text-white">{ad.title}</p>
                       </td>
                       {/* Type */}
                       <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${typeStyles[ad.type]}`}>
-                          {ad.type === 'Image' && <ImageIcon className="h-2.5 w-2.5" />}
-                          {ad.type === 'Video' && <Film className="h-2.5 w-2.5" />}
-                          {ad.type === 'Animated' && <Sparkles className="h-2.5 w-2.5" />}
+                        <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${typeStyles[ad.type] || 'bg-white/5 text-white/40 border-white/10'}`}>
+                          {ad.type === 'banner' ? <ImageIcon className="h-2.5 w-2.5" /> : <Film className="h-2.5 w-2.5" />}
                           {ad.type}
                         </span>
                       </td>
                       {/* Size */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs text-white/50">{ad.size}</span>
+                        <span className="text-xs text-white/50">—</span>
                       </td>
                       {/* Position */}
                       <td className="py-2 pr-3">
@@ -1167,23 +1172,21 @@ export function BannerAdsPage() {
                       </td>
                       {/* Impressions */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-white/70">{ad.impressions}</span>
+                        <span className="text-xs font-medium text-white/70">{formatNumber(ad.impressions)}</span>
                       </td>
                       {/* CTR */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs font-medium text-white/70">{ad.ctr}</span>
+                        <span className="text-xs font-medium text-white/70">{ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) + '%' : '0%'}</span>
                       </td>
                       {/* Revenue */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs font-semibold text-emerald-400">{ad.revenue}</span>
+                        <span className="text-xs font-semibold text-emerald-400">{formatCurrency(ad.revenue)}</span>
                       </td>
                       {/* Status */}
                       <td className="py-2 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${statusStyles[ad.status]}`}>
-                          {ad.status === 'Active' && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                          {ad.status === 'Paused' && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
-                          {ad.status === 'Draft' && <span className="h-1.5 w-1.5 rounded-full bg-white/30" />}
-                          {ad.status}
+                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${ad.isActive ? statusStyles.Active : statusStyles.Paused}`}>
+                          {ad.isActive ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> : <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+                          {ad.isActive ? 'Active' : 'Paused'}
                         </span>
                       </td>
                       {/* Actions */}

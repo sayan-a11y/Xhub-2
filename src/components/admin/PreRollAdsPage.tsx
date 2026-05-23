@@ -246,19 +246,19 @@ function StatCard({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function PreRollAdsPage() {
-  const { deleteAd, toggleAd } = useAdsManager({ position: 'pre-roll' })
+  const { ads, loading, createAd, deleteAd, toggleAd } = useAdsManager({ position: 'pre-roll' })
 
   // Upload state
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadSpeed, setUploadSpeed] = useState('0 MB/s')
-  const [uploadRemaining, setUploadRemaining] = useState('')
-  const [uploadedSize, setUploadedSize] = useState('0 GB')
   const [isDragOver, setIsDragOver] = useState(false)
-  const [selectedQuality, setSelectedQuality] = useState('auto')
   const [selectedThumbnail, setSelectedThumbnail] = useState(0)
   const [adTab, setAdTab] = useState<AdTab>('video')
   const [isPlaying, setIsPlaying] = useState(false)
+  const [uploadedFile, setUploadedFile] = useState<{ url: string; fileName: string; mimeType: string; size: number } | null>(null)
+  const [uploadError, setUploadError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [adTitle, setAdTitle] = useState('')
 
   // Table state
   const [searchQuery, setSearchQuery] = useState('')
@@ -266,43 +266,49 @@ export function PreRollAdsPage() {
   const [currentPage, setCurrentPage] = useState(1)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // ─── Simulated Upload ──────────────────────────────────────────────────
+  // ─── Real Upload ──────────────────────────────────────────────────
 
-  const simulateUpload = useCallback((fileName: string) => {
+  const uploadFile = useCallback(async (file: File) => {
     setUploadStage('uploading')
     setUploadProgress(0)
-    setUploadedSize('0 GB')
+    setUploadError('')
+    setUploadedFile(null)
 
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'ads')
 
-    let progress = 0
-    const totalSize = 5.0
+      const xhr = new XMLHttpRequest()
 
-    progressIntervalRef.current = setInterval(() => {
-      const increment = Math.random() * 4 + 1
-      progress = Math.min(progress + increment, 100)
-      setUploadProgress(progress)
+      await new Promise<void>((resolve, reject) => {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress((e.loaded / e.total) * 100)
+          }
+        })
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve()
+          else reject(new Error(`Upload failed with status ${xhr.status}`))
+        })
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')))
+        xhr.open('POST', '/api/upload')
+        xhr.send(formData)
+      })
 
-      const uploaded = (progress / 100) * totalSize
-      setUploadedSize(`${uploaded.toFixed(2)} GB`)
-      setUploadSpeed(`${(Math.random() * 2 + 1.5).toFixed(1)} MB/s`)
-
-      const remaining = ((100 - progress) / increment) * 0.15
-      setUploadRemaining(remaining > 60 ? `${Math.ceil(remaining / 60)} mins left` : `${Math.ceil(remaining)} secs left`)
-
-      if (progress >= 100) {
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-        setUploadStage('processing')
-        setTimeout(() => setUploadStage('success'), 1500)
-      }
-    }, 150)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
+      const response = JSON.parse(xhr.responseText)
+      setUploadedFile({
+        url: response.url,
+        fileName: response.fileName || file.name,
+        mimeType: response.mimeType || file.type,
+        size: response.size || file.size,
+      })
+      setUploadStage('success')
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed')
+      setUploadStage('idle')
     }
   }, [])
 
@@ -314,21 +320,23 @@ export function PreRollAdsPage() {
     e.preventDefault()
     setIsDragOver(false)
     const files = e.dataTransfer.files
-    if (files.length > 0) simulateUpload(files[0].name)
-  }, [simulateUpload])
+    if (files.length > 0) uploadFile(files[0])
+  }, [uploadFile])
 
   const handleResetUpload = useCallback(() => {
     setUploadStage('idle')
     setUploadProgress(0)
     setSelectedThumbnail(0)
+    setUploadedFile(null)
+    setUploadError('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
-  const filteredAds = mockAds.filter((ad) => {
-    if (statusFilter !== 'all' && ad.status.toLowerCase() !== statusFilter) return false
-    if (searchQuery && !ad.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+  const filteredAds = ads.filter((ad) => {
+    if (statusFilter !== 'all' && (ad.isActive ? 'active' : 'paused') !== statusFilter) return false
+    if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
 
@@ -467,7 +475,7 @@ export function PreRollAdsPage() {
                       type="file"
                       accept="video/mp4,video/mov,video/webm,image/*"
                       className="hidden"
-                      onChange={(e) => { if (e.target.files?.length) simulateUpload(e.target.files[0].name) }}
+                      onChange={(e) => { if (e.target.files?.length) uploadFile(e.target.files[0]) }}
                     />
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-xtube-red/10">
                       <CloudUpload className="h-6 w-6 text-xtube-red" />
@@ -862,28 +870,32 @@ export function PreRollAdsPage() {
                       {/* Preview */}
                       <td className="py-2.5 pr-3">
                         <div className="h-9 w-16 overflow-hidden rounded-md">
-                          <div className={`h-full w-full bg-gradient-to-br ${ad.gradient} flex items-center justify-center`}>
-                            <Film className="h-3.5 w-3.5 text-white/20" />
-                          </div>
+                          {ad.imageUrl || ad.mediaUrl ? (
+                            <img src={ad.imageUrl || ad.mediaUrl} alt={ad.title} className="h-full w-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          ) : (
+                            <div className="h-full w-full bg-white/5 flex items-center justify-center">
+                              <Film className="h-3.5 w-3.5 text-white/20" />
+                            </div>
+                          )}
                         </div>
                       </td>
                       {/* Ad Name */}
                       <td className="py-2.5 pr-3">
-                        <span className="text-xs font-medium text-white group-hover:text-xtube-red transition-colors">{ad.name}</span>
+                        <span className="text-xs font-medium text-white group-hover:text-xtube-red transition-colors">{ad.title}</span>
                       </td>
                       {/* Type */}
                       <td className="py-2.5 pr-3">
-                        <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[9px] font-semibold ${typeStyles[ad.type]}`}>
-                          {ad.type}
+                        <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[9px] font-semibold ${typeStyles[ad.mediaFormat === 'mp4' ? 'Video' : 'Image'] || 'bg-white/5 text-white/40 border-white/10'}`}>
+                          {ad.mediaFormat === 'mp4' ? 'Video' : 'Image'}
                         </span>
                       </td>
                       {/* Placement */}
                       <td className="py-2.5 pr-3">
-                        <span className="text-[10px] text-white/40">{ad.placement}</span>
+                        <span className="text-[10px] text-white/40">Pre-Roll</span>
                       </td>
                       {/* Duration */}
                       <td className="py-2.5 pr-3">
-                        <span className="text-xs text-white/50">{ad.duration}</span>
+                        <span className="text-xs text-white/50">{ad.adDuration ? `${ad.adDuration}s` : '—'}</span>
                       </td>
                       {/* Impressions */}
                       <td className="py-2.5 pr-3">
@@ -891,19 +903,17 @@ export function PreRollAdsPage() {
                       </td>
                       {/* CTR */}
                       <td className="py-2.5 pr-3">
-                        <span className="text-xs font-semibold text-xtube-red">{ad.ctr}</span>
+                        <span className="text-xs font-semibold text-xtube-red">{ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) + '%' : '0%'}</span>
                       </td>
                       {/* Revenue */}
                       <td className="py-2.5 pr-3">
-                        <span className="text-xs font-medium text-emerald-400">{ad.revenue}</span>
+                        <span className="text-xs font-medium text-emerald-400">${ad.revenue.toFixed(2)}</span>
                       </td>
                       {/* Status */}
                       <td className="py-2.5 pr-3">
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${statusStyles[ad.status]}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            ad.status === 'Active' ? 'bg-emerald-400' : ad.status === 'Paused' ? 'bg-amber-400' : 'bg-white/30'
-                          }`} />
-                          {ad.status}
+                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${ad.isActive ? statusStyles.Active : statusStyles.Paused}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${ad.isActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                          {ad.isActive ? 'Active' : 'Paused'}
                         </span>
                       </td>
                       {/* Actions */}

@@ -867,10 +867,14 @@ export function PopupAdsPage() {
 
                           {/* Popup Ad Image Area */}
                           <div className="relative aspect-[16/10] overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a3e] via-[#16213e] to-[#0f3460]" />
+                            {uploadedFile?.url ? (
+                              <img src={uploadedFile.url} alt="Ad preview" className="absolute inset-0 h-full w-full object-cover" />
+                            ) : (
+                              <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a3e] via-[#16213e] to-[#0f3460]" />
+                            )}
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center p-3">
-                              <div className="mb-0.5 text-[8px] font-bold tracking-[0.2em] text-white/30 uppercase">Summer Sale</div>
-                              <p className="text-sm font-bold text-white leading-tight">UP TO 50% OFF</p>
+                              <div className="mb-0.5 text-[8px] font-bold tracking-[0.2em] text-white/30 uppercase">{newAdTitle || 'Summer Sale'}</div>
+                              <p className="text-sm font-bold text-white leading-tight">{newAdTitle || 'UP TO 50% OFF'}</p>
                               <p className="text-[8px] text-white/40">Limited Time Offer</p>
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
@@ -1139,16 +1143,11 @@ export function PopupAdsPage() {
                         {/* Preview */}
                         <td className="py-2 pr-3">
                           <div className="relative h-10 w-16 overflow-hidden rounded-lg">
-                            <div className={`absolute inset-0 bg-gradient-to-br ${thumbnailGradients[i % thumbnailGradients.length]}`} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              {ad.type === 'Image' ? (
-                                <ImageIcon className="h-3 w-3 text-white/20" />
-                              ) : ad.type === 'Video' ? (
-                                <Film className="h-3 w-3 text-white/20" />
-                              ) : (
-                                <Type className="h-3 w-3 text-white/20" />
-                              )}
-                            </div>
+                            {ad.imageUrl ? (
+                              <img src={ad.imageUrl} alt={ad.name} className="absolute inset-0 h-full w-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            ) : (
+                              <div className={`absolute inset-0 bg-gradient-to-br ${thumbnailGradients[i % thumbnailGradients.length]}`} />
+                            )}
                           </div>
                         </td>
                         {/* Ad Name */}

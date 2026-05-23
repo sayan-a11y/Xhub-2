@@ -886,7 +886,7 @@ export function MidRollAdsPage() {
                       </td>
                       {/* Impressions */}
                       <td className="py-2.5 pr-3">
-                        <span className="text-xs font-medium text-white">{ad.impressions}</span>
+                        <span className="text-xs font-medium text-white">{formatNumber(ad.impressions)}</span>
                       </td>
                       {/* CTR */}
                       <td className="py-2.5 pr-3">
@@ -894,7 +894,7 @@ export function MidRollAdsPage() {
                       </td>
                       {/* Revenue */}
                       <td className="py-2.5 pr-3">
-                        <span className="text-xs font-medium text-[#00FF85]">{ad.revenue}</span>
+                        <span className="text-xs font-medium text-[#00FF85]">{typeof ad.revenue === 'number' ? formatCurrency(ad.revenue) : ad.revenue}</span>
                       </td>
                       {/* Status */}
                       <td className="py-2.5 pr-3">

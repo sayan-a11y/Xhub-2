@@ -649,15 +649,24 @@ export function AllAdsPage() {
                       >
                         {/* Preview */}
                         <td className="py-2 pr-3">
-                          <div className="relative h-9 w-16 overflow-hidden rounded-lg">
-                            <div className="absolute inset-0" style={{ background: `${previewBg}20` }} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              {displayType === 'Banner' || displayType === 'Image Banner' ? <ImageIcon className="h-3 w-3 text-white/20" /> :
-                               displayType === 'Pre-Roll' || displayType === 'Mid-Roll' || displayType === 'Post-Roll' ? <Play className="h-3 w-3 text-white/20" /> :
-                               displayType === 'Overlay' ? <Layers className="h-3 w-3 text-white/20" /> :
-                               displayType === 'Popup' ? <LayoutGrid className="h-3 w-3 text-white/20" /> :
-                               <Megaphone className="h-3 w-3 text-white/20" />}
-                            </div>
+                          <div className="relative h-9 w-16 overflow-hidden rounded-lg bg-white/5">
+                            {ad.imageUrl || ad.mediaUrl ? (
+                              <img
+                                src={ad.imageUrl || ad.mediaUrl || ''}
+                                alt={ad.title}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                {displayType === 'Banner' || displayType === 'Image Banner' ? <ImageIcon className="h-3 w-3 text-white/20" /> :
+                                 displayType === 'Pre-Roll' || displayType === 'Mid-Roll' || displayType === 'Post-Roll' ? <Play className="h-3 w-3 text-white/20" /> :
+                                 displayType === 'Overlay' ? <Layers className="h-3 w-3 text-white/20" /> :
+                                 displayType === 'Popup' ? <LayoutGrid className="h-3 w-3 text-white/20" /> :
+                                 <Megaphone className="h-3 w-3 text-white/20" />}
+                              </div>
+                            )}
                           </div>
                         </td>
                         {/* Ad Name */}
