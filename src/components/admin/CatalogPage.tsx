@@ -120,6 +120,7 @@ export function CatalogPage() {
   const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingCategory, setDeletingCategory] = useState<CategoryItem | null>(null)
+  const [deleteError, setDeleteError] = useState('')
   const [loading, setLoading] = useState(true)
 
   // Form state
@@ -240,20 +241,24 @@ export function CatalogPage() {
 
   const handleDelete = async () => {
     if (!deletingCategory) return
+    setDeleteError('')
     try {
       const res = await fetch(`/api/categories?id=${deletingCategory.id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id))
-        await loadCategories()
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: 'Delete failed' }))
+        throw new Error(errData.error || `Server error (${res.status})`)
       }
+      setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id))
+      await loadCategories()
+      setDeleteDialogOpen(false)
+      setDeletingCategory(null)
     } catch (err) {
-      console.error('Error deleting category:', err)
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete category')
     }
-    setDeleteDialogOpen(false)
-    setDeletingCategory(null)
   }
 
   const openDeleteDialog = (category: CategoryItem) => {
+    setDeleteError('')
     setDeletingCategory(category)
     setDeleteDialogOpen(true)
   }
@@ -454,7 +459,7 @@ export function CatalogPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) setDeleteError(''); setDeleteDialogOpen(open) }}>
         <DialogContent className="border-xtube-border bg-xtube-card text-white sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-white">Delete Category</DialogTitle>
@@ -470,6 +475,11 @@ export function CatalogPage() {
             >
               Cancel
             </Button>
+            {deleteError && (
+              <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
+                {deleteError}
+              </div>
+            )}
             <Button
               onClick={handleDelete}
               className="bg-red-600 hover:bg-red-700 text-white"
