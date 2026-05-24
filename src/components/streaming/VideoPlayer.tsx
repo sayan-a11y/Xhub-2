@@ -963,11 +963,28 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
 
-  // Cleanup RAF on unmount
+  // Cleanup all player resources on unmount (prevents stale video + stacking)
   useEffect(() => {
     return () => {
+      // Cancel RAF
       if (seekPreviewRef.current !== null) {
         cancelAnimationFrame(seekPreviewRef.current)
+      }
+      // Destroy HLS instance
+      if (hlsRef.current) {
+        hlsRef.current.destroy()
+        hlsRef.current = null
+      }
+      // Clear all timeouts/intervals
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
+      if (progressSaveRef.current) clearInterval(progressSaveRef.current)
+      if (adCountdownRef.current) clearInterval(adCountdownRef.current)
+      // Pause and clear video element
+      const vid = videoRef.current
+      if (vid) {
+        vid.pause()
+        vid.removeAttribute('src')
+        vid.load()
       }
     }
   }, [])

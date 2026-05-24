@@ -170,7 +170,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   goBack: () => {
-    const lastView = viewHistory.pop() || 'home'
-    set({ currentView: lastView, selectedVideoId: lastView !== 'video' ? null : get().selectedVideoId })
+    const lastView = viewHistory.length > 0 ? (viewHistory.pop() as ViewMode) : 'home'
+    set({
+      currentView: lastView,
+      selectedVideoId: null,
+      selectedCategory: lastView === 'category' ? get().selectedCategory : null,
+    })
   },
 }))

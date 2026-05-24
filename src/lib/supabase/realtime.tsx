@@ -108,13 +108,15 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
     }
   }, [])
 
+  // Stable channel name — reuse not random to avoid stale subscriptions
+  const channelName = useMemo(() => `rt:${table}:${filter ?? 'all'}`, [table, filter])
+
   // Realtime subscription only — data loading is handled by consuming hooks via API routes
   useEffect(() => {
     if (!client) return // Supabase not configured, skip realtime
     let channel: RealtimeChannel | null = null
 
     const subscribe = () => {
-      const channelName = `rt:${table}:${filter ?? 'all'}-${Math.random().toString(36).substring(7)}`
       channel = client
         .channel(channelName)
         .on<T>(

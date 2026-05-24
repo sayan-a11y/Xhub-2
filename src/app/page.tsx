@@ -701,89 +701,77 @@ export default function XtubeHome() {
 
   // ─── Main Render ───────────────────────────────────────────────────────────
 
+  const isVideoView = currentView === 'video'
+
   return (
     <div className="min-h-screen bg-[#050505] text-white">
-      {/* Video view has its own full layout */}
-      {currentView === 'video' ? (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key="video"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-          >
-            {renderVideoView()}
-          </motion.div>
-        </AnimatePresence>
-      ) : (
-        <>
-          {/* Desktop Sidebar */}
-          <Sidebar />
+      {/* ─── ALWAYS MOUNTED: Sidebar + BottomNav + Main layout ─────────── */}
+      {/* Hidden during video view to prevent SPA remount on back-navigation */}
+      <div className={isVideoView ? 'hidden' : ''}>
+        {/* Desktop Sidebar */}
+        <Sidebar />
 
-          {/* Mobile Bottom Nav */}
-          <BottomNav />
+        {/* Mobile Bottom Nav */}
+        <BottomNav />
 
-          {/* Main Content Area */}
-          <motion.main
-            className={`min-h-screen transition-all duration-300 ${
-              sidebarCollapsed ? 'md:ml-[64px]' : 'md:ml-[180px]'
-            }`}
-          >
-            {/* Top Header Bar */}
-            {currentView !== 'admin' && (
-              <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-xtube-border bg-[#050505] px-3 md:px-4 lg:px-5">
-                <div className="flex items-center gap-2">
-                  {/* Mobile Logo — only shows on mobile (<768px), sidebar has logo on md+ */}
-                  <div className="md:hidden">
-                    <XtubeLogo
-                      size="sm"
-                      showText={true}
-                      showLive={true}
-                    />
-                  </div>
-
-                  {/* View Title - only on md+ since sidebar has logo */}
-                  <h2 className="hidden text-xs font-medium text-xtube-text-secondary md:block">
-                    {currentView === 'home' && 'Home'}
-                    {currentView === 'trending' && 'Trending'}
-                    {currentView === 'category' && 'Categories'}
-                    {currentView === 'bookmarks' && 'Bookmarks'}
-                    {currentView === 'history' && 'History'}
-                    {currentView === 'search' && 'Search'}
-                  </h2>
+        {/* Main Content Area */}
+        <motion.main
+          className={`min-h-screen transition-all duration-300 ${
+            sidebarCollapsed ? 'md:ml-[64px]' : 'md:ml-[180px]'
+          }`}
+        >
+          {/* Top Header Bar */}
+          {currentView !== 'admin' && (
+            <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-xtube-border bg-[#050505] px-3 md:px-4 lg:px-5">
+              <div className="flex items-center gap-2">
+                <div className="md:hidden">
+                  <XtubeLogo size="sm" showText={true} showLive={true} />
                 </div>
+                <h2 className="hidden text-xs font-medium text-xtube-text-secondary md:block">
+                  {currentView === 'home' && 'Home'}
+                  {currentView === 'trending' && 'Trending'}
+                  {currentView === 'category' && 'Categories'}
+                  {currentView === 'bookmarks' && 'Bookmarks'}
+                  {currentView === 'history' && 'History'}
+                  {currentView === 'search' && 'Search'}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <SearchBar />
+              </div>
+            </header>
+          )}
 
-                <div className="flex items-center gap-2">
-                  <SearchBar />
-                </div>
-              </header>
-            )}
+          {/* Page Content */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentView === 'video' ? 'video-inline' : currentView}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              {currentView === 'home' && renderHomeView()}
+              {currentView === 'trending' && renderTrendingView()}
+              {currentView === 'category' && renderCategoryView()}
+              {currentView === 'bookmarks' && renderBookmarksView()}
+              {currentView === 'history' && renderHistoryView()}
+              {currentView === 'search' && renderSearchView()}
+            </motion.div>
+          </AnimatePresence>
 
-            {/* Page Content */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentView}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                {currentView === 'home' && renderHomeView()}
-                {currentView === 'trending' && renderTrendingView()}
-                {currentView === 'category' && renderCategoryView()}
-                {currentView === 'bookmarks' && renderBookmarksView()}
-                {currentView === 'history' && renderHistoryView()}
-                {currentView === 'search' && renderSearchView()}
-              </motion.div>
-            </AnimatePresence>
+          {/* Footer Ads Section */}
+          <div className="pb-20 md:pb-6 pt-4">
+            <FooterAds ads={footerAdsData} />
+          </div>
+        </motion.main>
+      </div>
 
-            {/* Footer Ads Section - shows on ALL views, above footer */}
-            <div className="pb-20 md:pb-6 pt-4">
-              <FooterAds ads={footerAdsData} />
-            </div>
-          </motion.main>
-        </>
+      {/* ─── VIDEO VIEW: Full-page overlay (never replaces main tree) ──── */}
+      {isVideoView && (
+        <div className="fixed inset-0 z-50 bg-[#050505]">
+          {renderVideoView()}
+        </div>
       )}
 
       {/* Age Verification Popup */}
