@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Grid3X3,
@@ -129,30 +129,31 @@ export function CatalogPage() {
   const [formOrder, setFormOrder] = useState('1')
 
   // ─── Fetch categories from API ──────────────────────────────────────────────
-  useState(() => {
-    async function loadCategories() {
-      try {
-        const res = await fetch('/api/categories')
-        if (res.ok) {
-          const data = await res.json()
-          setCategories((data.categories || []).map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            slug: c.slug,
-            icon: c.icon || 'film',
-            order: c.order,
-            videoCount: 0,
-            viewCount: 0,
-          })))
-        }
-      } catch (err) {
-        console.error('Error loading categories:', err)
-      } finally {
-        setLoading(false)
+  const loadCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/categories')
+      if (res.ok) {
+        const data = await res.json()
+        setCategories((data.categories || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          icon: c.icon || 'film',
+          order: c.order,
+          videoCount: 0,
+          viewCount: 0,
+        })))
       }
+    } catch (err) {
+      console.error('Error loading categories:', err)
+    } finally {
+      setLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
     loadCategories()
-  })
+  }, [loadCategories])
 
   const resetForm = () => {
     setFormName('')
@@ -240,8 +241,13 @@ export function CatalogPage() {
   const handleDelete = async () => {
     if (!deletingCategory) return
     try {
-      await fetch(`/api/categories?id=${deletingCategory.id}`, { method: 'DELETE' })
-      setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id))
+      const res = await fetch(`/api/categories?id=${deletingCategory.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        // Optimistically remove from UI immediately
+        setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id))
+        // Re-fetch from DB to ensure UI is in sync
+        await loadCategories()
+      }
     } catch (err) {
       console.error('Error deleting category:', err)
     }

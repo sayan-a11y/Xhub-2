@@ -154,6 +154,9 @@ export default function XtubeHome() {
   const [apiAds, setApiAds] = useState<AdData[]>([])
   const [apiLoaded, setApiLoaded] = useState(false)
 
+  // Track whether realtime has ever fired for categories (so we know the channel is live)
+  const realtimeCategoriesActive = useRef(false)
+
   useEffect(() => {
     let cancelled = false
     const fetchInitialData = async () => {
@@ -206,8 +209,18 @@ export default function XtubeHome() {
   }
 
   // Merge: prefer realtime data if available, otherwise fall back to API data
+  // For categories: track if realtime has ever fired so that deleting ALL categories
+  // correctly empties the list (instead of falling back to stale apiCategories)
+  const prevRealtimeCategoriesLen = useRef(realtimeCategories.length)
+  useEffect(() => {
+    if (realtimeCategories.length !== prevRealtimeCategoriesLen.current) {
+      realtimeCategoriesActive.current = true
+      prevRealtimeCategoriesLen.current = realtimeCategories.length
+    }
+  }, [realtimeCategories])
+
   const videos = (realtimeVideos.length > 0 ? realtimeVideos : apiVideos) as VideoData[]
-  const categories = (realtimeCategories.length > 0 ? realtimeCategories : apiCategories) as CategoryData[]
+  const categories = (realtimeCategoriesActive.current ? realtimeCategories : apiCategories) as CategoryData[]
   const ads = (realtimeAds.length > 0 ? realtimeAds : apiAds) as AdData[]
   const footerAds = ((realtimeFooterAds.length > 0 ? realtimeFooterAds : apiFooterAds) as FooterAdData[]).filter(isWithinSchedule)
   const heroAds = ((realtimeHeroAds.length > 0 ? realtimeHeroAds : apiHeroAds) as HeroAdData[]).filter(isWithinSchedule)
