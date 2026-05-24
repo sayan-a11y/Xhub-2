@@ -470,21 +470,41 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
     }
   }, [])
 
-  // ─── Controls auto-hide ──────────────────────────────────────────────────
+  // ─── Controls auto-hide (refs avoid stale closures) ────────────────────
+
+  const showSettingsRef = useRef(showSettings)
+  showSettingsRef.current = showSettings
 
   const resetControlsTimeout = useCallback(() => {
     setShowControls(true)
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
-    if (isPlaying) {
+    const vid = videoRef.current
+    if (vid && !vid.paused) {
       controlsTimeoutRef.current = setTimeout(() => {
-        if (!showSettings) {
+        if (!showSettingsRef.current && !isDraggingRef.current) {
           setShowControls(false)
         }
-      }, 3000)
+      }, 2500)
     }
-  }, [isPlaying, showSettings])
+  }, [])
 
   const handleMouseMove = useCallback(() => {
+    if (!showControls) {
+      setShowControls(true)
+    }
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
+    const vid = videoRef.current
+    if (vid && !vid.paused) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        if (!showSettingsRef.current && !isDraggingRef.current) {
+          setShowControls(false)
+        }
+      }, 2500)
+    }
+  }, [showControls])
+
+  // Show controls on any touch interaction
+  const handleTouchActivity = useCallback(() => {
     resetControlsTimeout()
   }, [resetControlsTimeout])
 
@@ -532,19 +552,19 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
     if (!container) return
     if (!document.fullscreenElement) {
       container.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
-      // Try to lock landscape on mobile
-      if (screen.orientation && 'lock' in screen.orientation) {
-        try {
-          (screen.orientation as any).lock('landscape')
-        } catch {}
-      }
+      // Try to lock landscape on mobile (safely)
+      try {
+        if ('orientation' in screen && 'lock' in (screen as any).orientation) {
+          (screen as any).orientation.lock('landscape').catch(() => {})
+        }
+      } catch {}
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {})
-      if (screen.orientation && 'unlock' in screen.orientation) {
-        try {
-          screen.orientation.unlock()
-        } catch {}
-      }
+      try {
+        if ('orientation' in screen && 'unlock' in (screen as any).orientation) {
+          (screen as any).orientation.unlock()
+        }
+      } catch {}
     }
   }, [])
 
@@ -834,14 +854,14 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
     const onLeavePiP = () => setIsPiP(false)
     const onEnterPiP = () => setIsPiP(true)
 
-    vid.addEventListener('timeupdate', onTimeUpdate)
-    vid.addEventListener('loadedmetadata', onLoadedMetadata)
-    vid.addEventListener('play', onPlay)
-    vid.addEventListener('pause', onPause)
-    vid.addEventListener('progress', onProgress)
-    vid.addEventListener('ended', onEnded)
-    vid.addEventListener('leavepictureinpicture', onLeavePiP)
-    vid.addEventListener('enterpictureinpicture', onEnterPiP)
+    vid.addEventListener('timeupdate', onTimeUpdate, { passive: true })
+    vid.addEventListener('loadedmetadata', onLoadedMetadata, { passive: true })
+    vid.addEventListener('play', onPlay, { passive: true })
+    vid.addEventListener('pause', onPause, { passive: true })
+    vid.addEventListener('progress', onProgress, { passive: true })
+    vid.addEventListener('ended', onEnded, { passive: true })
+    vid.addEventListener('leavepictureinpicture', onLeavePiP, { passive: true })
+    vid.addEventListener('enterpictureinpicture', onEnterPiP, { passive: true })
 
     return () => {
       vid.removeEventListener('timeupdate', onTimeUpdate)
@@ -868,19 +888,21 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
       if (Hls.isSupported()) {
         hls = new Hls({
           enableWorker: true,
-          lowLatencyMode: false,      // VOD content: disable LL for stability
-          maxBufferLength: 60,         // 60s forward buffer for long videos
-          maxMaxBufferLength: 300,      // Allow up to 5 min buffer for 5hr videos
-          backBufferLength: 60,         // 60s back buffer (reduced from 90 for memory)
-          maxBufferSize: 120 * 1000000, // 120MB max buffer size for 4K
+          lowLatencyMode: true,       // Enable LL for faster startup
+          maxBufferLength: 30,         // 30s forward buffer (reduced for faster start)
+          maxMaxBufferLength: 120,     // Reduced from 300 for lower memory
+          backBufferLength: 30,        // 30s back buffer
+          maxBufferSize: 60 * 1000000, // 60MB max buffer (reduced from 120MB)
           maxBufferHole: 0.5,
           startLevel: -1,              // auto quality
           capLevelToPlayerSize: true,   // Don't load 4K on 720p screen
-          abrEwmaDefaultEstimate: 1000000, // Start with 1Mbps estimate (higher = better init quality)
-          abrBandWidthFactor: 0.95,     // Use 95% of estimated bandwidth
-          abrBandWidthUpFactor: 0.7,    // Be conservative when stepping up quality
+          abrEwmaDefaultEstimate: 2000000, // Start with 2Mbps estimate (faster initial quality)
+          abrBandWidthFactor: 0.9,      // Slightly more aggressive
+          abrBandWidthUpFactor: 0.8,    // Less conservative stepping up
           startFragPrefetch: true,      // Prefetch first fragment for faster start
           progressive: true,            // Progressive loading for long VOD
+          fragLoadingTimeOut: 5000,     // Lower timeout for faster recovery
+          manifestLoadingTimeOut: 5000,
         })
         hls.loadSource(url)
         hls.attachMedia(vid)
@@ -937,7 +959,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement)
     }
-    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('fullscreenchange', handleFullscreenChange, { passive: true })
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
 
@@ -1071,7 +1093,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
               onMouseLeave={() => {
                 if (isPlaying && !showSettings) setShowControls(false)
               }}
-              onTouchStart={handleTouchStart}
+              onTouchStart={(e) => { handleTouchStart(e); handleTouchActivity() }}
               onTouchEnd={handleTouchEnd}
               onTouchMove={handleTouchMove}
               style={{ touchAction: 'none' }}
@@ -1312,7 +1334,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                   {/* ─── Progress Bar ──────────────────────────────────── */}
                   <div
                     ref={progressRef}
-                    className="group/progress mb-2 sm:mb-3 relative cursor-pointer"
+                    className="group/progress mb-2 sm:mb-3 relative cursor-pointer py-2 -my-2"
                     onPointerDown={handleProgressPointerDown}
                     onPointerMove={handleProgressPointerMove}
                     onPointerUp={handleProgressPointerUp}
@@ -1327,7 +1349,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                     aria-valuenow={Math.round(progress)}
                   >
                     {/* Expanded touch target (invisible, easier to grab on mobile) */}
-                    <div className="absolute -top-3 -bottom-3 left-0 right-0" />
+                    <div className="absolute -top-4 -bottom-4 left-0 right-0" />
                     {/* Track background */}
                     <div className="h-1 sm:h-1.5 rounded-full bg-white/20 transition-all group-hover/progress:h-2 sm:group-hover/progress:h-2.5">
                       {/* Buffered */}
@@ -1377,17 +1399,17 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                   </div>
 
                   {/* ─── Control buttons row ──────────────────────────── */}
-                  <div className="flex items-center gap-0.5 sm:gap-1">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
                     {/* Play/Pause */}
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={togglePlay}
-                      className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
+                      className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 active:bg-white/20"
                       aria-label={isPlaying ? 'Pause' : 'Play'}
                     >
                       {isPlaying ? (
-                        <Pause className="h-5 w-5 sm:h-5 sm:w-5" fill="currentColor" />
+                        <Pause className="h-5 w-5" fill="currentColor" />
                       ) : (
                         <Play className="h-5 w-5 ml-0.5" fill="currentColor" />
                       )}
@@ -1395,24 +1417,24 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
 
                     {/* Rewind 10s */}
                     <motion.button
-                      whileHover={{ scale: 1.1, boxShadow: '0 0 15px rgba(229,9,20,0.3)' }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => { if (videoRef.current) videoRef.current.currentTime -= 10 }}
-                      className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white"
+                      className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white active:bg-white/20"
                       aria-label="Rewind 10 seconds"
                     >
-                      <RotateCcw className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <RotateCcw className="h-5 w-5" />
                     </motion.button>
 
                     {/* Forward 10s */}
                     <motion.button
-                      whileHover={{ scale: 1.1, boxShadow: '0 0 15px rgba(229,9,20,0.3)' }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => { if (videoRef.current) videoRef.current.currentTime += 10 }}
-                      className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white"
+                      className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white active:bg-white/20"
                       aria-label="Forward 10 seconds"
                     >
-                      <RotateCw className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <RotateCw className="h-5 w-5" />
                     </motion.button>
 
                     {/* Volume */}
@@ -1421,12 +1443,12 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={toggleMute}
-                        className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                        className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white active:bg-white/20"
                         aria-label={isMuted ? 'Unmute' : 'Mute'}
                       >
                         <VolumeIcon className="h-5 w-5" />
                       </motion.button>
-                      <div className="w-0 overflow-hidden transition-all duration-200 group-hover/vol:w-20">
+                      <div className="w-0 overflow-hidden transition-all duration-200 group-hover/vol:w-24 sm:group-hover/vol:w-28">
                         <input
                           type="range"
                           min={0}
@@ -1434,7 +1456,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                           step={0.01}
                           value={isMuted ? 0 : volume}
                           onChange={handleVolumeChange}
-                          className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-xtube-red"
+                          className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-xtube-red touch-manipulation"
                           aria-label="Volume"
                         />
                       </div>
@@ -1454,11 +1476,11 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
 
                     {/* Subtitles CC */}
                     <motion.button
-                      whileHover={{ scale: 1.1, boxShadow: '0 0 12px rgba(229,9,20,0.2)' }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => setSubtitleEnabled(!subtitleEnabled)}
-                      className={`hidden sm:flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-                        subtitleEnabled ? 'text-xtube-red bg-xtube-red/10' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                      className={`hidden sm:flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                        subtitleEnabled ? 'text-xtube-red bg-xtube-red/10' : 'text-white/70 hover:bg-white/10 hover:text-white active:bg-white/20'
                       }`}
                       aria-label="Subtitles"
                     >
@@ -1469,7 +1491,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="hidden sm:flex h-7 items-center rounded-full border border-white/15 px-2 text-[10px] font-bold text-white/60 transition-colors hover:border-xtube-red/30 hover:text-white"
+                      className="hidden sm:flex h-8 items-center rounded-full border border-white/15 px-3 text-[11px] font-bold text-white/60 transition-colors hover:border-xtube-red/30 hover:text-white"
                       aria-label="Current quality"
                     >
                       {quality === 'auto' ? 'AUTO' : quality.toUpperCase()}
@@ -1477,15 +1499,15 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
 
                     {/* Settings */}
                     <motion.button
-                      whileHover={{ scale: 1.1, boxShadow: '0 0 12px rgba(229,9,20,0.2)' }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={(e) => {
                         e.stopPropagation()
                         setShowSettings(!showSettings)
                         setSettingsPage('main')
                       }}
-                      className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-                        showSettings ? 'text-xtube-red bg-xtube-red/10 rotate-45' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                      className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                        showSettings ? 'text-xtube-red bg-xtube-red/10 rotate-45' : 'text-white/70 hover:bg-white/10 hover:text-white active:bg-white/20'
                       }`}
                       aria-label="Settings"
                       style={{ transition: 'all 0.3s' }}
@@ -1495,11 +1517,11 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
 
                     {/* Mini player */}
                     <motion.button
-                      whileHover={{ scale: 1.1, boxShadow: '0 0 12px rgba(229,9,20,0.2)' }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => setMiniPlayer(!miniPlayer)}
-                      className={`hidden sm:flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-                        miniPlayer ? 'text-xtube-red bg-xtube-red/10' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                      className={`hidden sm:flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                        miniPlayer ? 'text-xtube-red bg-xtube-red/10' : 'text-white/70 hover:bg-white/10 hover:text-white active:bg-white/20'
                       }`}
                       aria-label="Mini player"
                     >
@@ -1508,11 +1530,11 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
 
                     {/* PiP */}
                     <motion.button
-                      whileHover={{ scale: 1.1, boxShadow: '0 0 12px rgba(229,9,20,0.2)' }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={togglePiP}
-                      className={`hidden sm:flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-                        isPiP ? 'text-xtube-red bg-xtube-red/10' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                      className={`hidden sm:flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                        isPiP ? 'text-xtube-red bg-xtube-red/10' : 'text-white/70 hover:bg-white/10 hover:text-white active:bg-white/20'
                       }`}
                       aria-label="Picture in Picture"
                     >
@@ -1521,10 +1543,10 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
 
                     {/* Theater mode */}
                     <motion.button
-                      whileHover={{ scale: 1.1, boxShadow: '0 0 12px rgba(229,9,20,0.2)' }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => setTheaterMode(!theaterMode)}
-                      className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                      className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white active:bg-white/20"
                       aria-label={theaterMode ? 'Exit theater mode' : 'Theater mode'}
                     >
                       <MonitorPlay className="h-5 w-5" />
@@ -1532,10 +1554,10 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
 
                     {/* Fullscreen */}
                     <motion.button
-                      whileHover={{ scale: 1.1, boxShadow: '0 0 12px rgba(229,9,20,0.2)' }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={toggleFullscreen}
-                      className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                      className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white active:bg-white/20"
                       aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
                     >
                       {isFullscreen ? (
@@ -1558,7 +1580,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-3 bottom-16 sm:right-4 sm:bottom-20 z-50 min-w-[260px] overflow-hidden rounded-xl border border-white/5 bg-[#111111]/95 py-2 shadow-2xl backdrop-blur-xl"
+                    className="absolute right-2 bottom-16 sm:right-4 sm:bottom-20 z-50 min-w-[200px] sm:min-w-[260px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-white/5 bg-[#111111]/95 py-1.5 sm:py-2 shadow-2xl backdrop-blur-xl"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* Main settings page */}
