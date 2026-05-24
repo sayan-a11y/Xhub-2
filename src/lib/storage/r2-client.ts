@@ -1,9 +1,12 @@
 /**
  * Cloudflare R2 Storage Client
  *
- * A utility module that wraps the R2/S3-compatible API for file storage.
- * Automatically detects if R2 is configured (via environment variables) and
- * falls back to local file storage when R2 is not available.
+ * Direct R2 multipart upload architecture:
+ * 1. Client calls init-upload → API returns presigned URLs for each part
+ * 2. Client uploads parts DIRECTLY to R2 using presigned URLs (bypasses API body limits)
+ * 3. Client calls complete-upload → API tells R2 to assemble the parts
+ *
+ * No in-memory sessions. No chunk-to-local-then-R2. Pure direct upload.
  *
  * Environment Variables for R2:
  *   R2_ACCOUNT_ID        - Cloudflare account ID
@@ -21,7 +24,6 @@ import {
   unlinkSync,
   readdirSync,
   rmSync,
-  createWriteStream,
 } from 'fs'
 import { join, dirname } from 'path'
 import { createHmac, randomUUID, createHash } from 'crypto'
@@ -36,6 +38,7 @@ export interface InitUploadResult {
   key: string
   parts: Array<{ partNumber: number; uploadUrl: string }>
   provider: StorageProvider
+  chunkSize: number
 }
 
 export interface UploadPartResult {
@@ -64,16 +67,6 @@ export interface DeleteResult {
 export interface ObjectUrlResult {
   url: string
   isSigned: boolean
-}
-
-interface MultipartSession {
-  uploadId: string
-  key: string
-  category: FileCategory
-  fileName: string
-  mimeType: string
-  parts: Map<number, { etag: string; size: number }>
-  createdAt: Date
 }
 
 // ─── R2 Configuration ────────────────────────────────────────────────────────
@@ -114,16 +107,8 @@ const CATEGORY_PATHS: Record<FileCategory, string> = {
   banner: 'banners',
 }
 
-// ─── In-Memory Upload Session Tracking ───────────────────────────────────────
-
-const activeSessions = new Map<string, MultipartSession>()
-
 // ─── S3-Compatible Signature (AWS Signature V4) ─────────────────────────────
 
-/**
- * Generate AWS Signature Version 4 for authenticating R2/S3 API requests.
- * This is used for both request signing and presigned URL generation.
- */
 function signRequest(
   method: string,
   path: string,
@@ -136,7 +121,6 @@ function signRequest(
   const dateStamp = timestamp.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
   const dateOnly = dateStamp.substring(0, 8)
 
-  // Canonical request
   const canonicalHeaders = Object.keys(headers)
     .sort()
     .map((k) => `${k.toLowerCase()}:${headers[k].trim()}`)
@@ -156,7 +140,6 @@ function signRequest(
     bodyHash,
   ].join('\n')
 
-  // String to sign
   const scope = `${dateOnly}/${region}/${service}/aws4_request`
   const stringToSign = [
     'AWS4-HMAC-SHA256',
@@ -165,13 +148,11 @@ function signRequest(
     sha256Hex(canonicalRequest),
   ].join('\n')
 
-  // Signing key
   const kDate = hmacSha256(`AWS4${R2_SECRET_ACCESS_KEY}`, dateOnly)
   const kRegion = hmacSha256(kDate, region)
   const kService = hmacSha256(kRegion, service)
   const kSigning = hmacSha256(kService, 'aws4_request')
 
-  // Signature
   const signature = hmacSha256Hex(kSigning, stringToSign)
 
   const authHeader = `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY_ID}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
@@ -185,33 +166,37 @@ function signRequest(
 }
 
 /**
- * Generate a presigned URL for R2/S3 (AWS Signature V4 presigned URL).
+ * Generate a presigned PUT URL for uploading a part directly to R2.
+ * The client will use this URL to upload data directly to R2,
+ * bypassing our API server entirely (no body size limits!).
  */
-function generatePresignedUrl(
+function generatePresignedPutUrl(
   key: string,
-  method: string,
-  expiresInSeconds: number,
+  partNumber: number,
+  uploadId: string,
+  expiresInSeconds: number = 3600,
   region = 'auto',
   service = 's3'
 ): string {
   const timestamp = new Date()
   const dateStamp = timestamp.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
   const dateOnly = dateStamp.substring(0, 8)
-  const expires = expiresInSeconds.toString()
 
   const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-  const path = `/${key}`
+  const path = `/${R2_BUCKET_NAME}/${key}`
 
   const scope = `${dateOnly}/${region}/${service}/aws4_request`
   const credential = `${R2_ACCESS_KEY_ID}/${scope}`
 
-  // Canonical query string
+  // Build query parameters for multipart upload part
   const queryParams: Record<string, string> = {
     'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
     'X-Amz-Credential': credential,
     'X-Amz-Date': dateStamp,
-    'X-Amz-Expires': expires,
+    'X-Amz-Expires': expiresInSeconds.toString(),
     'X-Amz-SignedHeaders': 'host',
+    'partNumber': partNumber.toString(),
+    'uploadId': uploadId,
   }
 
   const sortedQuery = Object.keys(queryParams)
@@ -219,9 +204,9 @@ function generatePresignedUrl(
     .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(queryParams[k])}`)
     .join('&')
 
-  // Canonical request
+  // Canonical request for presigned URL
   const canonicalRequest = [
-    method,
+    'PUT',
     path,
     sortedQuery,
     `host:${host}`,
@@ -230,7 +215,6 @@ function generatePresignedUrl(
     'UNSIGNED-PAYLOAD',
   ].join('\n')
 
-  // String to sign
   const stringToSign = [
     'AWS4-HMAC-SHA256',
     dateStamp,
@@ -238,7 +222,65 @@ function generatePresignedUrl(
     sha256Hex(canonicalRequest),
   ].join('\n')
 
-  // Signing key
+  const kDate = hmacSha256(`AWS4${R2_SECRET_ACCESS_KEY}`, dateOnly)
+  const kRegion = hmacSha256(kDate, region)
+  const kService = hmacSha256(kRegion, service)
+  const kSigning = hmacSha256(kService, 'aws4_request')
+
+  const signature = hmacSha256Hex(kSigning, stringToSign)
+
+  return `${R2_BASE_URL}${path}?${sortedQuery}&X-Amz-Signature=${signature}`
+}
+
+/**
+ * Generate a presigned GET URL for downloading/reading an object.
+ */
+function generatePresignedGetUrl(
+  key: string,
+  expiresInSeconds: number = 3600,
+  region = 'auto',
+  service = 's3'
+): string {
+  const timestamp = new Date()
+  const dateStamp = timestamp.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+  const dateOnly = dateStamp.substring(0, 8)
+
+  const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  const path = `/${R2_BUCKET_NAME}/${key}`
+
+  const scope = `${dateOnly}/${region}/${service}/aws4_request`
+  const credential = `${R2_ACCESS_KEY_ID}/${scope}`
+
+  const queryParams: Record<string, string> = {
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': credential,
+    'X-Amz-Date': dateStamp,
+    'X-Amz-Expires': expiresInSeconds.toString(),
+    'X-Amz-SignedHeaders': 'host',
+  }
+
+  const sortedQuery = Object.keys(queryParams)
+    .sort()
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(queryParams[k])}`)
+    .join('&')
+
+  const canonicalRequest = [
+    'GET',
+    path,
+    sortedQuery,
+    `host:${host}`,
+    '',
+    'host',
+    'UNSIGNED-PAYLOAD',
+  ].join('\n')
+
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    dateStamp,
+    scope,
+    sha256Hex(canonicalRequest),
+  ].join('\n')
+
   const kDate = hmacSha256(`AWS4${R2_SECRET_ACCESS_KEY}`, dateOnly)
   const kRegion = hmacSha256(kDate, region)
   const kService = hmacSha256(kRegion, service)
@@ -265,11 +307,6 @@ function hmacSha256Hex(key: Buffer, data: string): string {
 
 // ─── Key Generation ──────────────────────────────────────────────────────────
 
-/**
- * Generate a unique storage key for a file based on its category and name.
- * Format: {category}/{year}/{month}/{uuid}.{ext}
- * Example: videos/2024/01/a1b2c3d4.mp4
- */
 export function generateStorageKey(
   fileName: string,
   category: FileCategory
@@ -316,14 +353,12 @@ async function r2Fetch(
     ...extraHeaders,
   }
 
-  // Compute body hash
   let bodyHash: string
   if (body === null || body === undefined) {
     bodyHash = sha256Hex('')
   } else if (typeof body === 'string') {
     bodyHash = sha256Hex(body)
   } else {
-    // For binary data, use UNSIGNED-PAYLOAD
     bodyHash = 'UNSIGNED-PAYLOAD'
   }
 
@@ -342,13 +377,13 @@ async function r2Fetch(
   })
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+// ─── Public API: Direct R2 Multipart Upload ──────────────────────────────────
 
 /**
- * Initialize a multipart/resumable upload session.
+ * Initialize a multipart upload and return presigned URLs for each part.
  *
- * For R2: Creates an S3 multipart upload and returns presigned part upload URLs.
- * For local: Creates an in-memory session and returns local upload URLs.
+ * R2 mode: Returns presigned PUT URLs → client uploads directly to R2.
+ * Local mode: Returns local API URLs → client uploads through our API.
  */
 export async function initMultipartUpload(
   key: string,
@@ -370,13 +405,11 @@ async function initMultipartUploadR2(
   key: string,
   contentType: string,
   fileSize: number,
-  category: FileCategory,
-  fileName: string
+  _category: FileCategory,
+  _fileName: string
 ): Promise<InitUploadResult> {
-  // Initiate multipart upload with R2/S3 API
+  // Step 1: Initiate multipart upload with R2
   const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-  const path = `/${R2_BUCKET_NAME}/${key}?uploads`
-
   const headers: Record<string, string> = {
     Host: host,
     'Content-Type': contentType,
@@ -392,10 +425,11 @@ async function initMultipartUploadR2(
   })
 
   if (!response.ok) {
-    throw new Error(`R2 initMultipartUpload failed: ${response.status} ${await response.text()}`)
+    const errText = await response.text()
+    throw new Error(`R2 initMultipartUpload failed: ${response.status} ${errText}`)
   }
 
-  // Parse the UploadId from the XML response
+  // Parse the UploadId from XML response
   const xml = await response.text()
   const uploadIdMatch = xml.match(/<UploadId>([^<]+)<\/UploadId>/)
   if (!uploadIdMatch) {
@@ -403,33 +437,24 @@ async function initMultipartUploadR2(
   }
   const uploadId = uploadIdMatch[1]
 
-  // Calculate number of parts (5MB minimum per part for R2, except last)
+  // Calculate parts: 5MB minimum per part (R2 requirement), last part can be smaller
   const MIN_PART_SIZE = 5 * 1024 * 1024 // 5MB
-  const partCount = Math.max(1, Math.ceil(fileSize / MIN_PART_SIZE))
+  const chunkSize = MIN_PART_SIZE
+  const partCount = Math.max(1, Math.ceil(fileSize / chunkSize))
 
-  // Generate presigned URLs for each part
+  // Generate presigned PUT URLs for each part
+  // Client will upload DIRECTLY to R2 using these URLs — no API body size limits!
   const parts = Array.from({ length: partCount }, (_, i) => ({
     partNumber: i + 1,
-    uploadUrl: generatePresignedUrl(key, 'PUT', 3600) +
-      `&partNumber=${i + 1}&uploadId=${encodeURIComponent(uploadId)}`,
+    uploadUrl: generatePresignedPutUrl(key, i + 1, uploadId, 3600),
   }))
-
-  // Track session in memory
-  activeSessions.set(uploadId, {
-    uploadId,
-    key,
-    category,
-    fileName,
-    mimeType: contentType,
-    parts: new Map(),
-    createdAt: new Date(),
-  })
 
   return {
     uploadId,
     key,
     parts,
     provider: 'r2',
+    chunkSize,
   }
 }
 
@@ -437,31 +462,37 @@ async function initMultipartUploadLocal(
   key: string,
   contentType: string,
   fileSize: number,
-  category: FileCategory,
-  fileName: string
+  _category: FileCategory,
+  _fileName: string
 ): Promise<InitUploadResult> {
   const uploadId = `local_${randomUUID()}`
   const MIN_PART_SIZE = 5 * 1024 * 1024 // 5MB
-  const partCount = Math.max(1, Math.ceil(fileSize / MIN_PART_SIZE))
+  const chunkSize = MIN_PART_SIZE
+  const partCount = Math.max(1, Math.ceil(fileSize / chunkSize))
 
-  // Generate local upload URLs (will be handled by our API route)
-  const parts = Array.from({ length: partCount }, (_, i) => ({
-    partNumber: i + 1,
-    uploadUrl: `/api/r2?action=upload-part&uploadId=${uploadId}&partNumber=${i + 1}`,
-  }))
+  // For local mode, client still uploads parts through our API
+  // But we use a different approach: store parts in a session directory
+  const sessionDir = join(process.cwd(), 'upload', 'r2-parts', uploadId)
+  if (!existsSync(sessionDir)) {
+    mkdirSync(sessionDir, { recursive: true })
+  }
 
-  // Track session in memory
-  activeSessions.set(uploadId, {
+  // Write metadata file so we can reconstruct session after hot-reload
+  writeFileSync(join(sessionDir, '_meta.json'), JSON.stringify({
     uploadId,
     key,
-    category,
-    fileName,
-    mimeType: contentType,
-    parts: new Map(),
-    createdAt: new Date(),
-  })
+    contentType,
+    fileSize,
+    partCount,
+    createdAt: new Date().toISOString(),
+  }))
 
-  // Ensure the local directory exists
+  const parts = Array.from({ length: partCount }, (_, i) => ({
+    partNumber: i + 1,
+    uploadUrl: `/api/r2?action=upload-part&uploadId=${uploadId}&partNumber=${i + 1}&key=${encodeURIComponent(key)}`,
+  }))
+
+  // Ensure target directory exists
   ensureLocalDir(key)
 
   return {
@@ -469,103 +500,43 @@ async function initMultipartUploadLocal(
     key,
     parts,
     provider: 'local',
+    chunkSize,
   }
 }
 
 /**
- * Upload a chunk/part of a file.
- *
- * For R2: Uploads directly to the presigned URL.
- * For local: Saves the chunk to the local filesystem.
+ * Upload a part for local storage mode only.
+ * R2 mode uploads directly via presigned URLs (client-side).
  */
-export async function uploadPart(
-  key: string,
+export async function uploadPartLocal(
   uploadId: string,
   partNumber: number,
   data: Buffer | ArrayBuffer
 ): Promise<UploadPartResult> {
-  const provider = getProvider()
-
-  if (provider === 'r2') {
-    return uploadPartR2(key, uploadId, partNumber, data)
-  }
-
-  return uploadPartLocal(key, uploadId, partNumber, data)
-}
-
-async function uploadPartR2(
-  key: string,
-  uploadId: string,
-  partNumber: number,
-  data: Buffer | ArrayBuffer
-): Promise<UploadPartResult> {
-  // Upload part to R2 via S3 API
-  const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-  const queryStr = `partNumber=${partNumber}&uploadId=${encodeURIComponent(uploadId)}`
-  const path = `/${R2_BUCKET_NAME}/${key}?${queryStr}`
-
-  const bodyBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data)
-
-  const headers: Record<string, string> = {
-    Host: host,
-    'Content-Type': 'application/octet-stream',
-    'Content-Length': bodyBuffer.length.toString(),
-  }
-
-  const bodyHash = 'UNSIGNED-PAYLOAD'
-  const signedHeaders = signRequest('PUT', `/${R2_BUCKET_NAME}/${key}`, headers, bodyHash, new Date())
-
-  const url = `${R2_BASE_URL}/${R2_BUCKET_NAME}/${key}?${queryStr}`
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: signedHeaders,
-    body: bodyBuffer,
-  })
-
-  if (!response.ok) {
-    throw new Error(`R2 uploadPart failed: ${response.status} ${await response.text()}`)
-  }
-
-  const etag = response.headers.get('ETag') || `"${randomUUID()}"`
-
-  // Update session tracking
-  const session = activeSessions.get(uploadId)
-  if (session) {
-    session.parts.set(partNumber, { etag, size: bodyBuffer.length })
-  }
-
-  return {
-    partNumber,
-    etag,
-    received: true,
-  }
-}
-
-async function uploadPartLocal(
-  key: string,
-  uploadId: string,
-  partNumber: number,
-  data: Buffer | ArrayBuffer
-): Promise<UploadPartResult> {
-  const session = activeSessions.get(uploadId)
-  if (!session) {
-    throw new Error(`Upload session not found: ${uploadId}`)
+  const sessionDir = join(process.cwd(), 'upload', 'r2-parts', uploadId)
+  if (!existsSync(sessionDir)) {
+    throw new Error(`Upload session directory not found: ${uploadId}`)
   }
 
   const bodyBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data)
   const etag = `"${randomUUID()}"`
 
-  // Save part to temporary location
-  const tempDir = join(process.cwd(), 'upload', 'r2-parts', uploadId)
-  if (!existsSync(tempDir)) {
-    mkdirSync(tempDir, { recursive: true })
-  }
-
-  const partPath = join(tempDir, `part_${partNumber}`)
+  // Save the part to disk
+  const partPath = join(sessionDir, `part_${partNumber}`)
   writeFileSync(partPath, bodyBuffer)
 
-  // Update session tracking
-  session.parts.set(partNumber, { etag, size: bodyBuffer.length })
+  // Track the etag in a parts manifest file
+  const manifestPath = join(sessionDir, '_manifest.json')
+  let manifest: Record<number, { etag: string; size: number }> = {}
+  if (existsSync(manifestPath)) {
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+    } catch {
+      manifest = {}
+    }
+  }
+  manifest[partNumber] = { etag, size: bodyBuffer.length }
+  writeFileSync(manifestPath, JSON.stringify(manifest))
 
   return {
     partNumber,
@@ -577,8 +548,8 @@ async function uploadPartLocal(
 /**
  * Complete a multipart upload.
  *
- * For R2: Sends the CompleteMultipartUpload XML to R2.
- * For local: Concatenates all parts into the final file.
+ * R2 mode: Sends CompleteMultipartUpload XML to R2.
+ * Local mode: Concatenates all parts into the final file.
  */
 export async function completeMultipartUpload(
   key: string,
@@ -612,7 +583,6 @@ async function completeMultipartUploadR2(
 
   const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   const queryStr = `uploadId=${encodeURIComponent(uploadId)}`
-  const path = `/${R2_BUCKET_NAME}/${key}?${queryStr}`
 
   const headers: Record<string, string> = {
     Host: host,
@@ -630,17 +600,8 @@ async function completeMultipartUploadR2(
   })
 
   if (!response.ok) {
-    throw new Error(`R2 completeMultipartUpload failed: ${response.status} ${await response.text()}`)
-  }
-
-  // Calculate total size from session
-  const session = activeSessions.get(uploadId)
-  let totalSize = 0
-  if (session) {
-    for (const part of session.parts.values()) {
-      totalSize += part.size
-    }
-    activeSessions.delete(uploadId)
+    const errText = await response.text()
+    throw new Error(`R2 completeMultipartUpload failed: ${response.status} ${errText}`)
   }
 
   const url_result = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/${key}` : `/${key}`
@@ -648,7 +609,7 @@ async function completeMultipartUploadR2(
   return {
     key,
     url: url_result,
-    size: totalSize,
+    size: 0, // Size not easily known from complete response
     provider: 'r2',
   }
 }
@@ -658,23 +619,35 @@ async function completeMultipartUploadLocal(
   uploadId: string,
   parts: Array<{ partNumber: number; etag: string }>
 ): Promise<CompleteUploadResult> {
-  const session = activeSessions.get(uploadId)
-  if (!session) {
-    throw new Error(`Upload session not found: ${uploadId}`)
+  const sessionDir = join(process.cwd(), 'upload', 'r2-parts', uploadId)
+  if (!existsSync(sessionDir)) {
+    throw new Error(`Upload session directory not found: ${uploadId}`)
   }
 
-  const tempDir = join(process.cwd(), 'upload', 'r2-parts', uploadId)
-  if (!existsSync(tempDir)) {
-    throw new Error(`Upload parts directory not found: ${uploadId}`)
+  // Read manifest for etags
+  const manifestPath = join(sessionDir, '_manifest.json')
+  let manifest: Record<number, { etag: string; size: number }> = {}
+  if (existsSync(manifestPath)) {
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+    } catch {
+      manifest = {}
+    }
   }
+
+  // Use provided parts if available, otherwise fall back to manifest
+  const effectiveParts = parts.length > 0 ? parts : Object.entries(manifest).map(([num, info]) => ({
+    partNumber: parseInt(num),
+    etag: info.etag,
+  }))
 
   // Concatenate parts in order
-  const sortedParts = parts.sort((a, b) => a.partNumber - b.partNumber)
+  const sortedParts = effectiveParts.sort((a, b) => a.partNumber - b.partNumber)
   const chunks: Buffer[] = []
   let totalSize = 0
 
   for (const part of sortedParts) {
-    const partPath = join(tempDir, `part_${part.partNumber}`)
+    const partPath = join(sessionDir, `part_${part.partNumber}`)
     if (!existsSync(partPath)) {
       throw new Error(`Part ${part.partNumber} not found on disk`)
     }
@@ -689,13 +662,10 @@ async function completeMultipartUploadLocal(
 
   // Clean up temp parts
   try {
-    rmSync(tempDir, { recursive: true, force: true })
+    rmSync(sessionDir, { recursive: true, force: true })
   } catch {
     // Ignore cleanup errors
   }
-
-  // Clean up session
-  activeSessions.delete(uploadId)
 
   return {
     key,
@@ -706,10 +676,66 @@ async function completeMultipartUploadLocal(
 }
 
 /**
+ * Simple single-file upload (for thumbnails, ads, etc. - small files).
+ * For R2: Uploads directly via signed PUT.
+ * For local: Saves directly to public directory.
+ */
+export async function uploadSimpleFile(
+  key: string,
+  data: Buffer | ArrayBuffer,
+  contentType: string = 'application/octet-stream'
+): Promise<CompleteUploadResult> {
+  const provider = getProvider()
+
+  if (provider === 'r2') {
+    const bodyBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data)
+    const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+
+    const headers: Record<string, string> = {
+      Host: host,
+      'Content-Type': contentType,
+      'Content-Length': bodyBuffer.length.toString(),
+    }
+
+    const bodyHash = 'UNSIGNED-PAYLOAD'
+    const signedHeaders = signRequest('PUT', `/${R2_BUCKET_NAME}/${key}`, headers, bodyHash, new Date())
+
+    const url = `${R2_BASE_URL}/${R2_BUCKET_NAME}/${key}`
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: signedHeaders,
+      body: bodyBuffer,
+    })
+
+    if (!response.ok) {
+      throw new Error(`R2 uploadSimpleFile failed: ${response.status} ${await response.text()}`)
+    }
+
+    const url_result = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/${key}` : `/${key}`
+
+    return {
+      key,
+      url: url_result,
+      size: bodyBuffer.length,
+      provider: 'r2',
+    }
+  }
+
+  // Local mode
+  const bodyBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data)
+  const fullPath = ensureLocalDir(key)
+  writeFileSync(fullPath, bodyBuffer)
+
+  return {
+    key,
+    url: getLocalUrl(key),
+    size: bodyBuffer.length,
+    provider: 'local',
+  }
+}
+
+/**
  * Generate a signed URL for secure streaming/access.
- *
- * For R2: Generates an AWS Signature V4 presigned URL.
- * For local: Returns the direct URL (no signing needed).
  */
 export async function getSignedUrl(
   key: string,
@@ -718,16 +744,12 @@ export async function getSignedUrl(
   const provider = getProvider()
 
   if (provider === 'r2') {
-    const url = generatePresignedUrl(key, 'GET', expiresInSeconds)
+    const url = generatePresignedGetUrl(key, expiresInSeconds)
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString()
 
-    return {
-      url,
-      expiresAt,
-    }
+    return { url, expiresAt }
   }
 
-  // Local mode — no signing needed, just return the direct URL
   return {
     url: getLocalUrl(key),
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
@@ -736,41 +758,23 @@ export async function getSignedUrl(
 
 /**
  * Delete a file from storage.
- *
- * For R2: Sends a DELETE request to the R2/S3 API.
- * For local: Deletes the file from the public directory.
  */
 export async function deleteObject(key: string): Promise<DeleteResult> {
   const provider = getProvider()
 
   if (provider === 'r2') {
-    return deleteObjectR2(key)
+    const response = await r2Fetch('DELETE', key)
+    if (!response.ok && response.status !== 204) {
+      throw new Error(`R2 deleteObject failed: ${response.status} ${await response.text()}`)
+    }
+    return { deleted: true, key }
   }
 
-  return deleteObjectLocal(key)
-}
-
-async function deleteObjectR2(key: string): Promise<DeleteResult> {
-  const response = await r2Fetch('DELETE', key)
-
-  if (!response.ok && response.status !== 204) {
-    throw new Error(`R2 deleteObject failed: ${response.status} ${await response.text()}`)
-  }
-
-  return {
-    deleted: true,
-    key,
-  }
-}
-
-async function deleteObjectLocal(key: string): Promise<DeleteResult> {
   const fullPath = join(PUBLIC_DIR, key)
-
   if (existsSync(fullPath)) {
     unlinkSync(fullPath)
   }
 
-  // Try to clean up empty parent directories
   try {
     const parentDir = dirname(fullPath)
     const files = readdirSync(parentDir)
@@ -781,72 +785,49 @@ async function deleteObjectLocal(key: string): Promise<DeleteResult> {
     // Ignore cleanup errors
   }
 
-  return {
-    deleted: true,
-    key,
-  }
+  return { deleted: true, key }
 }
 
 /**
- * Get the URL for an object — returns the public URL if available,
- * otherwise generates a signed URL.
- *
- * For R2: Returns public URL if R2_PUBLIC_URL is set, otherwise signed URL.
- * For local: Returns the direct local URL.
+ * Get the URL for an object.
  */
 export async function getObjectUrl(key: string): Promise<ObjectUrlResult> {
   const provider = getProvider()
 
   if (provider === 'r2') {
     if (R2_PUBLIC_URL) {
-      return {
-        url: `${R2_PUBLIC_URL}/${key}`,
-        isSigned: false,
-      }
+      return { url: `${R2_PUBLIC_URL}/${key}`, isSigned: false }
     }
-    // No public URL configured, generate a signed URL
     const signed = await getSignedUrl(key)
-    return {
-      url: signed.url,
-      isSigned: true,
-    }
+    return { url: signed.url, isSigned: true }
   }
 
-  return {
-    url: getLocalUrl(key),
-    isSigned: false,
-  }
+  return { url: getLocalUrl(key), isSigned: false }
 }
 
 /**
- * Get an active upload session (for internal use by the API route).
+ * Get upload session metadata from disk (local mode only).
+ * Replaces in-memory session tracking — survives hot-reloads!
  */
-export function getUploadSession(uploadId: string): MultipartSession | undefined {
-  return activeSessions.get(uploadId)
-}
-
-/**
- * Clean up stale upload sessions (older than 24 hours).
- * Should be called periodically.
- */
-export function cleanupStaleSessions(): number {
-  const STALE_THRESHOLD = 24 * 60 * 60 * 1000 // 24 hours
-  const now = Date.now()
-  let cleaned = 0
-
-  for (const [uploadId, session] of activeSessions.entries()) {
-    if (now - session.createdAt.getTime() > STALE_THRESHOLD) {
-      activeSessions.delete(uploadId)
-      cleaned++
-    }
+export function getLocalSessionMeta(uploadId: string): {
+  uploadId: string
+  key: string
+  contentType: string
+  fileSize: number
+  partCount: number
+  createdAt: string
+} | null {
+  const metaPath = join(process.cwd(), 'upload', 'r2-parts', uploadId, '_meta.json')
+  if (!existsSync(metaPath)) return null
+  try {
+    return JSON.parse(readFileSync(metaPath, 'utf-8'))
+  } catch {
+    return null
   }
-
-  return cleaned
 }
 
 /**
  * List all objects with a given prefix in storage.
- * For local mode, reads the filesystem. For R2, uses the ListObjectsV2 API.
  */
 export async function listObjects(
   prefix: string,
@@ -868,18 +849,12 @@ async function listObjectsR2(
   const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   const path = `/${R2_BUCKET_NAME}?list-type=2&prefix=${encodeURIComponent(prefix)}&max-keys=${maxKeys}`
 
-  const headers: Record<string, string> = {
-    Host: host,
-  }
-
+  const headers: Record<string, string> = { Host: host }
   const bodyHash = sha256Hex('')
   const signedHeaders = signRequest('GET', `/${R2_BUCKET_NAME}`, headers, bodyHash, new Date())
 
   const url = `${R2_BASE_URL}${path}`
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: signedHeaders,
-  })
+  const response = await fetch(url, { method: 'GET', headers: signedHeaders })
 
   if (!response.ok) {
     throw new Error(`R2 listObjects failed: ${response.status}`)
@@ -888,7 +863,6 @@ async function listObjectsR2(
   const xml = await response.text()
   const objects: Array<{ key: string; size: number; lastModified: string }> = []
 
-  // Simple XML parsing for ListObjectsV2 response
   const contentRegex = /<Contents>([\s\S]*?)<\/Contents>/g
   let match
   while ((match = contentRegex.exec(xml)) !== null) {
@@ -914,23 +888,18 @@ async function listObjectsLocal(
   maxKeys: number
 ): Promise<Array<{ key: string; size: number; lastModified: string }>> {
   const dir = join(PUBLIC_DIR, prefix)
-  if (!existsSync(dir)) {
-    return []
-  }
+  if (!existsSync(dir)) return []
 
   const objects: Array<{ key: string; size: number; lastModified: string }> = []
   const { statSync } = await import('fs')
 
   function walkDir(currentDir: string, currentPrefix: string) {
     if (objects.length >= maxKeys) return
-
     const entries = readdirSync(currentDir, { withFileTypes: true })
     for (const entry of entries) {
       if (objects.length >= maxKeys) break
-
       const fullPath = join(currentDir, entry.name)
       const entryPrefix = currentPrefix ? `${currentPrefix}/${entry.name}` : entry.name
-
       if (entry.isDirectory()) {
         walkDir(fullPath, entryPrefix)
       } else {
