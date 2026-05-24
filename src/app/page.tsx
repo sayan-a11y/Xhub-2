@@ -161,7 +161,6 @@ export default function XtubeHome() {
   const [stableFooterAds, setStableFooterAds] = useState<FooterAdData[]>([])
   const [stableHeroAds, setStableHeroAds] = useState<HeroAdData[]>([])
   const [stableAds, setStableAds] = useState<AdData[]>([])
-  const [apiLoaded, setApiLoaded] = useState(false)
 
   // Filter ads by date range
   const isWithinSchedule = (ad: { isActive: boolean; startDate?: string | null; endDate?: string | null }) => {
