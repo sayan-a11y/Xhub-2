@@ -26,7 +26,7 @@ const VideoPlayer = lazy(() =>
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface VideoData {
+type VideoData = {
   id: string
   title: string
   description: string
@@ -41,7 +41,7 @@ interface VideoData {
   updatedAt: string
 }
 
-interface CategoryData {
+type CategoryData = {
   id: string
   name: string
   slug: string
@@ -49,7 +49,7 @@ interface CategoryData {
   order: number
 }
 
-interface AdData {
+type AdData = {
   id: string
   type: string
   position: string
@@ -66,7 +66,7 @@ interface AdData {
   createdAt: string
 }
 
-interface FooterAdData {
+type FooterAdData = {
   id: string
   title: string
   mediaUrl: string
@@ -82,7 +82,7 @@ interface FooterAdData {
   endDate?: string | null
 }
 
-interface HeroAdData {
+type HeroAdData = {
   id: string
   title: string
   description?: string | null
@@ -101,7 +101,7 @@ interface HeroAdData {
   endDate?: string | null
 }
 
-interface CommentData {
+type CommentData = {
   id: string
   content: string
   likes: number
@@ -354,7 +354,7 @@ export default function XtubeHome() {
       title: ad.title,
       mediaUrl: ad.mediaUrl,
       thumbnailUrl: ad.thumbnailUrl || undefined,
-      adType: ad.adType as 'image' | 'video' | 'gif' | 'html5',
+      adType: ad.adType as 'image' | 'video' | 'gif',
       mediaFormat: ad.mediaFormat,
       linkUrl: ad.linkUrl || undefined,
     })),
@@ -647,7 +647,7 @@ export default function XtubeHome() {
         <VideoPlayer
           video={currentVideo}
           relatedVideos={relatedVideos}
-          comments={videoComments}
+          comments={videoComments as any}
           onAddComment={handleAddComment}
         />
       </Suspense>

@@ -186,6 +186,13 @@ export function HeroFooterAdsPage() {
     return true
   })
 
+  const imageCount = allAds.filter((ad) => ad.adType === 'image').length
+  const videoCount = allAds.length - imageCount
+  const donutData = [
+    { name: 'Image Ads', value: imageCount },
+    { name: 'Video Ads', value: videoCount },
+  ]
+
   const statusStyles: Record<string, string> = {
     Active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     Paused: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
@@ -1080,7 +1087,7 @@ export function HeroFooterAdsPage() {
                       </td>
                       {/* Revenue */}
                       <td className="py-2 pr-3">
-                        <span className="text-xs font-semibold text-emerald-400">{ad.revenue}</span>
+                        <span className="text-xs font-semibold text-emerald-400">{(ad as any).revenue || '$0.00'}</span>
                       </td>
                       {/* Status */}
                       <td className="py-2 pr-3">

@@ -7,7 +7,7 @@ import {
   useRef,
   useMemo,
 } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { Play, Info, ChevronLeft, ChevronRight, Volume2, VolumeX, Megaphone, Maximize2, Clock } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 
@@ -46,7 +46,7 @@ const MAX_VISIBLE_ADS = 6         // Maximum hero ads to display
    Staggered content animation variants
    ──────────────────────────────────────────── */
 
-const contentVariants = {
+const contentVariants: Variants = {
   hidden: {},
   visible: {
     transition: { staggerChildren: 0.1, delayChildren: 0.3 },
@@ -56,7 +56,7 @@ const contentVariants = {
   },
 }
 
-const contentItem = {
+const contentItem: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,

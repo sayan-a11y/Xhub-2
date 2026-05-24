@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import Hls from 'hls.js'
+import Hls, { type Level } from 'hls.js'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play,
@@ -241,7 +241,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
   const [subtitleEnabled, setSubtitleEnabled] = useState(false)
 
   // Available HLS quality levels
-  const [availableLevels, setAvailableLevels] = useState<Hls.Level[]>([])
+  const [availableLevels, setAvailableLevels] = useState<Level[]>([])
 
   // Current auto quality level (for display, avoids ref access in render)
   const [currentAutoQuality, setCurrentAutoQuality] = useState<string>('Auto')

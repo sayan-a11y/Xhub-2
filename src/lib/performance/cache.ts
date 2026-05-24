@@ -9,13 +9,13 @@ interface CacheEntry<T> {
   accessedAt: number;
 }
 
-interface CacheStats {
+export interface CacheStats {
   hits: number;
   misses: number;
   evictions: number;
 }
 
-interface CacheOptions {
+export interface CacheOptions {
   maxSize: number;
   defaultTTL: number; // milliseconds
   cleanupInterval: number; // milliseconds

@@ -195,6 +195,7 @@ export function PopupAdsPage() {
   const displayAds = useMemo(() => ads.map((ad) => ({
     id: ad.id,
     name: ad.title,
+    imageUrl: ad.imageUrl,
     type: (ad.mediaFormat === 'mp4' ? 'Video' : ad.mediaFormat === 'text' ? 'Text' : 'Image') as 'Image' | 'Video' | 'Text',
     trigger: ad.skipAfter ? `Time Delay (${ad.skipAfter}s)` : 'Time Delay (5s)',
     displayOn: ad.position || 'All Pages',

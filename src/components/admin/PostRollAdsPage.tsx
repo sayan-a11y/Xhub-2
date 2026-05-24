@@ -699,7 +699,7 @@ export function PostRollAdsPage() {
                       <td className="py-2 pr-3">
                         <div className="relative h-10 w-16 overflow-hidden rounded-md bg-[#050505]">
                           {(ad.imageUrl || ad.mediaUrl) ? (
-                            <img src={ad.imageUrl || ad.mediaUrl} alt={ad.title} className="h-full w-full object-cover" />
+                            <img src={ad.imageUrl || ad.mediaUrl || undefined} alt={ad.title} className="h-full w-full object-cover" />
                           ) : (
                             <div className="absolute inset-0 flex items-center justify-center">
                               {ad.mediaFormat?.startsWith('video') ? (

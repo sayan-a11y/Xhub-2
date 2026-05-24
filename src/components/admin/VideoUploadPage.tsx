@@ -162,6 +162,7 @@ export function VideoUploadPage() {
 
   const extractVideoInfo = useCallback((file: File): Promise<{ meta: VideoMetadata; thumbUrl: string; thumbFile: File }> => {
     return new Promise((resolve, reject) => {
+      let meta: VideoMetadata
       const video = document.createElement('video')
       video.preload = 'metadata'
       video.muted = true
@@ -171,7 +172,7 @@ export function VideoUploadPage() {
       const url = URL.createObjectURL(file)
 
       video.onloadedmetadata = () => {
-        const meta: VideoMetadata = {
+        meta = {
           name: file.name,
           size: file.size,
           type: file.type,

@@ -369,7 +369,7 @@ export function HeroAdsPage() {
 
   const handleToggleActive = useCallback(async (ad: HeroAdItem) => {
     try {
-      await toggleHeroAd(ad.id, !ad.isActive)
+      await toggleHeroAd(ad.id)
     } catch (err) {
       console.error('Error toggling hero ad active status:', err)
     }

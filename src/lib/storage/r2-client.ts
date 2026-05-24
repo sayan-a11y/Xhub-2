@@ -704,7 +704,7 @@ export async function uploadSimpleFile(
     const response = await fetch(url, {
       method: 'PUT',
       headers: signedHeaders,
-      body: bodyBuffer,
+      body: bodyBuffer as any,
     })
 
     if (!response.ok) {

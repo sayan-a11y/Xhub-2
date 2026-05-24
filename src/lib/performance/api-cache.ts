@@ -25,7 +25,7 @@ export async function cachedFetch<T>(
   const cacheKey = `${API_CACHE_PREFIX}${key}`;
 
   // 1. Check cache first
-  const cached = appCache.get<T>(cacheKey);
+  const cached = appCache.get(cacheKey) as T | undefined;
   if (cached !== undefined) {
     return cached;
   }

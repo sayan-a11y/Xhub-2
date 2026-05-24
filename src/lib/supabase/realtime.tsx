@@ -115,7 +115,7 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
     let channel: RealtimeChannel | null = null
 
     const subscribe = () => {
-      const channelName = `rt:${table}:${filter ?? 'all'}`
+      const channelName = `rt:${table}:${filter ?? 'all'}-${Math.random().toString(36).substring(7)}`
       channel = client
         .channel(channelName)
         .on<T>(

@@ -653,7 +653,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45, duration: 0.4 }}
         >
-          <VideoAdsAnalytics ads={ads} />
+          <VideoAdsAnalytics />
         </motion.div>
       )}
 

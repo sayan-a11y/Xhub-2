@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate optimal quality recommendation based on reported network conditions
     let recommendedQuality: QualityName | null = null
-    let bufferHealth = null
+    let bufferHealth: any = null
 
     if (downloadSpeed !== undefined && bufferLength !== undefined && screenResolution) {
       recommendedQuality = calculateOptimalQuality(
