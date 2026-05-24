@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ThumbsUp, ThumbsDown, Reply, MessageCircle, ChevronDown, Send, MoreHorizontal } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useRealtimeSubscription } from '@/lib/supabase/realtime'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -329,12 +330,26 @@ function CommentSkeleton() {
 
 // ─── Main Comments Component ─────────────────────────────────────────────────
 
-export function Comments({ comments, onAddComment, loading }: CommentsProps) {
+export function Comments({ comments, videoId, onAddComment, loading }: CommentsProps) {
   const [sortMode, setSortMode] = useState<SortMode>('top')
   const [newComment, setNewComment] = useState('')
   const [showSortMenu, setShowSortMenu] = useState(false)
 
-  const sortedComments = [...comments].sort((a, b) => {
+  // Real-time new comments from Supabase
+  const { data: realtimeComments } = useRealtimeSubscription<Comment & Record<string, unknown>>('Comment')
+
+  // Merge prop comments with realtime rows (deduplicate by id)
+  const mergedComments = [...comments]
+  if (realtimeComments) {
+    const existingIds = new Set(comments.map((c) => c.id))
+    for (const rc of realtimeComments) {
+      if (!existingIds.has(rc.id)) {
+        ;(mergedComments as Comment[]).push(rc as Comment)
+      }
+    }
+  }
+
+  const sortedComments = [...mergedComments].sort((a, b) => {
     if (sortMode === 'top') {
       return b.likes - a.likes
     }

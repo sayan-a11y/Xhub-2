@@ -48,6 +48,7 @@ import { useAppStore } from '@/lib/store'
 import { Comments } from '@/components/streaming/Comments'
 import { XtubeLogo } from '@/components/shared/XtubeLogo'
 import { usePageVisibility } from '@/lib/performance/hooks'
+import { VideoAdsPlayer, type AdData } from '@/components/streaming/VideoAdsPlayer'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -240,6 +241,9 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
   const [isPiP, setIsPiP] = useState(false)
   const [subtitleEnabled, setSubtitleEnabled] = useState(false)
 
+  // Subtitle tracks
+  const [subtitleTracks, setSubtitleTracks] = useState<Array<{ id: string; src: string; lang: string; label: string; default: boolean }>>([])
+
   // Available HLS quality levels
   const [availableLevels, setAvailableLevels] = useState<Level[]>([])
 
@@ -270,31 +274,199 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
   // Seeking loader
   const [isSeeking, setIsSeeking] = useState(false)
 
-  // ─── Double-tap gesture handler ────────────────────────────────────────────
+  // ─── Ad Data State ──────────────────────────────────────────────────────────
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const x = touch.clientX - rect.left
-    const now = Date.now()
+  const [preRollAds, setPreRollAds] = useState<AdData[]>([])
+  const [midRollAds, setMidRollAds] = useState<AdData[]>([])
+  const [postRollAds, setPostRollAds] = useState<AdData[]>([])
+  const [overlayAds, setOverlayAds] = useState<AdData[]>([])
+  const adsLoadedRef = useRef(false)
 
-    if (lastTapRef.current && now - lastTapRef.current.time < 300) {
-      const side = x < rect.width / 2 ? 'left' : 'right'
-      setDoubleTapSide(side)
+  // Fetch ads on mount
+  useEffect(() => {
+    if (adsLoadedRef.current) return
+    adsLoadedRef.current = true
+    fetch('/api/video-ads')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.preRoll) setPreRollAds(data.preRoll)
+        if (data?.midRoll) setMidRollAds(data.midRoll)
+        if (data?.postRoll) setPostRollAds(data.postRoll)
+        if (data?.overlay) setOverlayAds(data.overlay)
+      })
+      .catch(() => { /* ads unavailable */ })
+  }, [])
 
-      const vid = videoRef.current
-      if (vid) {
-        if (side === 'left') {
-          vid.currentTime = Math.max(0, vid.currentTime - 10)
-        } else {
-          vid.currentTime = Math.min(vid.duration, vid.currentTime + 10)
+  // ─── Ad Integration Refs ────────────────────────────────────────────────────
+
+  const adPauseRef = useRef(false)
+  const adSeekRef = useRef<number | null>(null)
+
+  const handleAdStart = useCallback((_adId: string) => {
+    adPauseRef.current = true
+    videoRef.current?.pause()
+  }, [])
+
+  const handleAdEnd = useCallback((_adId: string) => {
+    adPauseRef.current = false
+  }, [])
+
+  const handleAdSkip = useCallback((_adId: string) => {
+    adPauseRef.current = false
+  }, [])
+
+  const handleAdComplete = useCallback((_adId: string) => {
+    adPauseRef.current = false
+  }, [])
+
+  const handleAdClick = useCallback((_adId: string) => {
+    // Open ad link if applicable
+  }, [])
+
+  const handleAdRequestPause = useCallback(() => {
+    videoRef.current?.pause()
+  }, [])
+
+  const handleAdRequestPlay = useCallback(() => {
+    videoRef.current?.play().catch(() => {})
+  }, [])
+
+  const handleAdRequestSeek = useCallback((time: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = time
+    }
+  }, [])
+
+  // ─── Swipe Gesture State ────────────────────────────────────────────────────
+
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const [swipeIndicator, setSwipeIndicator] = useState<'volumeUp' | 'volumeDown' | null>(null)
+
+  // ─── Continue Watching State ────────────────────────────────────────────────
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`xtube-resume-${video.id}`)
+      if (saved) {
+        const pos = parseFloat(saved)
+        if (pos > 5) {
+          setResumePosition(pos)
+          setShowResumePrompt(true)
         }
       }
+    } catch {}
+  }, [video.id])
 
-      setTimeout(() => setDoubleTapSide(null), 800)
-      lastTapRef.current = null
-    } else {
+  const handleResume = useCallback(() => {
+    if (resumePosition !== null && videoRef.current) {
+      videoRef.current.currentTime = resumePosition
+    }
+    setShowResumePrompt(false)
+  }, [resumePosition])
+
+  const handleDismissResume = useCallback(() => {
+    setShowResumePrompt(false)
+  }, [])
+
+  // Save watch progress periodically
+  useEffect(() => {
+    if (!isPlaying || duration === 0) return
+    const interval = setInterval(() => {
+      const vid = videoRef.current
+      if (vid && vid.currentTime > 5) {
+        try {
+          localStorage.setItem(`xtube-resume-${video.id}`, String(vid.currentTime))
+        } catch {}
+      }
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [isPlaying, duration, video.id])
+
+  // ─── Touch gesture handler (double-tap + swipe) ────────────────────────────
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Single touch: double-tap detection
+    if (e.touches.length === 1) {
+      const touch = e.touches[0]
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const x = touch.clientX - rect.left
+      const y = touch.clientY - rect.top
+      const now = Date.now()
+
+      // Store for swipe detection
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: now }
+
+      if (lastTapRef.current && now - lastTapRef.current.time < 300) {
+        // Prevent browser interference (zoom, scroll)
+        e.preventDefault()
+        const side = x < rect.width / 2 ? 'left' : 'right'
+        setDoubleTapSide(side)
+
+        const vid = videoRef.current
+        if (vid) {
+          if (side === 'left') {
+            vid.currentTime = Math.max(0, vid.currentTime - 10)
+          } else {
+            vid.currentTime = Math.min(vid.duration, vid.currentTime + 10)
+          }
+        }
+
+        setTimeout(() => setDoubleTapSide(null), 800)
+        lastTapRef.current = null
+        return
+      }
       lastTapRef.current = { time: now, x }
+    }
+  }, [])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = touchStartRef.current
+    if (!start || e.changedTouches.length !== 1) return
+
+    const touch = e.changedTouches[0]
+    const dx = touch.clientX - start.x
+    const dy = touch.clientY - start.y
+    const elapsed = Date.now() - start.time
+
+    // Only detect swipe if movement > 30px and fast (< 500ms)
+    if (elapsed > 500) return
+
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
+
+    // Vertical swipe: volume control
+    if (absDy > absDx && absDy > 40) {
+      const vid = videoRef.current
+      if (vid) {
+        if (dy < 0) {
+          // Swipe up = volume up
+          const newVol = Math.min(1, vid.volume + 0.15)
+          vid.volume = newVol
+          setVolume(newVol)
+          setSwipeIndicator('volumeUp')
+        } else {
+          // Swipe down = volume down
+          const newVol = Math.max(0, vid.volume - 0.15)
+          vid.volume = newVol
+          setVolume(newVol)
+          setSwipeIndicator('volumeDown')
+        }
+        setTimeout(() => setSwipeIndicator(null), 800)
+      }
+    }
+
+    touchStartRef.current = null
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    // Prevent default scroll during swipe gesture
+    if (touchStartRef.current && e.touches.length === 1) {
+      const touch = e.touches[0]
+      const dy = Math.abs(touch.clientY - touchStartRef.current.y)
+      const dx = Math.abs(touch.clientX - touchStartRef.current.x)
+      if (dy > 10 || dx > 10) {
+        e.preventDefault()
+      }
     }
   }, [])
 
@@ -900,6 +1072,9 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                 if (isPlaying && !showSettings) setShowControls(false)
               }}
               onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchMove}
+              style={{ touchAction: 'none' }}
             >
               {/* Custom Thumbnail Overlay - auto-hides when video plays on mobile/tablet */}
               <AnimatePresence>
@@ -921,7 +1096,43 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                 )}
               </AnimatePresence>
 
-              {/* Video Element - no poster, thumbnail handled by custom overlay */}
+              {/* Continue Watching Resume Prompt */}
+              <AnimatePresence>
+                {showResumePrompt && resumePosition !== null && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute left-4 top-4 z-20 flex items-center gap-3 rounded-xl bg-black/80 px-4 py-3 backdrop-blur-md"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-xtube-red/20">
+                      <RotateCcw className="h-4 w-4 text-xtube-red" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white">Continue watching?</p>
+                      <p className="text-xs text-white/60">Resume at {formatTime(resumePosition)}</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-3">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleResume}
+                        className="rounded-lg bg-xtube-red px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-xtube-red-hover"
+                      >
+                        Resume
+                      </motion.button>
+                      <button
+                        onClick={handleDismissResume}
+                        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Video Element */}
               <video
                 ref={videoRef}
                 className="h-full w-full cursor-pointer aspect-video bg-black"
@@ -931,7 +1142,18 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                 playsInline
                 poster={video.thumbnail}
                 style={{ transform: 'translateZ(0)', willChange: 'transform' }}
-              />
+              >
+                {subtitleTracks.map((track) => (
+                  <track
+                    key={track.id}
+                    kind="subtitles"
+                    src={track.src}
+                    srcLang={track.lang}
+                    label={track.label}
+                    default={track.default}
+                  />
+                ))}
+              </video>
 
               {/* ═══════════════════════════════════════════════════════════
                   DOUBLE-TAP GESTURE OVERLAY (Mobile YouTube-style)
@@ -978,6 +1200,52 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                       transition={{ duration: 0.6 }}
                       className="absolute h-20 w-20 rounded-full bg-white/10"
                     />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* ═══════════════════════════════════════════════════════════
+                  VIDEO ADS PLAYER (Pre-roll / Mid-roll / Overlay)
+                  ═══════════════════════════════════════════════════════════ */}
+              <VideoAdsPlayer
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={duration}
+                preRollAds={preRollAds}
+                midRollAds={midRollAds}
+                postRollAds={postRollAds}
+                overlayAds={overlayAds}
+                midrollTimings={midrollTimings}
+                onAdStart={handleAdStart}
+                onAdEnd={handleAdEnd}
+                onAdSkip={handleAdSkip}
+                onAdComplete={handleAdComplete}
+                onAdClick={handleAdClick}
+                onRequestPause={handleAdRequestPause}
+                onRequestPlay={handleAdRequestPlay}
+                onRequestSeek={handleAdRequestSeek}
+              />
+
+              {/* Swipe gesture indicator overlay */}
+              <AnimatePresence>
+                {swipeIndicator && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.5 }}
+                    transition={{ duration: 0.3 }}
+                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 z-30"
+                  >
+                    <div className="flex flex-col items-center gap-1 rounded-2xl bg-black/60 px-3 py-2 backdrop-blur-sm">
+                      {swipeIndicator === 'volumeUp' ? (
+                        <Volume2 className="h-6 w-6 text-white" />
+                      ) : (
+                        <VolumeX className="h-6 w-6 text-white" />
+                      )}
+                      <span className="text-xs font-bold text-white">
+                        {swipeIndicator === 'volumeUp' ? 'Vol +' : 'Vol -'}
+                      </span>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1082,6 +1350,21 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                       }`}
                       style={{ left: `${progress}%`, transform: 'translate(-50%, -50%)' + (isDragging ? ' scale(1)' : ''), willChange: 'left' }}
                     />
+                    {/* Thumbnail preview on hover */}
+                    {hoverTime !== null && thumbnailUrls.length > 0 && (
+                      <div
+                        className="absolute -top-36 -translate-x-1/2 pointer-events-none"
+                        style={{ left: `${hoverX}px` }}
+                      >
+                        <div className="overflow-hidden rounded-lg border border-white/10 shadow-2xl">
+                          <img
+                            src={thumbnailUrls[Math.floor((hoverTime / duration) * thumbnailUrls.length) % thumbnailUrls.length]}
+                            alt=""
+                            className="h-20 w-36 object-cover sm:h-24 sm:w-40"
+                          />
+                        </div>
+                      </div>
+                    )}
                     {/* Hover time tooltip */}
                     {hoverTime !== null && (
                       <div
@@ -1736,6 +2019,60 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
           </div>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          MINI PLAYER (Floating draggable)
+          ═══════════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {miniPlayer && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 50 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="fixed bottom-4 right-4 z-[100] w-56 overflow-hidden rounded-xl border border-white/10 bg-black shadow-2xl sm:w-72"
+            style={{ touchAction: 'none' }}
+          >
+            {/* Thumbnail placeholder */}
+            <div className="relative aspect-video w-full bg-[#111111]">
+              <img
+                src={video.thumbnail}
+                alt={video.title}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+              {/* Centered play/pause icon */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <button
+                  onClick={() => { setMiniPlayer(false); navigateToVideo(video.id) }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-xtube-red/90 shadow-lg"
+                  aria-label="Restore player"
+                >
+                  {isPlaying ? (
+                    <Pause className="h-5 w-5 text-white" fill="currentColor" />
+                  ) : (
+                    <Play className="h-5 w-5 ml-0.5 text-white" fill="currentColor" />
+                  )}
+                </button>
+              </div>
+            </div>
+            {/* Title + controls */}
+            <div className="flex items-center gap-2 bg-[#111111] px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-white">{video.title}</p>
+                <p className="text-[10px] text-white/50">{formatTime(currentTime)} / {formatTime(duration)}</p>
+              </div>
+              <button
+                onClick={() => setMiniPlayer(false)}
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close mini player"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
