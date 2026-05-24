@@ -17,6 +17,9 @@ import {
   RealtimePostgresChangesPayload,
 } from '@supabase/supabase-js'
 
+// Module-level counter for unique channel names per hook instance
+let instanceId = 0
+
 // ── Client singleton (browser only) ──────────────────────────────
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -108,8 +111,8 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
     }
   }, [])
 
-  // Stable channel name — reuse not random to avoid stale subscriptions
-  const channelName = useMemo(() => `rt:${table}:${filter ?? 'all'}`, [table, filter])
+  // Unique channel name per instance — prevents 'cannot add callbacks after subscribe' errors
+  const channelName = useRef(`rt:${table}:${filter ?? 'all'}-${instanceId++}`).current
 
   // Realtime subscription only — data loading is handled by consuming hooks via API routes
   useEffect(() => {
