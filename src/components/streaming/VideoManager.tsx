@@ -49,19 +49,27 @@ import { useAppStore } from '@/lib/store'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+interface VideoItem {
+  id: string
+  title: string
+  thumbnail: string
+  category: string
+  views: number
+  duration: string
+  isPublished: boolean
+  createdAt: string
+  description?: string
+  hlsUrl?: string
+  storageKey?: string
+  qualityLevels?: string
+  durationSeconds?: number
+}
+
 interface VideoManagerProps {
-  videos: Array<{
-    id: string
-    title: string
-    thumbnail: string
-    category: string
-    views: number
-    duration: string
-    isPublished: boolean
-    createdAt: string
-  }>
+  videos: VideoItem[]
   onUpload: (data: Record<string, unknown>) => void
   onDelete: (id: string) => void
+  onEdit: (id: string, data: Record<string, unknown>) => Promise<boolean>
   onTogglePublish: (id: string) => void
   loading?: boolean
 }
@@ -296,12 +304,14 @@ function VideoCard({
   video,
   index,
   onDelete,
+  onEdit,
   onTogglePublish,
   onWatch,
 }: {
   video: VideoManagerProps['videos'][0] & { fileSize?: string }
   index: number
   onDelete: (id: string) => void
+  onEdit: (video: VideoItem) => void
   onTogglePublish: (id: string) => void
   onWatch: (id: string) => void
 }) {
@@ -362,7 +372,7 @@ function VideoCard({
               <DropdownMenuItem className="text-white focus:bg-white/5" onClick={() => onWatch(video.id)}>
                 <Play className="mr-2 h-3.5 w-3.5" />Watch
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-white focus:bg-white/5">
+              <DropdownMenuItem className="text-white focus:bg-white/5" onClick={() => onEdit(video)}>
                 <Edit className="mr-2 h-3.5 w-3.5" />Edit
               </DropdownMenuItem>
               <DropdownMenuItem className="text-white focus:bg-white/5" onClick={() => onTogglePublish(video.id)}>
@@ -433,6 +443,7 @@ function VideoCard({
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
+            onClick={() => onEdit(video)}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-white/10 border border-white/5"
           >
             <Edit className="h-3 w-3" />Edit
@@ -459,12 +470,14 @@ function VideoListRow({
   video,
   index,
   onDelete,
+  onEdit,
   onTogglePublish,
   onWatch,
 }: {
   video: VideoManagerProps['videos'][0] & { fileSize?: string }
   index: number
   onDelete: (id: string) => void
+  onEdit: (video: VideoItem) => void
   onTogglePublish: (id: string) => void
   onWatch: (id: string) => void
 }) {
@@ -519,7 +532,7 @@ function VideoListRow({
         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onWatch(video.id)} className="flex items-center justify-center rounded-lg bg-white/5 p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
           <Play className="h-3.5 w-3.5" />
         </motion.button>
-        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center justify-center rounded-lg bg-white/5 p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onEdit(video)} className="flex items-center justify-center rounded-lg bg-white/5 p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
           <Edit className="h-3.5 w-3.5" />
         </motion.button>
         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onDelete(video.id)} className="flex items-center justify-center rounded-lg bg-red-500/5 p-2 text-red-400/60 transition-colors hover:bg-red-500/15 hover:text-red-400">
@@ -537,11 +550,13 @@ function VideoListRow({
 function AllVideosView({
   videos,
   onDelete,
+  onEdit,
   onTogglePublish,
   loading,
 }: {
   videos: VideoManagerProps['videos']
   onDelete: VideoManagerProps['onDelete']
+  onEdit: (video: VideoItem) => void
   onTogglePublish: VideoManagerProps['onTogglePublish']
   loading?: boolean
 }) {
@@ -789,6 +804,7 @@ function AllVideosView({
               video={video}
               index={index}
               onDelete={onDelete}
+              onEdit={onEdit}
               onTogglePublish={onTogglePublish}
               onWatch={handleWatch}
             />
@@ -803,6 +819,7 @@ function AllVideosView({
               video={video}
               index={index}
               onDelete={onDelete}
+              onEdit={onEdit}
               onTogglePublish={onTogglePublish}
               onWatch={handleWatch}
             />
@@ -880,19 +897,127 @@ function AllVideosView({
    Main VideoManager Component
    ──────────────────────────────────────────── */
 
-export function VideoManager({ videos, onUpload, onDelete, onTogglePublish, loading }: VideoManagerProps) {
+export function VideoManager({ videos, onUpload, onDelete, onEdit, onTogglePublish, loading }: VideoManagerProps) {
   const { adminSection } = useAppStore()
+  const [editingVideo, setEditingVideo] = useState<VideoItem | null>(null)
+  const [editForm, setEditForm] = useState({ title: '', description: '', category: '' })
+  const [editSaving, setEditSaving] = useState(false)
+
+  const openEdit = useCallback((video: VideoItem) => {
+    setEditingVideo(video)
+    setEditForm({ title: video.title, description: video.description || '', category: video.category })
+  }, [])
+
+  const closeEdit = useCallback(() => {
+    setEditingVideo(null)
+    setEditForm({ title: '', description: '', category: '' })
+  }, [])
+
+  const handleEditSave = useCallback(async () => {
+    if (!editingVideo || !editForm.title.trim()) return
+    setEditSaving(true)
+    const ok = await onEdit(editingVideo.id, {
+      title: editForm.title,
+      description: editForm.description || '',
+      category: editForm.category,
+    })
+    setEditSaving(false)
+    if (ok) closeEdit()
+  }, [editingVideo, editForm, onEdit, closeEdit])
 
   if (adminSection === 'video-upload') {
     return <UploadView onUpload={onUpload} />
   }
 
   return (
-    <AllVideosView
-      videos={videos}
-      onDelete={onDelete}
-      onTogglePublish={onTogglePublish}
-      loading={loading}
-    />
+    <>
+      <AllVideosView
+        videos={videos}
+        onDelete={onDelete}
+        onEdit={openEdit}
+        onTogglePublish={onTogglePublish}
+        loading={loading}
+      />
+
+      {/* Edit Video Modal */}
+      <AnimatePresence>
+        {editingVideo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={closeEdit}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0f0f0f] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
+                <h3 className="text-lg font-bold text-white">Edit Video</h3>
+                <button onClick={closeEdit} className="rounded-lg p-1.5 text-white/40 hover:bg-white/5 hover:text-white transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-4 p-6">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-white/60">Title</label>
+                  <input
+                    value={editForm.title}
+                    onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
+                    className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-3 py-2 text-sm text-white outline-none focus:border-[#ff1e1e]/40"
+                    placeholder="Video title"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-white/60">Description</label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                    className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-3 py-2 text-sm text-white outline-none focus:border-[#ff1e1e]/40 resize-none"
+                    rows={3}
+                    placeholder="Video description"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-white/60">Category</label>
+                  <Select value={editForm.category} onValueChange={(v) => setEditForm(f => ({ ...f, category: v }))}>
+                    <SelectTrigger className="w-full rounded-lg border-white/10 bg-[#0a0a0a] text-sm text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="border-white/10 bg-[#111111]">
+                      {categories.filter(c => c !== 'All Categories').map((cat) => (
+                        <SelectItem key={cat} value={cat} className="text-white focus:bg-white/5">{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-white/5 px-6 py-4">
+                <button onClick={closeEdit} className="rounded-lg border border-white/10 bg-[#0a0a0a] px-4 py-2 text-sm text-white/70 hover:text-white transition-colors">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  disabled={editSaving || !editForm.title.trim()}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-all hover:from-[#ff2e2e] hover:to-[#dd282e]"
+                >
+                  {editSaving ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  {editSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   )
 }

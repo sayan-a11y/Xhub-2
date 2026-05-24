@@ -176,12 +176,13 @@ export default function XtubeHome() {
     let cancelled = false
     const fetchInitialData = async () => {
       try {
+        const t = Date.now()
         const [videosRes, categoriesRes, footerAdsRes, heroAdsRes, adsRes] = await Promise.all([
-          fetch('/api/videos?limit=100'),
-          fetch('/api/categories'),
-          fetch('/api/footer-ads?active=true'),
-          fetch('/api/hero-ads?active=true'),
-          fetch('/api/ads'),
+          fetch(`/api/videos?limit=100&_=${t}`),
+          fetch(`/api/categories?_=${t}`),
+          fetch(`/api/footer-ads?active=true&_=${t}`),
+          fetch(`/api/hero-ads?active=true&_=${t}`),
+          fetch(`/api/ads?_=${t}`),
         ])
         if (cancelled) return
         if (videosRes.ok) {
@@ -220,24 +221,40 @@ export default function XtubeHome() {
   }, [])
 
   // Merge realtime updates into stable state (insert/update/delete by ID)
-  const mergeRealtime = <T extends { id: string }>(prev: T[], updates: T[]): T[] => {
+  const mergeRealtime = <T extends { id: string }>(prev: T[], updates: T[], trackedRef: React.MutableRefObject<Set<string>>): T[] => {
     if (updates.length === 0) return prev
-    const prevMap = new Map(prev.map((item) => [item.id, item]))
-    for (const item of updates) prevMap.set(item.id, item)
-    return Array.from(prevMap.values())
+    const updateIds = new Set(updates.map(item => item.id))
+    // Remove from tracked set any IDs that are no longer in updates (they were deleted)
+    const ids = trackedRef.current
+    const deletedIds = new Set<string>()
+    for (const id of ids) {
+      if (!updateIds.has(id)) deletedIds.add(id)
+    }
+    // Add new IDs to tracked set
+    for (const id of updateIds) ids.add(id)
+    // Build result: keep prev items not seen by realtime, add/update from updates, remove deleted
+    const result = prev.filter(item => !deletedIds.has(item.id) && !updateIds.has(item.id))
+    for (const item of updates) result.push(item)
+    return result
   }
 
-  useEffect(() => { setStableVideos((p) => mergeRealtime(p, realtimeVideos)) }, [realtimeVideos])
-  useEffect(() => { setStableCategories((p) => mergeRealtime(p, realtimeCategories)) }, [realtimeCategories])
+  const realtimeTrackedVideos = useRef(new Set<string>())
+  const realtimeTrackedCategories = useRef(new Set<string>())
+  const realtimeTrackedFooterAds = useRef(new Set<string>())
+  const realtimeTrackedHeroAds = useRef(new Set<string>())
+  const realtimeTrackedAds = useRef(new Set<string>())
+
+  useEffect(() => { setStableVideos((p) => mergeRealtime(p, realtimeVideos, realtimeTrackedVideos)) }, [realtimeVideos])
+  useEffect(() => { setStableCategories((p) => mergeRealtime(p, realtimeCategories, realtimeTrackedCategories)) }, [realtimeCategories])
   useEffect(() => {
     const valid = realtimeFooterAds.filter(isWithinSchedule)
-    setStableFooterAds((p) => mergeRealtime(p, valid))
+    setStableFooterAds((p) => mergeRealtime(p, valid, realtimeTrackedFooterAds))
   }, [realtimeFooterAds])
   useEffect(() => {
     const valid = realtimeHeroAds.filter(isWithinSchedule)
-    setStableHeroAds((p) => mergeRealtime(p, valid))
+    setStableHeroAds((p) => mergeRealtime(p, valid, realtimeTrackedHeroAds))
   }, [realtimeHeroAds])
-  useEffect(() => { setStableAds((p) => mergeRealtime(p, realtimeAds)) }, [realtimeAds])
+  useEffect(() => { setStableAds((p) => mergeRealtime(p, realtimeAds, realtimeTrackedAds)) }, [realtimeAds])
 
   const videos = stableVideos
   const categories = stableCategories

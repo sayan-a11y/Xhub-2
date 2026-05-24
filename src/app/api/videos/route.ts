@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const total = await db.video.count({ where })
 
     return NextResponse.json({ videos, total, nextCursor }, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     })
   } catch (error) {
     console.error('Error fetching videos:', error)

@@ -32,7 +32,7 @@ import {
   ArrowUpFromLine,
 } from 'lucide-react'
 import { useAppStore, type AdminSection } from '@/lib/store'
-import { cachedFetch } from '@/lib/performance/api-cache'
+import { cachedFetch, invalidateCache } from '@/lib/performance/api-cache'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { AdminDashboard } from './AdminDashboard'
 import { VideoManager } from './VideoManager'
@@ -517,8 +517,34 @@ export function AdminPanel() {
   const handleVideoDelete = useCallback(
     async (id: string) => {
       try {
+        // Get video details first to find storage keys
+        const videoRes = await fetch(`/api/videos/${id}?noinc=1`)
+        if (videoRes.ok) {
+          const { video } = await videoRes.json()
+          // Delete from R2 if storageKey exists
+          if (video.storageKey) {
+            await fetch(`/api/r2?key=${encodeURIComponent(video.storageKey)}`, { method: 'DELETE' }).catch(() => {})
+          }
+          // Delete thumbnails from R2
+          if (video.thumbnailUrls) {
+            const urls: string[] = JSON.parse(video.thumbnailUrls || '[]')
+            for (const url of urls) {
+              const key = url.split('/').pop()
+              if (key) await fetch(`/api/r2?key=${encodeURIComponent(key)}`, { method: 'DELETE' }).catch(() => {})
+            }
+          }
+          // Delete main thumbnail from R2
+          if (video.thumbnail && video.thumbnail.startsWith('http')) {
+            const thumbKey = video.thumbnail.split('/').pop()
+            if (thumbKey) await fetch(`/api/r2?key=${encodeURIComponent(thumbKey)}`, { method: 'DELETE' }).catch(() => {})
+          }
+        }
+        // Delete from database
         const res = await fetch(`/api/videos/${id}`, { method: 'DELETE' })
-        if (res.ok) fetchAdminData()
+        if (res.ok) {
+          invalidateCache('admin:videos')
+          fetchAdminData()
+        }
       } catch (err) {
         console.error('Error deleting video:', err)
       }
@@ -536,12 +562,37 @@ export function AdminPanel() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ isPublished: !video.isPublished }),
         })
-        if (res.ok) fetchAdminData()
+        if (res.ok) {
+          invalidateCache('admin:videos')
+          fetchAdminData()
+        }
       } catch (err) {
         console.error('Error toggling video publish:', err)
       }
     },
     [adminVideos, fetchAdminData]
+  )
+
+  const handleVideoEdit = useCallback(
+    async (id: string, data: Record<string, unknown>) => {
+      try {
+        const res = await fetch(`/api/videos/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+        if (res.ok) {
+          invalidateCache('admin:videos')
+          fetchAdminData()
+          return true
+        }
+        return false
+      } catch (err) {
+        console.error('Error updating video:', err)
+        return false
+      }
+    },
+    [fetchAdminData]
   )
 
   // ─── Ad Handlers ────────────────────────────────────────────────────────
@@ -633,9 +684,15 @@ export function AdminPanel() {
               duration: v.duration,
               isPublished: v.isPublished,
               createdAt: v.createdAt,
+              description: v.description,
+              hlsUrl: v.hlsUrl,
+              storageKey: v.storageKey,
+              qualityLevels: v.qualityLevels,
+              durationSeconds: v.durationSeconds,
             }))}
             onUpload={handleVideoUpload}
             onDelete={handleVideoDelete}
+            onEdit={handleVideoEdit}
             onTogglePublish={handleVideoTogglePublish}
             loading={dataLoading}
           />
