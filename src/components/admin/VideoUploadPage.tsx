@@ -58,19 +58,6 @@ interface VideoMetadata {
   height: number
 }
 
-// ─── Thumbnail Gradients ─────────────────────────────────────────────────────
-
-const thumbnailGradients = [
-  'from-emerald-900/60 via-teal-800/40 to-cyan-900/30',
-  'from-amber-900/60 via-orange-800/40 to-yellow-900/30',
-  'from-rose-900/60 via-pink-800/40 to-red-900/30',
-  'from-cyan-900/60 via-sky-800/40 to-blue-900/30',
-  'from-violet-900/60 via-purple-800/40 to-fuchsia-900/30',
-  'from-lime-900/60 via-green-800/40 to-emerald-900/30',
-  'from-orange-900/60 via-red-800/40 to-amber-900/30',
-  'from-pink-900/60 via-rose-800/40 to-fuchsia-900/30',
-]
-
 // ─── Quality Options ─────────────────────────────────────────────────────────
 
 const qualityOptions = [
@@ -133,14 +120,20 @@ export function VideoUploadPage() {
   // File references
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [videoMeta, setVideoMeta] = useState<VideoMetadata | null>(null)
-  const [thumbnailDataUrl, setThumbnailDataUrl] = useState<string | null>(null)
+  const [thumbnailDataUrls, setThumbnailDataUrls] = useState<string[]>([])
+  const [thumbnailFiles, setThumbnailFiles] = useState<File[]>([])
+  const [selectedThumbnailIndex, setSelectedThumbnailIndex] = useState(0)
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
 
   // Upload result
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null)
-  const [uploadedThumbnailUrl, setUploadedThumbnailUrl] = useState<string | null>(null)
+  const [uploadedThumbnailsUrls, setUploadedThumbnailsUrls] = useState<string[]>([])
   const [storageProvider, setStorageProvider] = useState<string>('local')
   const [storageKey, setStorageKey] = useState<string | null>(null)
+
+  // Upload speed/ETA
+  const [uploadSpeed, setUploadSpeed] = useState('')
+  const [uploadEta, setUploadEta] = useState('')
 
   // Form state
   const [title, setTitle] = useState('')
@@ -161,6 +154,13 @@ export function VideoUploadPage() {
   // URL paste mode
   const [urlMode, setUrlMode] = useState(false)
   const [pastedUrl, setPastedUrl] = useState('')
+
+  // Thumbnail timestamps (up to 10, relative to video duration)
+  const getThumbnailTimestamps = useCallback((duration: number): number[] => {
+    const fixed = [3, 8, 14, 22, 35, 42, 55, 65, 78, 90]
+    if (duration <= 0) return fixed
+    return fixed.map(t => Math.min(t, Math.max(1, duration - 1)))
+  }, [])
 
   // Realtime categories state
   const [categories, setCategories] = useState<CategoryData[]>([])
@@ -208,8 +208,10 @@ export function VideoUploadPage() {
         <div className="flex items-center gap-3 p-3 lg:p-4">
           {/* Thumbnail Preview */}
           <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-black">
-            {thumbnailDataUrl ? (
-              <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
+            {thumbnailDataUrls[selectedThumbnailIndex] ? (
+              <img src={thumbnailDataUrls[selectedThumbnailIndex]} alt="Video thumbnail" className="h-full w-full object-cover" />
+            ) : thumbnailDataUrls.length > 0 ? (
+              <img src={thumbnailDataUrls[0]} alt="Video thumbnail" className="h-full w-full object-cover" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-emerald-900/60 via-teal-800/40 to-cyan-900/30">
                 <Loader2 className="h-5 w-5 animate-spin text-white/35" />
@@ -261,9 +263,9 @@ export function VideoUploadPage() {
   const videoElementRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // ─── Extract Video Metadata & Generate Thumbnail ─────────────────────────
+  // ─── Extract Video Metadata & Generate 10 Thumbnails ─────────────────────
 
-  const extractVideoInfo = useCallback((file: File): Promise<{ meta: VideoMetadata; thumbUrl: string; thumbFile: File }> => {
+  const extractVideoInfo = useCallback((file: File): Promise<{ meta: VideoMetadata; thumbUrls: string[]; thumbFiles: File[] }> => {
     return new Promise((resolve, reject) => {
       let meta: VideoMetadata
       const video = document.createElement('video')
@@ -284,51 +286,49 @@ export function VideoUploadPage() {
           height: video.videoHeight,
         }
         setVideoMeta(meta)
-
-        // Auto-fill duration
-        const dur = formatDuration(video.duration)
         setTitle(file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '))
         setQuality(getResolutionLabel(video.videoWidth, video.videoHeight).toLowerCase())
-
-        // Seek to 25% for thumbnail
-        video.currentTime = Math.min(video.duration * 0.25, 5)
       }
 
-      video.onseeked = () => {
+      video.onloadeddata = async () => {
         try {
-          // Generate thumbnail using Canvas
+          const timestamps = getThumbnailTimestamps(video.duration)
           const canvas = document.createElement('canvas')
-          const maxW = 640
+          const maxW = 320
           const scale = maxW / video.videoWidth
           canvas.width = maxW
           canvas.height = Math.floor(video.videoHeight * scale)
           canvasRef.current = canvas
-
           const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            URL.revokeObjectURL(url)
-            reject(new Error('Canvas not supported'))
-            return
-          }
+          if (!ctx) { URL.revokeObjectURL(url); reject(new Error('Canvas not supported')); return }
 
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          const thumbs: string[] = []
+          const files: File[] = []
 
-          // Convert to blob
-          canvas.toBlob((blob) => {
-            URL.revokeObjectURL(url)
-            if (!blob) {
-              reject(new Error('Thumbnail generation failed'))
-              return
-            }
+          const captureFrame = (time: number): Promise<void> =>
+            new Promise<void>((seekRes) => {
+              video.currentTime = time
+              const onSeek = () => {
+                video.removeEventListener('seeked', onSeek)
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+                canvas.toBlob((blob) => {
+                  if (blob) {
+                    thumbs.push(URL.createObjectURL(blob))
+                    files.push(new File([blob], `thumb_${files.length+1}_${Date.now()}.jpg`, { type: 'image/jpeg' }))
+                  }
+                  seekRes()
+                }, 'image/jpeg', 0.85)
+              }
+              video.addEventListener('seeked', onSeek)
+            })
 
-            const thumbUrl = URL.createObjectURL(blob)
-            setThumbnailDataUrl(thumbUrl)
+          for (const ts of timestamps) await captureFrame(ts)
 
-            const thumbFile = new File([blob], `thumbnail_${Date.now()}.jpg`, { type: 'image/jpeg' })
-            setThumbnailFile(thumbFile)
-
-            resolve({ meta, thumbUrl, thumbFile })
-          }, 'image/jpeg', 0.85)
+          setThumbnailDataUrls(thumbs)
+          setThumbnailFiles(files)
+          if (files.length > 0) setThumbnailFile(files[0])
+          URL.revokeObjectURL(url)
+          resolve({ meta, thumbUrls: thumbs, thumbFiles: files })
         } catch (err) {
           URL.revokeObjectURL(url)
           reject(err)
@@ -342,7 +342,7 @@ export function VideoUploadPage() {
 
       video.src = url
     })
-  }, [])
+  }, [getThumbnailTimestamps])
 
   // ─── Upload File to Server ──────────────────────────────────────────────────
 
@@ -364,12 +364,11 @@ export function VideoUploadPage() {
     return await res.json()
   }, [])
 
-  // Chunked multipart upload flow for large video files directly to Cloudflare R2
+  // Chunked multipart upload flow for large video files with speed/ETA tracking
   const uploadVideoChunked = useCallback(async (
     file: File,
     onProgress: (progress: number) => void
   ): Promise<{ url: string; key: string; size: number; provider: string }> => {
-    // 1. Initialize upload
     const initRes = await fetch('/api/r2?action=init-upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -387,12 +386,13 @@ export function VideoUploadPage() {
     }
 
     const { uploadId, key, parts, provider } = await initRes.json()
-    const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB chunks (R2 minimum part size requirement)
+    const CHUNK_SIZE = 5 * 1024 * 1024
     const uploadedParts: Array<{ partNumber: number; etag: string }> = []
 
-    // 2. Upload chunks in parallel with concurrency limit of 3
     const totalParts = parts.length
     let completedParts = 0
+    let totalBytesUploaded = 0
+    const startTime = Date.now()
 
     const queue = [...parts]
 
@@ -439,22 +439,29 @@ export function VideoUploadPage() {
                 throw new Error(`No ETag header returned for part ${part.partNumber}`)
               }
             } else {
-              etag = etagHeader.replace(/"/g, '') // strip quotes
+              etag = etagHeader.replace(/"/g, '')
             }
 
             success = true
           } catch (err) {
-            console.warn(`Part ${part.partNumber} upload attempt ${attempts} failed:`, err)
-            if (attempts >= maxAttempts) {
-              throw err
-            }
+            console.warn(`Part ${part.partNumber} attempt ${attempts} failed:`, err)
+            if (attempts >= maxAttempts) throw err
             await new Promise(r => setTimeout(r, 1000 * attempts))
           }
         }
 
         uploadedParts.push({ partNumber: part.partNumber, etag })
         completedParts++
-        // Scale progress from 30% to 85%
+        totalBytesUploaded += (end - start)
+
+        const elapsed = (Date.now() - startTime) / 1000
+        const speed = elapsed > 0 ? totalBytesUploaded / elapsed : 0
+        const remaining = file.size - totalBytesUploaded
+        const eta = speed > 0 ? remaining / speed : 0
+
+        setUploadSpeed(formatFileSize(Math.round(speed)) + '/s')
+        setUploadEta(eta > 0 ? `${Math.ceil(eta)}s` : '...')
+
         const progressPercent = 30 + (completedParts / totalParts) * 55
         onProgress(progressPercent)
       }
@@ -463,7 +470,9 @@ export function VideoUploadPage() {
     const workers = Array.from({ length: Math.min(3, totalParts) }, () => uploadWorker())
     await Promise.all(workers)
 
-    // 3. Complete upload
+    setUploadSpeed('')
+    setUploadEta('')
+
     const completeRes = await fetch('/api/r2?action=complete-upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -486,7 +495,7 @@ export function VideoUploadPage() {
       size: finalResult.size || file.size,
       provider: finalResult.provider,
     }
-  }, [])
+  }, [setUploadSpeed, setUploadEta])
 
   // ─── Handle File Selection ──────────────────────────────────────────────────
 
@@ -497,14 +506,14 @@ export function VideoUploadPage() {
     setUploadProgress(0)
     setSelectedFile(file)
     setUploadedVideoUrl(null)
-    setUploadedThumbnailUrl(null)
+    setUploadedThumbnailsUrls([])
     setStorageProvider('local')
     setStorageKey(null)
 
     try {
-      // Step 1: Extract video metadata & generate thumbnail
+      // Step 1: Extract video metadata & generate 10 thumbnails
       setUploadProgress(10)
-      const { meta, thumbFile } = await extractVideoInfo(file)
+      const { meta, thumbFiles } = await extractVideoInfo(file)
       setUploadProgress(25)
 
       // Step 2: Upload the video file using chunked upload (up to 5GB)
@@ -513,18 +522,21 @@ export function VideoUploadPage() {
       setUploadedVideoUrl(videoResult.url)
       setStorageProvider(videoResult.provider || 'local')
       setStorageKey(videoResult.key || null)
-      setUploadProgress(85)
+      setUploadProgress(80)
 
-      // Step 3: Upload the thumbnail
-      const thumbResult = await uploadFileToServer(thumbFile, 'thumbnail')
-      setUploadedThumbnailUrl(thumbResult.url)
+      // Step 3: Upload all 10 thumbnails to R2
+      const uploadedUrls: string[] = []
+      for (let i = 0; i < thumbFiles.length; i++) {
+        const result = await uploadFileToServer(thumbFiles[i], 'thumbnail')
+        uploadedUrls.push(result.url)
+      }
+      setUploadedThumbnailsUrls(uploadedUrls)
       setUploadProgress(95)
 
       // Step 4: Processing
       setUploadStage('processing')
       setUploadProgress(95)
 
-      // Small delay for "processing" feel
       await new Promise(r => setTimeout(r, 800))
 
       setUploadProgress(100)
@@ -581,16 +593,17 @@ export function VideoUploadPage() {
 
     try {
       const thumbUrl = URL.createObjectURL(file)
-      setThumbnailDataUrl(thumbUrl)
+      setThumbnailDataUrls(prev => [...prev, thumbUrl])
+      setThumbnailFiles(prev => [...prev, file])
       setThumbnailFile(file)
+      setSelectedThumbnailIndex(thumbnailDataUrls.length)
 
-      // Upload to server
       const result = await uploadFileToServer(file, 'thumbnail')
-      setUploadedThumbnailUrl(result.url)
+      setUploadedThumbnailsUrls(prev => [...prev, result.url])
     } catch (err) {
       console.error('Thumbnail upload error:', err)
     }
-  }, [uploadFileToServer])
+  }, [uploadFileToServer, thumbnailDataUrls.length])
 
   // ─── Reset ──────────────────────────────────────────────────────────────────
 
@@ -600,12 +613,16 @@ export function VideoUploadPage() {
     setUploadError('')
     setSelectedFile(null)
     setVideoMeta(null)
-    setThumbnailDataUrl(null)
+    setThumbnailDataUrls([])
+    setThumbnailFiles([])
     setThumbnailFile(null)
+    setSelectedThumbnailIndex(0)
     setUploadedVideoUrl(null)
-    setUploadedThumbnailUrl(null)
+    setUploadedThumbnailsUrls([])
     setStorageProvider('local')
     setStorageKey(null)
+    setUploadSpeed('')
+    setUploadEta('')
     setTitle('')
     setDescription('')
     setCategory('')
@@ -641,9 +658,13 @@ export function VideoUploadPage() {
     setIsPublishing(true)
     try {
       const videoUrl = urlMode ? pastedUrl : uploadedVideoUrl
-      const thumbnailUrl = uploadedThumbnailUrl || thumbnailDataUrl || '/placeholder.jpg'
+      const thumbnailUrl = uploadedThumbnailsUrls[selectedThumbnailIndex] || thumbnailDataUrls[selectedThumbnailIndex] || '/placeholder.jpg'
       const durationSec = videoMeta?.duration || 0
       const res = getResolutionLabel(videoMeta?.width || 1920, videoMeta?.height || 1080).toLowerCase()
+
+      const thumbnailUrls_ = uploadedThumbnailsUrls.length > 0
+        ? uploadedThumbnailsUrls
+        : thumbnailDataUrls.length > 0 ? thumbnailDataUrls : []
 
       const res2 = await fetch('/api/videos', {
         method: 'POST',
@@ -663,6 +684,7 @@ export function VideoUploadPage() {
           storageKey: storageKey || null,
           durationSeconds: Math.floor(durationSec),
           qualityLevels: JSON.stringify([res]),
+          thumbnailUrls: JSON.stringify(thumbnailUrls_),
           codec: 'h264',
           audioCodec: 'aac',
         }),
@@ -685,7 +707,7 @@ export function VideoUploadPage() {
     } finally {
       setIsPublishing(false)
     }
-  }, [title, description, category, quality, uploadedVideoUrl, uploadedThumbnailUrl, thumbnailDataUrl, videoMeta, urlMode, pastedUrl, handleResetUpload])
+  }, [title, description, category, quality, uploadedVideoUrl, uploadedThumbnailsUrls, thumbnailDataUrls, selectedThumbnailIndex, videoMeta, urlMode, pastedUrl, handleResetUpload])
 
   // ─── Handle URL Paste Submit ────────────────────────────────────────────────
 
@@ -705,11 +727,9 @@ export function VideoUploadPage() {
         videoElementRef.current.pause()
         videoElementRef.current.src = ''
       }
-      if (thumbnailDataUrl) {
-        URL.revokeObjectURL(thumbnailDataUrl)
-      }
+      thumbnailDataUrls.forEach(u => { try { URL.revokeObjectURL(u) } catch {} })
     }
-  }, [])
+  }, [thumbnailDataUrls])
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -804,7 +824,7 @@ export function VideoUploadPage() {
 
         {/* ── Two Column Layout ── */}
         {(!urlMode || uploadStage !== 'idle') && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_460px]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_340px] lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_460px]">
           {/* ═══════════════════════════════════════════════════════════════════
               LEFT COLUMN — Upload Video
               ═══════════════════════════════════════════════════════════════════ */}
@@ -935,12 +955,18 @@ export function VideoUploadPage() {
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-xtube-red" />
                     <span>
                       {uploadStage === 'processing'
-                        ? 'Generating thumbnails and detecting quality...'
+                        ? 'Processing video...'
                         : videoMeta
                           ? `${formatFileSize(videoMeta.size)} — ${videoMeta.width}×${videoMeta.height}`
                           : 'Preparing upload...'}
                     </span>
                   </div>
+                  {(uploadSpeed || uploadEta) && (
+                    <div className="flex items-center gap-3 text-xs text-white/40">
+                      <span>↑ {uploadSpeed}</span>
+                      <span>⏱ {uploadEta}</span>
+                    </div>
+                  )}
                 </motion.div>
               ) : uploadStage === 'error' ? (
                 <motion.div
@@ -975,10 +1001,10 @@ export function VideoUploadPage() {
                   exit={{ opacity: 0, y: -10 }}
                   className="space-y-4"
                 >
-                  {thumbnailDataUrl && (
+                  {thumbnailDataUrls[selectedThumbnailIndex] && (
                     <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80">
                       <div className="relative aspect-video bg-black">
-                        <img src={thumbnailDataUrl} alt="Video preview" className="h-full w-full object-cover" />
+                        <img src={thumbnailDataUrls[selectedThumbnailIndex]} alt="Video preview" className="h-full w-full object-cover" />
 
                         {/* Play/Pause overlay */}
                         <button
@@ -1061,14 +1087,14 @@ export function VideoUploadPage() {
                     </div>
                   </div>
 
-                  {/* Thumbnail Section */}
+                  {/* Thumbnail Selector - 10 Real Thumbnails */}
                   <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <ImageIcon className="h-4 w-4 text-white/40" />
                         <span className="text-sm font-semibold text-white">Thumbnail</span>
-                        {uploadedThumbnailUrl && (
-                          <span className="text-[10px] text-emerald-400">✓ Uploaded</span>
+                        {uploadedThumbnailsUrls.length > 0 && (
+                          <span className="text-[10px] text-emerald-400">✓ {uploadedThumbnailsUrls.length} thumbnails</span>
                         )}
                       </div>
                       <button
@@ -1086,21 +1112,48 @@ export function VideoUploadPage() {
                       />
                     </div>
 
-                    {/* Thumbnail Preview */}
-                    {thumbnailDataUrl && (
-                      <div className="relative aspect-video overflow-hidden rounded-lg border border-white/5">
-                        <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
-                        <div className="absolute bottom-2 right-2 rounded bg-black/80 px-2 py-1 text-xs text-white/70 backdrop-blur-sm">
-                          Auto-generated from video
+                    {/* 10 Thumbnail Grid */}
+                    {thumbnailDataUrls.length > 0 && (
+                      <>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                          {thumbnailDataUrls.map((url, i) => (
+                            <button
+                              key={i}
+                              onClick={() => { setSelectedThumbnailIndex(i); if (thumbnailFiles[i]) setThumbnailFile(thumbnailFiles[i]) }}
+                              className={`relative aspect-video overflow-hidden rounded-lg border-2 transition-all hover:opacity-90 ${
+                                selectedThumbnailIndex === i
+                                  ? 'border-xtube-red ring-1 ring-xtube-red/40'
+                                  : 'border-white/10 hover:border-white/30'
+                              }`}
+                            >
+                              <img src={url} alt={`Thumbnail ${i + 1}`} className="h-full w-full object-cover" />
+                              <div className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-medium text-white/80">
+                                {i + 1}
+                              </div>
+                            </button>
+                          ))}
                         </div>
-                      </div>
+
+                        {/* Selected Thumbnail Preview */}
+                        {thumbnailDataUrls[selectedThumbnailIndex] && (
+                          <div className="mt-3 relative aspect-video overflow-hidden rounded-lg border border-white/5 bg-black">
+                            <img
+                              src={thumbnailDataUrls[selectedThumbnailIndex]}
+                              alt="Selected thumbnail"
+                              className="h-full w-full object-contain"
+                            />
+                            <div className="absolute bottom-2 left-2 rounded bg-black/80 px-2 py-1 text-xs text-white/70 backdrop-blur-sm">
+                              Thumbnail {selectedThumbnailIndex + 1}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
 
-                    {/* Info note */}
                     <div className="mt-3 flex items-start gap-2">
                       <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-white/25" />
                       <p className="text-[11px] text-white/30">
-                        Thumbnail is auto-generated from video. You can upload a custom one.
+                        Auto-generated {thumbnailDataUrls.length} HD thumbnails from video. Click to select.
                       </p>
                     </div>
                   </div>
