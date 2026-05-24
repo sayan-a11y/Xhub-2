@@ -115,6 +115,7 @@ function signRequest(
   headers: Record<string, string>,
   bodyHash: string,
   timestamp: Date,
+  queryParams?: Record<string, string>,
   region = 'auto',
   service = 's3'
 ): Record<string, string> {
@@ -130,10 +131,18 @@ function signRequest(
     .map((k) => k.toLowerCase())
     .join(';')
 
+  let canonicalQuery = ''
+  if (queryParams) {
+    canonicalQuery = Object.keys(queryParams)
+      .sort()
+      .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(queryParams[k])}`)
+      .join('&')
+  }
+
   const canonicalRequest = [
     method,
     path,
-    '', // query string (handled separately for presigned)
+    canonicalQuery,
     canonicalHeaders,
     '',
     signedHeaders,
@@ -416,7 +425,7 @@ async function initMultipartUploadR2(
   }
 
   const bodyHash = sha256Hex('')
-  const signedHeaders = signRequest('POST', `/${R2_BUCKET_NAME}/${key}`, headers, bodyHash, new Date())
+  const signedHeaders = signRequest('POST', `/${R2_BUCKET_NAME}/${key}`, headers, bodyHash, new Date(), { uploads: '' })
 
   const url = `${R2_BASE_URL}/${R2_BUCKET_NAME}/${key}?uploads`
   const response = await fetch(url, {
@@ -590,7 +599,7 @@ async function completeMultipartUploadR2(
   }
 
   const bodyHash = sha256Hex(body)
-  const signedHeaders = signRequest('POST', `/${R2_BUCKET_NAME}/${key}`, headers, bodyHash, new Date())
+  const signedHeaders = signRequest('POST', `/${R2_BUCKET_NAME}/${key}`, headers, bodyHash, new Date(), { uploadId })
 
   const url = `${R2_BASE_URL}/${R2_BUCKET_NAME}/${key}?${queryStr}`
   const response = await fetch(url, {
