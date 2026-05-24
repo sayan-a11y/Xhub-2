@@ -192,7 +192,7 @@ function generatePresignedPutUrl(
   const dateStamp = timestamp.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
   const dateOnly = dateStamp.substring(0, 8)
 
-  const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   const path = `/${R2_BUCKET_NAME}/${key}`
 
   const scope = `${dateOnly}/${region}/${service}/aws4_request`
@@ -255,7 +255,7 @@ function generatePresignedGetUrl(
   const dateStamp = timestamp.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
   const dateOnly = dateStamp.substring(0, 8)
 
-  const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   const path = `/${R2_BUCKET_NAME}/${key}`
 
   const scope = `${dateOnly}/${region}/${service}/aws4_request`
@@ -355,7 +355,7 @@ async function r2Fetch(
   extraHeaders?: Record<string, string>
 ): Promise<Response> {
   const url = `${R2_BASE_URL}/${R2_BUCKET_NAME}/${key}`
-  const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
 
   const headers: Record<string, string> = {
     Host: host,
@@ -419,7 +419,7 @@ async function initMultipartUploadR2(
   _fileName: string
 ): Promise<InitUploadResult> {
   // Step 1: Initiate multipart upload with R2
-  const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   const headers: Record<string, string> = {
     Host: host,
     'Content-Type': contentType,
@@ -591,7 +591,7 @@ async function completeMultipartUploadR2(
 
   const body = `<CompleteMultipartUpload>${partsXml}</CompleteMultipartUpload>`
 
-  const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   const queryStr = `uploadId=${encodeURIComponent(uploadId)}`
 
   const headers: Record<string, string> = {
@@ -699,7 +699,7 @@ export async function uploadSimpleFile(
 
   if (provider === 'r2') {
     const bodyBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data)
-    const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+    const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
 
     const headers: Record<string, string> = {
       Host: host,
@@ -856,7 +856,7 @@ async function listObjectsR2(
   prefix: string,
   maxKeys: number
 ): Promise<Array<{ key: string; size: number; lastModified: string }>> {
-  const host = `${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   const path = `/${R2_BUCKET_NAME}?list-type=2&prefix=${encodeURIComponent(prefix)}&max-keys=${maxKeys}`
 
   const headers: Record<string, string> = { Host: host }
