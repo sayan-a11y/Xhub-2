@@ -228,23 +228,6 @@ function FooterAdCard({ ad }: { ad: FooterAdItem }) {
 
   return (
     <div className="relative w-full">
-      {/* Loading skeleton */}
-      <AnimatePresence>
-        {!mediaLoaded && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute inset-0 z-10 flex items-center justify-center bg-[#0B0B0F] h-[100px] md:h-[150px] lg:h-[250px] rounded-xl"
-          >
-            <div className="flex flex-col items-center gap-2">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#ff1e1e]/30 border-t-[#ff1e1e]" />
-              <span className="text-[10px] text-white/20">Loading ad...</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {isVideo ? (
         <div
           className="relative w-full cursor-pointer"
@@ -258,15 +241,15 @@ function FooterAdCard({ ad }: { ad: FooterAdItem }) {
             muted
             loop
             playsInline
+            preload="auto"
             onLoadedData={() => setMediaLoaded(true)}
             className="
               w-full
               h-[100px] md:h-[150px] lg:h-[250px]
               object-cover
               rounded-xl
-              will-change-transform
             "
-            preload="metadata"
+            style={{ willChange: 'transform', transform: 'translateZ(0)' }}
           >
             <track kind="captions" />
           </video>
@@ -309,8 +292,8 @@ function FooterAdCard({ ad }: { ad: FooterAdItem }) {
               h-[100px] md:h-[150px] lg:h-[250px]
               object-cover
               rounded-xl
-              will-change-transform
             "
+            style={{ willChange: 'transform', transform: 'translateZ(0)' }}
             draggable={false}
           />
           {/* Gradient overlay */}

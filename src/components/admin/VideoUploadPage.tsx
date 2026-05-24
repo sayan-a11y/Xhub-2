@@ -62,9 +62,12 @@ interface VideoMetadata {
 
 const qualityOptions = [
   { value: 'auto', label: 'Auto', desc: 'Recommended' },
-  { value: '1080p', label: '1080p', desc: '' },
-  { value: '2k', label: '2K', desc: '' },
-  { value: '4k', label: '4K', desc: '' },
+  { value: '360p', label: '360p', desc: '' },
+  { value: '480p', label: '480p', desc: '' },
+  { value: '720p', label: '720p', desc: '' },
+  { value: '1080p', label: '1080p', desc: 'HD' },
+  { value: '2k', label: '2K', desc: 'QHD' },
+  { value: '4k', label: '4K', desc: 'UHD' },
 ]
 
 const categoryOptions = [
@@ -666,6 +669,15 @@ export function VideoUploadPage() {
         ? uploadedThumbnailsUrls
         : thumbnailDataUrls.length > 0 ? thumbnailDataUrls : []
 
+      const allQualities: string[] = []
+      const detectedRes = getResolutionLabel(videoMeta?.width || 1920, videoMeta?.height || 1080)
+      const resMap: Record<string, number> = { '360p': 360, '480p': 480, '720p': 720, '1080p': 1080, '2k': 1440, '4k': 2160 }
+      const detectedHeight = resMap[detectedRes.toLowerCase()] || 1080
+      for (const [label, height] of Object.entries(resMap)) {
+        if (height <= detectedHeight) allQualities.push(label)
+      }
+      const selectedQuality = quality && quality !== 'auto' ? quality : detectedRes.toLowerCase()
+
       const res2 = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -676,14 +688,14 @@ export function VideoUploadPage() {
           videoUrl: videoUrl || pastedUrl,
           category,
           duration: formatDuration(durationSec),
-          isHd: res === '1080p' || res === '2k' || res === '4k',
+          isHd: detectedHeight >= 720,
           isPublished: true,
-          resolution: quality || res,
+          resolution: selectedQuality,
           fileSize: videoMeta?.size || 0,
           storageProvider: storageProvider || 'local',
           storageKey: storageKey || null,
           durationSeconds: Math.floor(durationSec),
-          qualityLevels: JSON.stringify([res]),
+          qualityLevels: JSON.stringify(allQualities),
           thumbnailUrls: JSON.stringify(thumbnailUrls_),
           codec: 'h264',
           audioCodec: 'aac',
@@ -1329,10 +1341,11 @@ export function VideoUploadPage() {
                         <SelectValue placeholder="Select quality" />
                       </SelectTrigger>
                       <SelectContent className="border-white/10 bg-[#111111]">
-                        <SelectItem value="auto" className="text-white focus:bg-white/5 focus:text-white">Auto</SelectItem>
-                        <SelectItem value="1080p" className="text-white focus:bg-white/5 focus:text-white">1080p</SelectItem>
-                        <SelectItem value="2k" className="text-white focus:bg-white/5 focus:text-white">2K</SelectItem>
-                        <SelectItem value="4k" className="text-white focus:bg-white/5 focus:text-white">4K</SelectItem>
+                        {qualityOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-white focus:bg-white/5 focus:text-white">
+                            {opt.label}{opt.desc ? ` (${opt.desc})` : ''}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
