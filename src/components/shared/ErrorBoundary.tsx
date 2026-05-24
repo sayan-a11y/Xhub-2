@@ -1,6 +1,7 @@
 'use client'
 
 import { Component, type ReactNode } from 'react'
+import { useAppStore } from '@/lib/store'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -33,7 +34,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null })
-                window.location.reload()
+                useAppStore.getState().setView('home')
               }}
               className="rounded-lg bg-xtube-red px-4 py-2 text-sm font-medium text-white hover:bg-xtube-red/80 transition-colors"
             >

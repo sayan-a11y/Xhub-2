@@ -32,6 +32,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        {/* Preconnect to external origins for faster loading */}
+        <link rel="preconnect" href={process.env.R2_PUBLIC_URL || ''} />
+        <link rel="dns-prefetch" href={process.env.R2_PUBLIC_URL || ''} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#050505] text-white`}
       >

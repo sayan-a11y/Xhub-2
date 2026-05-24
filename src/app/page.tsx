@@ -246,17 +246,21 @@ export default function XtubeHome() {
   const realtimeTrackedHeroAds = useRef(new Set<string>())
   const realtimeTrackedAds = useRef(new Set<string>())
 
-  useEffect(() => { setStableVideos((p) => mergeRealtime(p, realtimeVideos, realtimeTrackedVideos)) }, [realtimeVideos])
-  useEffect(() => { setStableCategories((p) => mergeRealtime(p, realtimeCategories, realtimeTrackedCategories)) }, [realtimeCategories])
+  // Batch all realtime merges into ONE effect — React 18 batches sync setStates
   useEffect(() => {
-    const valid = realtimeFooterAds.filter(isWithinSchedule)
-    setStableFooterAds((p) => mergeRealtime(p, valid, realtimeTrackedFooterAds))
-  }, [realtimeFooterAds])
-  useEffect(() => {
-    const valid = realtimeHeroAds.filter(isWithinSchedule)
-    setStableHeroAds((p) => mergeRealtime(p, valid, realtimeTrackedHeroAds))
-  }, [realtimeHeroAds])
-  useEffect(() => { setStableAds((p) => mergeRealtime(p, realtimeAds, realtimeTrackedAds)) }, [realtimeAds])
+    setStableVideos((p) => mergeRealtime(p, realtimeVideos, realtimeTrackedVideos))
+    setStableCategories((p) => mergeRealtime(p, realtimeCategories, realtimeTrackedCategories))
+    setStableFooterAds((p) => {
+      const valid = realtimeFooterAds.filter(isWithinSchedule)
+      return mergeRealtime(p, valid, realtimeTrackedFooterAds)
+    })
+    setStableHeroAds((p) => {
+      const valid = realtimeHeroAds.filter(isWithinSchedule)
+      return mergeRealtime(p, valid, realtimeTrackedHeroAds)
+    })
+    setStableAds((p) => mergeRealtime(p, realtimeAds, realtimeTrackedAds))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [realtimeVideos, realtimeCategories, realtimeFooterAds, realtimeHeroAds, realtimeAds])
 
   const videos = stableVideos
   const categories = stableCategories

@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { Film } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -33,7 +34,7 @@ function VideoCardSkeleton() {
   )
 }
 
-export function VideoGrid({
+export const VideoGrid = memo(function VideoGrid({
   videos,
   loading = false,
   emptyMessage = 'No videos found',
@@ -45,9 +46,9 @@ export function VideoGrid({
         {Array.from({ length: 10 }).map((_, i) => (
           <VideoCardSkeleton key={i} />
         ))}
-      </div>
-    )
-  }
+    </div>
+  )
+}
 
   // Empty state
   if (!videos.length) {
@@ -75,4 +76,4 @@ export function VideoGrid({
       ))}
     </div>
   )
-}
+})
