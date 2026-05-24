@@ -38,7 +38,7 @@ interface HeroAdsSliderProps {
    ──────────────────────────────────────────── */
 
 const AUTOPLAY_DELAY = 6_000  // 6 seconds in ms
-const TRANSITION_SPEED = 600    // ms - faster transition
+const TRANSITION_SPEED = 300    // ms - fast transition
 const SWIPE_THRESHOLD = 50        // px minimum swipe distance
 const MAX_VISIBLE_ADS = 6         // Maximum hero ads to display
 
@@ -49,10 +49,10 @@ const MAX_VISIBLE_ADS = 6         // Maximum hero ads to display
 const contentVariants: Variants = {
   hidden: {},
   visible: {
-    transition: { staggerChildren: 0.1, delayChildren: 0.3 },
+    transition: { staggerChildren: 0.05, delayChildren: 0.1 },
   },
   exit: {
-    transition: { staggerChildren: 0.04, staggerDirection: -1 },
+    transition: { staggerChildren: 0.02, staggerDirection: -1 },
   },
 }
 
@@ -218,18 +218,16 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
     }
   }, [currentIndex, visibleAds])
 
-  /* ── Video: pause when not active, play when active ── */
+  /* ── Video: pause when not active, play when active (instant) ── */
   useEffect(() => {
     Object.entries(videoRefs.current).forEach(([id, video]) => {
       if (!video) return
       const ad = visibleAds[currentIndex]
       if (ad && id === ad.id && ad.adType === 'video') {
-        const timer = setTimeout(() => {
-          video.play().catch(() => {})
-        }, 300)
-        return () => clearTimeout(timer)
+        video.play().catch(() => {})
       } else {
         video.pause()
+        video.currentTime = 0
       }
     })
   }, [currentIndex, visibleAds])
@@ -414,9 +412,9 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
             {/* ── Background media ── */}
             {currentAd.adType === 'video' ? (
               <>
-                {/* Shimmer placeholder while video loads */}
-                {!videoLoaded[currentAd.id] && (
-                  <div className="absolute inset-0 animate-shimmer z-0" />
+                {/* Show poster immediately while video loads */}
+                {currentAd.thumbnailUrl && !videoLoaded[currentAd.id] && (
+                  <img src={currentAd.thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
                 )}
 
                 <video
@@ -431,7 +429,7 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
                   playsInline
                   preload="auto"
                   onLoadedData={() => handleVideoLoaded(currentAd.id)}
-                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
                     videoLoaded[currentAd.id] ? 'opacity-100' : 'opacity-0'
                   }`}
                   style={{ willChange: 'transform', transform: 'translateZ(0)' }}
@@ -448,9 +446,10 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
                   <img
                     src={currentAd.mediaUrl}
                     alt={currentAd.title}
-                    loading={currentIndex === 0 ? 'eager' : 'lazy'}
-                    fetchPriority={currentIndex === 0 ? 'high' : 'auto'}
+                    loading="eager"
+                    fetchPriority="high"
                     className="h-full w-full object-cover"
+                    style={{ willChange: 'transform', transform: 'translateZ(0)' }}
                   />
                 </div>
 
