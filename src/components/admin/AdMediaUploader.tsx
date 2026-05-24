@@ -132,16 +132,78 @@ export function AdMediaUploader({
     const isGif = file.type === 'image/gif'
 
     try {
-      // ── Step 1: Upload file via XHR with progress ──────────────────────────
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('category', uploadCategory)
+      // ── Step 1: Upload file (chunked for video, simple XHR for images) ──
+      let uploadResult: { url: string; fileName?: string; mimeType?: string; size?: number }
 
-      const xhr = new XMLHttpRequest()
-      const uploadResult: { url: string; fileName?: string; mimeType?: string; size?: number } =
-        await new Promise((resolve, reject) => {
+      if (isVideo) {
+        // Chunked multipart upload for large video files
+        const initRes = await fetch('/api/r2?action=init-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: file.name, fileSize: file.size, mimeType: file.type || 'video/mp4', category: 'video' }),
+        })
+        if (!initRes.ok) {
+          const err = await initRes.json().catch(() => ({ error: 'Init failed' }))
+          throw new Error(err.details || err.error || 'Failed to initialize upload')
+        }
+        const { uploadId, key, parts, provider } = await initRes.json()
+        const CHUNK_SIZE = 10 * 1024 * 1024
+        const uploadedParts: Array<{ partNumber: number; etag: string }> = []
+        const totalParts = parts.length
+        let completed = 0
+        const queue = [...parts]
+
+        const worker = async () => {
+          while (queue.length > 0) {
+            const part = queue.shift()
+            if (!part) break
+            const start = (part.partNumber - 1) * CHUNK_SIZE
+            const end = Math.min(file.size, start + CHUNK_SIZE)
+            const chunk = file.slice(start, end)
+            let etag = ''
+            for (let a = 0; a < 3; a++) {
+              try {
+                const hdrs: Record<string, string> = {}
+                if (provider === 'r2') hdrs['Content-Type'] = file.type || 'video/mp4'
+                else hdrs['Content-Type'] = 'application/octet-stream'
+                const res = await fetch(part.uploadUrl, { method: 'PUT', headers: hdrs, body: chunk })
+                if (!res.ok) throw new Error(`Part ${part.partNumber} status ${res.status}`)
+                const eh = res.headers.get('ETag')
+                if (!eh && provider === 'local') {
+                  const b = await res.json(); etag = b.etag
+                } else if (eh) { etag = eh.replace(/"/g, '') }
+                else throw new Error(`No ETag part ${part.partNumber}`)
+                break
+              } catch (e) { if (a >= 2) throw e; await new Promise(r => setTimeout(r, 1000)) }
+            }
+            uploadedParts.push({ partNumber: part.partNumber, etag })
+            completed++
+            setProgress(30 + (completed / totalParts) * 50)
+          }
+        }
+        await Promise.all(Array.from({ length: Math.min(6, totalParts) }, () => worker()))
+
+        const completeRes = await fetch('/api/r2?action=complete-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uploadId, key, parts: uploadedParts.sort((a, b) => a.partNumber - b.partNumber) }),
+        })
+        if (!completeRes.ok) {
+          const err = await completeRes.json().catch(() => ({ error: 'Complete failed' }))
+          throw new Error(err.details || err.error || 'Failed to assemble file')
+        }
+        const result = await completeRes.json()
+        uploadResult = { url: result.url, fileName: file.name, mimeType: file.type, size: result.size || file.size }
+        setProgress(80)
+      } else {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('category', uploadCategory)
+
+        const xhr = new XMLHttpRequest()
+        uploadResult = await new Promise((resolve, reject) => {
           xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) setProgress((e.loaded / e.total) * (isVideo ? 75 : 90))
+            if (e.lengthComputable) setProgress((e.loaded / e.total) * 90)
           })
           xhr.addEventListener('load', () => {
             if (xhr.status >= 200 && xhr.status < 300) {
@@ -154,8 +216,8 @@ export function AdMediaUploader({
           xhr.open('POST', '/api/upload')
           xhr.send(formData)
         })
-
-      setProgress(isVideo ? 75 : 90)
+        setProgress(90)
+      }
 
       // ── Step 2: Generate thumbnail ─────────────────────────────────────────
       let thumbnailUrl: string | null = null

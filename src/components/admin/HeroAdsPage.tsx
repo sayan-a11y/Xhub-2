@@ -216,23 +216,75 @@ export function HeroAdsPage() {
 
   const topAds = [...heroAds].sort((a, b) => b.ctr - a.ctr).slice(0, 5)
 
-  // ─── Upload File to Server ────────────────────────────────────────────
+  // ─── Upload File to Server (chunked for videos, simple for images) ────
 
-  const uploadFileToServer = useCallback(async (file: File, category: string = 'hero'): Promise<{ url: string; key: string; size: number; fileName: string; mimeType: string }> => {
+  const uploadFileToServer = useCallback(async (file: File, _category: string = 'hero'): Promise<{ url: string; key: string; size: number; fileName: string; mimeType: string }> => {
+    if (file.type.startsWith('video/')) {
+      const initRes = await fetch('/api/r2?action=init-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, fileSize: file.size, mimeType: file.type || 'video/mp4', category: 'video' }),
+      })
+      if (!initRes.ok) {
+        const err = await initRes.json().catch(() => ({ error: 'Init failed' }))
+        throw new Error(err.details || err.error || 'Failed to initialize upload')
+      }
+      const { uploadId, key, parts, provider } = await initRes.json()
+      const CHUNK_SIZE = 10 * 1024 * 1024
+      const uploadedParts: Array<{ partNumber: number; etag: string }> = []
+      const queue = [...parts]
+
+      const worker = async () => {
+        while (queue.length > 0) {
+          const part = queue.shift()
+          if (!part) break
+          const start = (part.partNumber - 1) * CHUNK_SIZE
+          const end = Math.min(file.size, start + CHUNK_SIZE)
+          const chunk = file.slice(start, end)
+          let etag = ''
+          for (let a = 0; a < 3; a++) {
+            try {
+              const hdrs: Record<string, string> = {}
+              if (provider === 'r2') hdrs['Content-Type'] = file.type || 'video/mp4'
+              else hdrs['Content-Type'] = 'application/octet-stream'
+              const res = await fetch(part.uploadUrl, { method: 'PUT', headers: hdrs, body: chunk })
+              if (!res.ok) throw new Error(`Part ${part.partNumber} status ${res.status}`)
+              const eh = res.headers.get('ETag')
+              if (!eh && provider === 'local') {
+                const b = await res.json(); etag = b.etag
+              } else if (eh) { etag = eh.replace(/"/g, '') }
+              else throw new Error(`No ETag part ${part.partNumber}`)
+              break
+            } catch (e) { if (a >= 2) throw e; await new Promise(r => setTimeout(r, 1000)) }
+          }
+          uploadedParts.push({ partNumber: part.partNumber, etag })
+        }
+      }
+
+      await Promise.all(Array.from({ length: Math.min(6, parts.length) }, () => worker()))
+
+      const completeRes = await fetch('/api/r2?action=complete-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadId, key, parts: uploadedParts.sort((a, b) => a.partNumber - b.partNumber) }),
+      })
+      if (!completeRes.ok) {
+        const err = await completeRes.json().catch(() => ({ error: 'Complete failed' }))
+        throw new Error(err.details || err.error || 'Failed to assemble file')
+      }
+      const result = await completeRes.json()
+      return { url: result.url, key: result.key, size: result.size || file.size, fileName: file.name, mimeType: file.type }
+    }
+
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('category', category)
+    formData.append('category', 'hero')
 
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
+    const res = await fetch('/api/upload', { method: 'POST', body: formData })
     if (!res.ok) {
       const errData = await res.json().catch(() => ({ error: 'Upload failed' }))
       throw new Error(errData.error || 'Upload failed')
     }
-
     return await res.json()
   }, [])
 
