@@ -1157,6 +1157,99 @@ export function VideoUploadPage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* ── Ad Preview Section ── */}
+                  <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="text-sm font-semibold text-white">Ad Preview</span>
+                      <span className="text-[10px] text-white/30">How your video looks as different ad types</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {/* Pre-roll */}
+                      <div className="rounded-lg border border-white/5 bg-black/40 p-2.5">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-400">PRE-ROLL</span>
+                          <span className="text-[9px] text-white/25">Before video</span>
+                        </div>
+                        <div className="relative aspect-video overflow-hidden rounded border border-white/5 bg-black">
+                          {thumbnailDataUrls[selectedThumbnailIndex] && (
+                            <img src={thumbnailDataUrls[selectedThumbnailIndex]} alt="" className="h-full w-full object-cover opacity-80" />
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60">
+                              <Play className="h-3 w-3 text-white ml-0.5" fill="white" />
+                            </div>
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1">
+                            <p className="text-[9px] text-white/70 truncate">{title || 'Video title'}</p>
+                            <p className="text-[8px] text-white/30">Ad • Skip in 5s</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mid-roll */}
+                      <div className="rounded-lg border border-white/5 bg-black/40 p-2.5">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-purple-400">MID-ROLL</span>
+                          <span className="text-[9px] text-white/25">During video</span>
+                        </div>
+                        <div className="relative aspect-video overflow-hidden rounded border border-white/5 bg-black">
+                          {thumbnailDataUrls[selectedThumbnailIndex] && (
+                            <img src={thumbnailDataUrls[selectedThumbnailIndex]} alt="" className="h-full w-full object-cover opacity-80" />
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60">
+                              <Play className="h-3 w-3 text-white ml-0.5" fill="white" />
+                            </div>
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1">
+                            <p className="text-[9px] text-white/70 truncate">{title || 'Video title'}</p>
+                            <p className="text-[8px] text-white/30">Ad • 15s remaining</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Post-roll */}
+                      <div className="rounded-lg border border-white/5 bg-black/40 p-2.5">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400">POST-ROLL</span>
+                          <span className="text-[9px] text-white/25">After video</span>
+                        </div>
+                        <div className="relative aspect-video overflow-hidden rounded border border-white/5 bg-black">
+                          {thumbnailDataUrls[selectedThumbnailIndex] && (
+                            <img src={thumbnailDataUrls[selectedThumbnailIndex]} alt="" className="h-full w-full object-cover opacity-80" />
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60">
+                              <Play className="h-3 w-3 text-white ml-0.5" fill="white" />
+                            </div>
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1">
+                            <p className="text-[9px] text-white/70 truncate">{title || 'Video title'}</p>
+                            <p className="text-[8px] text-white/30">Up next • 5s</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Overlay */}
+                      <div className="rounded-lg border border-white/5 bg-black/40 p-2.5">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-rose-400">OVERLAY</span>
+                          <span className="text-[9px] text-white/25">On top of video</span>
+                        </div>
+                        <div className="relative aspect-video overflow-hidden rounded border border-white/5 bg-gradient-to-br from-gray-900 to-black">
+                          {thumbnailDataUrls[selectedThumbnailIndex] && (
+                            <img src={thumbnailDataUrls[selectedThumbnailIndex]} alt="" className="h-full w-full object-cover opacity-40" />
+                          )}
+                          <div className="absolute bottom-2 left-2 right-16 rounded-lg border border-white/10 bg-black/80 backdrop-blur-sm px-3 py-2">
+                            <p className="text-[10px] font-semibold text-white truncate">{title || 'Ad title'}</p>
+                            <p className="text-[8px] text-white/40 mt-0.5">Sponsored • Learn more</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </motion.div>
               ) : null}
             </AnimatePresence>

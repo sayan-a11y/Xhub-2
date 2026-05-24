@@ -140,8 +140,8 @@ export function CatalogPage() {
           slug: c.slug,
           icon: c.icon || 'film',
           order: c.order,
-          videoCount: 0,
-          viewCount: 0,
+          videoCount: c.videoCount ?? 0,
+          viewCount: c.viewCount ?? 0,
         })))
       }
     } catch (err) {
@@ -227,7 +227,7 @@ export function CatalogPage() {
             videoCount: 0,
             viewCount: 0,
           }
-          setCategories((prev) => [...prev, newCategory])
+          setCategories((prev) => [...prev, newCategory].sort((a, b) => a.order - b.order))
         }
       }
     } catch (err) {
@@ -243,9 +243,7 @@ export function CatalogPage() {
     try {
       const res = await fetch(`/api/categories?id=${deletingCategory.id}`, { method: 'DELETE' })
       if (res.ok) {
-        // Optimistically remove from UI immediately
         setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id))
-        // Re-fetch from DB to ensure UI is in sync
         await loadCategories()
       }
     } catch (err) {

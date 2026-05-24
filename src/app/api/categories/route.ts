@@ -6,7 +6,24 @@ export async function GET() {
     const categories = await db.category.findMany({
       orderBy: { order: 'asc' },
     })
-    return NextResponse.json({ categories }, {
+
+    const videoCounts = await db.video.groupBy({
+      by: ['category'],
+      _count: { category: true },
+      _sum: { views: true },
+    })
+    const countMap = new Map<string, { videoCount: number; viewCount: number }>()
+    for (const v of videoCounts) {
+      countMap.set(v.category, { videoCount: v._count.category, viewCount: v._sum.views || 0 })
+    }
+
+    const enriched = categories.map((c) => ({
+      ...c,
+      videoCount: countMap.get(c.name)?.videoCount || 0,
+      viewCount: countMap.get(c.name)?.viewCount || 0,
+    }))
+
+    return NextResponse.json({ categories: enriched }, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     })
   } catch (error) {
