@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   initMultipartUpload,
-  uploadPart,
   completeMultipartUpload,
   getSignedUrl,
   deleteObject,
   generateStorageKey,
-  getUploadSession,
   getProvider,
   type FileCategory,
 } from '@/lib/storage/r2-client'
@@ -157,22 +155,12 @@ export async function PUT(request: NextRequest) {
         })
       }
 
-      // For R2 mode, upload to R2
-      const session = getUploadSession(uploadId)
-      if (!session) {
-        return NextResponse.json(
-          { error: 'Upload session not found' },
-          { status: 404 }
-        )
-      }
-
-      const result = await uploadPart(session.key, uploadId, partNumber, chunkData)
-
-      return NextResponse.json({
-        partNumber: result.partNumber,
-        etag: result.etag,
-        received: result.received,
-      })
+      // For R2 mode, the client uploads parts directly to Cloudflare R2
+      // using the presigned PUT URLs returned by init-upload.
+      return NextResponse.json(
+        { error: 'In R2 mode, client uploads chunks directly to Cloudflare presigned URLs.' },
+        { status: 400 }
+      )
     }
 
     return NextResponse.json(

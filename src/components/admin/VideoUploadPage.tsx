@@ -130,6 +130,8 @@ export function VideoUploadPage() {
   // Upload result
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null)
   const [uploadedThumbnailUrl, setUploadedThumbnailUrl] = useState<string | null>(null)
+  const [storageProvider, setStorageProvider] = useState<string>('local')
+  const [storageKey, setStorageKey] = useState<string | null>(null)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -258,6 +260,130 @@ export function VideoUploadPage() {
     return await res.json()
   }, [])
 
+  // Chunked multipart upload flow for large video files directly to Cloudflare R2
+  const uploadVideoChunked = useCallback(async (
+    file: File,
+    onProgress: (progress: number) => void
+  ): Promise<{ url: string; key: string; size: number; provider: string }> => {
+    // 1. Initialize upload
+    const initRes = await fetch('/api/r2?action=init-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type || 'video/mp4',
+        category: 'video',
+      }),
+    })
+
+    if (!initRes.ok) {
+      const err = await initRes.json().catch(() => ({ error: 'Initialization failed' }))
+      throw new Error(err.error || 'Failed to initialize video upload')
+    }
+
+    const { uploadId, key, parts, provider } = await initRes.json()
+    const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB chunks (R2 minimum part size requirement)
+    const uploadedParts: Array<{ partNumber: number; etag: string }> = []
+
+    // 2. Upload chunks in parallel with concurrency limit of 3
+    const totalParts = parts.length
+    let completedParts = 0
+
+    const queue = [...parts]
+
+    const uploadWorker = async () => {
+      while (queue.length > 0) {
+        const part = queue.shift()
+        if (!part) break
+
+        const start = (part.partNumber - 1) * CHUNK_SIZE
+        const end = Math.min(file.size, start + CHUNK_SIZE)
+        const chunk = file.slice(start, end)
+
+        let attempts = 0
+        const maxAttempts = 3
+        let success = false
+        let etag = ''
+
+        while (attempts < maxAttempts && !success) {
+          try {
+            attempts++
+            const headers: Record<string, string> = {}
+            if (provider === 'r2') {
+              headers['Content-Type'] = file.type || 'video/mp4'
+            } else {
+              headers['Content-Type'] = 'application/octet-stream'
+            }
+
+            const uploadRes = await fetch(part.uploadUrl, {
+              method: 'PUT',
+              headers,
+              body: chunk,
+            })
+
+            if (!uploadRes.ok) {
+              throw new Error(`Upload of part ${part.partNumber} failed with status: ${uploadRes.status}`)
+            }
+
+            const etagHeader = uploadRes.headers.get('ETag')
+            if (!etagHeader) {
+              if (provider === 'local') {
+                const body = await uploadRes.json()
+                etag = body.etag
+              } else {
+                throw new Error(`No ETag header returned for part ${part.partNumber}`)
+              }
+            } else {
+              etag = etagHeader.replace(/"/g, '') // strip quotes
+            }
+
+            success = true
+          } catch (err) {
+            console.warn(`Part ${part.partNumber} upload attempt ${attempts} failed:`, err)
+            if (attempts >= maxAttempts) {
+              throw err
+            }
+            await new Promise(r => setTimeout(r, 1000 * attempts))
+          }
+        }
+
+        uploadedParts.push({ partNumber: part.partNumber, etag })
+        completedParts++
+        // Scale progress from 30% to 85%
+        const progressPercent = 30 + (completedParts / totalParts) * 55
+        onProgress(progressPercent)
+      }
+    }
+
+    const workers = Array.from({ length: Math.min(3, totalParts) }, () => uploadWorker())
+    await Promise.all(workers)
+
+    // 3. Complete upload
+    const completeRes = await fetch('/api/r2?action=complete-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uploadId,
+        key,
+        parts: uploadedParts.sort((a, b) => a.partNumber - b.partNumber),
+      }),
+    })
+
+    if (!completeRes.ok) {
+      const err = await completeRes.json().catch(() => ({ error: 'Completion failed' }))
+      throw new Error(err.error || 'Failed to assemble video files')
+    }
+
+    const finalResult = await completeRes.json()
+    return {
+      url: finalResult.url,
+      key: finalResult.key,
+      size: finalResult.size || file.size,
+      provider: finalResult.provider,
+    }
+  }, [])
+
   // ─── Handle File Selection ──────────────────────────────────────────────────
 
   const handleFileSelect = useCallback(async (file: File) => {
@@ -268,23 +394,27 @@ export function VideoUploadPage() {
     setSelectedFile(file)
     setUploadedVideoUrl(null)
     setUploadedThumbnailUrl(null)
+    setStorageProvider('local')
+    setStorageKey(null)
 
     try {
       // Step 1: Extract video metadata & generate thumbnail
       setUploadProgress(10)
       const { meta, thumbFile } = await extractVideoInfo(file)
-      setUploadProgress(30)
+      setUploadProgress(25)
 
-      // Step 2: Upload the video file
+      // Step 2: Upload the video file using chunked upload (up to 5GB)
       setUploadStage('uploading')
-      const videoResult = await uploadFileToServer(file, 'video')
+      const videoResult = await uploadVideoChunked(file, setUploadProgress)
       setUploadedVideoUrl(videoResult.url)
-      setUploadProgress(70)
+      setStorageProvider(videoResult.provider || 'local')
+      setStorageKey(videoResult.key || null)
+      setUploadProgress(85)
 
       // Step 3: Upload the thumbnail
       const thumbResult = await uploadFileToServer(thumbFile, 'thumbnail')
       setUploadedThumbnailUrl(thumbResult.url)
-      setUploadProgress(90)
+      setUploadProgress(95)
 
       // Step 4: Processing
       setUploadStage('processing')
@@ -370,6 +500,8 @@ export function VideoUploadPage() {
     setThumbnailFile(null)
     setUploadedVideoUrl(null)
     setUploadedThumbnailUrl(null)
+    setStorageProvider('local')
+    setStorageKey(null)
     setTitle('')
     setDescription('')
     setCategory('')
@@ -423,8 +555,8 @@ export function VideoUploadPage() {
           isPublished: true,
           resolution: quality || res,
           fileSize: videoMeta?.size || 0,
-          storageProvider: 'local',
-          storageKey: null,
+          storageProvider: storageProvider || 'local',
+          storageKey: storageKey || null,
           durationSeconds: Math.floor(durationSec),
           qualityLevels: JSON.stringify([res]),
           codec: 'h264',

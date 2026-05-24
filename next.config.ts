@@ -3,10 +3,10 @@ import type { NextConfig } from "next";
 // Fix Bun's broken DATABASE_URL resolution (it auto-resolves to local SQLite)
 // Must be set before any module that reads process.env.DATABASE_URL
 if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("postgresql://")) {
-  process.env.DATABASE_URL = "postgresql://postgres.saitqrdjefqivaoeouhx:sayankarmakar159%40gmail.com@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
+  process.env.DATABASE_URL = "postgresql://postgres.vkflsfbseuoqomfdxubg:sayankarmakar8920%40gmail.com@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
 }
 if (process.env.DIRECT_URL && !process.env.DIRECT_URL.startsWith("postgresql://")) {
-  process.env.DIRECT_URL = "postgresql://postgres.saitqrdjefqivaoeouhx:sayankarmakar159%40gmail.com@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres";
+  process.env.DIRECT_URL = "postgresql://postgres.vkflsfbseuoqomfdxubg:sayankarmakar8920%40gmail.com@aws-1-ap-south-1.pooler.supabase.com:5432/postgres";
 }
 
 const nextConfig: NextConfig = {
@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
   compress: true,
   images: {
     remotePatterns: [
+      { protocol: "https", hostname: "*.r2.cloudflarestorage.com" },
       { protocol: "https", hostname: "pub-064092c35db54f89beea391363a73a8e.r2.dev" },
       { protocol: "https", hostname: "**.supabase.co" },
       { protocol: "https", hostname: "picsum.photos" },
