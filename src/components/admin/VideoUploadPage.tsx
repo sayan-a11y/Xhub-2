@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRealtimeSubscription } from '@/lib/supabase/realtime'
 import {
   X,
   Film,
@@ -39,6 +40,14 @@ import { Checkbox } from '@/components/ui/checkbox'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type UploadStage = 'idle' | 'uploading' | 'processing' | 'success' | 'error'
+
+type CategoryData = {
+  id: string
+  name: string
+  slug: string
+  icon: string | null
+  order: number
+}
 
 interface VideoMetadata {
   name: string
@@ -152,6 +161,91 @@ export function VideoUploadPage() {
   // URL paste mode
   const [urlMode, setUrlMode] = useState(false)
   const [pastedUrl, setPastedUrl] = useState('')
+
+  // Realtime categories state
+  const [categories, setCategories] = useState<CategoryData[]>([])
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/categories')
+      if (res.ok) {
+        const data = await res.json()
+        const sorted = (data.categories || []).sort((a: CategoryData, b: CategoryData) => a.order - b.order)
+        setCategories(sorted)
+      }
+    } catch (err) {
+      console.error('Error fetching categories:', err)
+    }
+  }, [])
+
+  // Subscribe to Category realtime changes
+  const { data: realtimeCategories } = useRealtimeSubscription<CategoryData>('Category')
+
+  // Initial fetch of categories
+  useEffect(() => {
+    fetchCategories()
+  }, [fetchCategories])
+
+  // Refetch categories when realtime data changes
+  useEffect(() => {
+    if (realtimeCategories.length > 0) {
+      fetchCategories()
+    }
+  }, [realtimeCategories, fetchCategories])
+
+  // Helper to render file info card consistently across states to prevent layout shifts
+  const renderFileInfoCard = () => {
+    if (!videoMeta) return null
+    return (
+      <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80">
+        <div className="flex items-center gap-3 p-3 lg:p-4">
+          {/* Thumbnail Preview */}
+          <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-black">
+            {thumbnailDataUrl ? (
+              <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-emerald-900/60 via-teal-800/40 to-cyan-900/30">
+                <Film className="h-6 w-6 text-white/25" />
+              </div>
+            )}
+            <div className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-semibold text-white">
+              {formatDuration(videoMeta.duration)}
+            </div>
+          </div>
+
+          {/* File Details */}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white">{videoMeta.name}</p>
+            <p className="mt-0.5 text-xs text-white/40">
+              {videoMeta.width} × {videoMeta.height} &bull; {formatFileSize(videoMeta.size)} &bull; {formatDuration(videoMeta.duration)}
+            </p>
+          </div>
+
+          {/* Status Indicator */}
+          {uploadStage === 'success' && (
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            </div>
+          )}
+          {uploadStage === 'processing' && (
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/10">
+              <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+            </div>
+          )}
+          {uploadStage === 'uploading' && (
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-xtube-red/10">
+              <Upload className="h-4 w-4 text-xtube-red animate-pulse" />
+            </div>
+          )}
+          {uploadStage === 'error' && (
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-500/10">
+              <XCircle className="h-5 w-5 text-red-400" />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
@@ -732,130 +826,10 @@ export function VideoUploadPage() {
               )}
             </div>
 
-            {/* ── File Info Card ── */}
             <AnimatePresence mode="wait">
-              {videoMeta && (
+              {uploadStage === 'idle' && !urlMode ? (
                 <motion.div
-                  key="file-info"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80"
-                >
-                  <div className="flex items-center gap-3 p-3 lg:p-4">
-                    {/* Thumbnail Preview */}
-                    <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-black">
-                      {thumbnailDataUrl ? (
-                        <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-emerald-900/60 via-teal-800/40 to-cyan-900/30">
-                          <Film className="h-6 w-6 text-white/25" />
-                        </div>
-                      )}
-                      <div className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-semibold text-white">
-                        {formatDuration(videoMeta.duration)}
-                      </div>
-                    </div>
-
-                    {/* File Details */}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-white">{videoMeta.name}</p>
-                      <p className="mt-0.5 text-xs text-white/40">
-                        {videoMeta.width} × {videoMeta.height} &bull; {formatFileSize(videoMeta.size)} &bull; {formatDuration(videoMeta.duration)}
-                      </p>
-                    </div>
-
-                    {/* Status Indicator */}
-                    {uploadStage === 'success' && (
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                      </div>
-                    )}
-                    {uploadStage === 'processing' && (
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/10">
-                        <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
-                      </div>
-                    )}
-                    {uploadStage === 'uploading' && (
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-xtube-red/10">
-                        <Upload className="h-4 w-4 text-xtube-red animate-pulse" />
-                      </div>
-                    )}
-                    {uploadStage === 'error' && (
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-500/10">
-                        <XCircle className="h-5 w-5 text-red-400" />
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Video Player Preview ── */}
-            <AnimatePresence>
-              {uploadStage === 'success' && thumbnailDataUrl && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80"
-                >
-                  <div className="relative aspect-video bg-black">
-                    <img src={thumbnailDataUrl} alt="Video preview" className="h-full w-full object-cover" />
-
-                    {/* Play/Pause overlay */}
-                    <button
-                      onClick={() => setIsPlaying(!isPlaying)}
-                      className="absolute inset-0 flex items-center justify-center transition-opacity"
-                    >
-                      <motion.div
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm transition-colors hover:bg-white/20"
-                      >
-                        {isPlaying ? (
-                          <Pause className="h-6 w-6 text-white" fill="white" />
-                        ) : (
-                          <Play className="h-6 w-6 text-white ml-0.5" fill="white" />
-                        )}
-                      </motion.div>
-                    </button>
-
-                    {/* Bottom controls */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-8">
-                      <div className="relative mb-2 h-1 cursor-pointer rounded-full bg-white/20">
-                        <div className="absolute left-0 top-0 h-full w-[0%] rounded-full bg-xtube-red" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <button className="text-white/70 transition-colors hover:text-white">
-                            <Play className="h-4 w-4" />
-                          </button>
-                          <button className="text-white/70 transition-colors hover:text-white">
-                            <Volume2 className="h-4 w-4" />
-                          </button>
-                          <span className="text-xs text-white/50">0:00 / {videoMeta ? formatDuration(videoMeta.duration) : '0:00'}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button className="text-white/70 transition-colors hover:text-white">
-                            <Settings className="h-4 w-4" />
-                          </button>
-                          <button className="text-white/70 transition-colors hover:text-white">
-                            <Maximize className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Upload Area (idle) ── */}
-            <AnimatePresence>
-              {uploadStage === 'idle' && !urlMode && (
-                <motion.div
-                  key="upload-area"
+                  key="idle"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -898,180 +872,220 @@ export function VideoUploadPage() {
                     MP4, MOV, WebM, MKV &bull; Max 5GB
                   </p>
                 </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Upload Progress ── */}
-            <AnimatePresence>
-              {(uploadStage === 'uploading' || uploadStage === 'processing') && (
+              ) : uploadStage === 'uploading' || uploadStage === 'processing' ? (
                 <motion.div
+                  key="progress"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4"
+                  className="space-y-4"
                 >
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-white">
-                      {uploadStage === 'processing' ? 'Processing video...' : 'Uploading video...'}
-                    </span>
-                    <span className="text-sm font-bold text-xtube-red">
-                      {Math.round(uploadProgress)}%
-                    </span>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="relative mb-4 h-2 overflow-hidden rounded-full bg-white/10">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${uploadProgress}%` }}
-                      transition={{ duration: 0.3, ease: 'easeOut' }}
-                      className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-xtube-red to-red-500"
-                    />
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${uploadProgress}%` }}
-                      transition={{ duration: 0.3, ease: 'easeOut' }}
-                      className="absolute left-0 top-0 h-full rounded-full bg-xtube-red blur-sm opacity-50"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-white/60">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-xtube-red" />
-                    <span>
-                      {uploadStage === 'processing'
-                        ? 'Generating thumbnails and detecting quality...'
-                        : videoMeta
-                          ? `${formatFileSize(videoMeta.size)} — ${videoMeta.width}×${videoMeta.height}`
-                          : 'Preparing upload...'}
-                    </span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Error State ── */}
-            <AnimatePresence>
-              {uploadStage === 'error' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="overflow-hidden rounded-xl border border-red-500/20 bg-red-500/5 p-4"
-                >
-                  <div className="flex items-start gap-3">
-                    <XCircle className="h-5 w-5 flex-shrink-0 text-red-400 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-red-400">Upload Failed</p>
-                      <p className="mt-1 text-sm text-white/50">{uploadError}</p>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleResetUpload}
-                        className="mt-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Try Again
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Quality Options ── */}
-            <AnimatePresence>
-              {uploadStage === 'success' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4"
-                >
-                  <div className="mb-3 flex items-center gap-2">
-                    <Settings className="h-4 w-4 text-white/40" />
-                    <span className="text-sm font-semibold text-white">Video Quality</span>
-                    {videoMeta && (
-                      <span className="ml-auto text-xs text-white/30">
-                        Detected: {getResolutionLabel(videoMeta.width, videoMeta.height)}
+                  {renderFileInfoCard()}
+                  <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-white">
+                        {uploadStage === 'processing' ? 'Processing video...' : 'Uploading video...'}
                       </span>
-                    )}
-                  </div>
+                      <span className="text-sm font-bold text-xtube-red">
+                        {Math.round(uploadProgress)}%
+                      </span>
+                    </div>
 
-                  <div className="flex gap-2">
-                    {qualityOptions.map((opt) => (
-                      <motion.button
-                        key={opt.value}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setQuality(opt.value)}
-                        className={`relative flex-1 rounded-lg border px-3 py-2.5 text-center transition-all ${
-                          quality === opt.value
-                            ? 'border-xtube-red/40 bg-xtube-red/10 text-white shadow-[0_0_12px_rgba(229,9,20,0.15)]'
-                            : 'border-white/10 bg-white/[0.02] text-white/50 hover:border-white/20 hover:text-white/70'
-                        }`}
-                      >
-                        <span className="text-sm font-semibold">{opt.label}</span>
-                        {opt.desc && (
-                          <span className="ml-1 text-[10px] text-xtube-red">{opt.desc}</span>
-                        )}
-                      </motion.button>
-                    ))}
+                    <div className="relative mb-4 h-2 overflow-hidden rounded-full bg-white/10">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        transition={{ duration: 0.3, ease: 'easeOut' }}
+                        className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-xtube-red to-red-500"
+                      />
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        transition={{ duration: 0.3, ease: 'easeOut' }}
+                        className="absolute left-0 top-0 h-full rounded-full bg-xtube-red blur-sm opacity-50"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm text-white/60">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-xtube-red" />
+                      <span>
+                        {uploadStage === 'processing'
+                          ? 'Generating thumbnails and detecting quality...'
+                          : videoMeta
+                            ? `${formatFileSize(videoMeta.size)} — ${videoMeta.width}×${videoMeta.height}`
+                            : 'Preparing upload...'}
+                      </span>
+                    </div>
                   </div>
                 </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Thumbnail Section ── */}
-            <AnimatePresence>
-              {uploadStage === 'success' && (
+              ) : uploadStage === 'error' ? (
                 <motion.div
+                  key="error"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4"
+                  className="space-y-4"
                 >
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4 text-white/40" />
-                      <span className="text-sm font-semibold text-white">Thumbnail</span>
-                      {uploadedThumbnailUrl && (
-                        <span className="text-[10px] text-emerald-400">✓ Uploaded</span>
-                      )}
+                  {renderFileInfoCard()}
+                  <div className="overflow-hidden rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="h-5 w-5 flex-shrink-0 text-red-400 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-red-400">Upload Failed</p>
+                        <p className="mt-1 text-sm text-white/50">{uploadError}</p>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleResetUpload}
+                          className="mt-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Try Again
+                        </motion.button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => thumbnailInputRef.current?.click()}
-                      className="text-sm font-medium text-xtube-red transition-colors hover:text-xtube-red-hover"
-                    >
-                      Upload Manually
-                    </button>
-                    <input
-                      ref={thumbnailInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      onChange={handleThumbnailUpload}
-                    />
                   </div>
-
-                  {/* Thumbnail Preview */}
+                </motion.div>
+              ) : uploadStage === 'success' ? (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4"
+                >
+                  {renderFileInfoCard()}
                   {thumbnailDataUrl && (
-                    <div className="relative aspect-video overflow-hidden rounded-lg border border-white/5">
-                      <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
-                      <div className="absolute bottom-2 right-2 rounded bg-black/80 px-2 py-1 text-xs text-white/70 backdrop-blur-sm">
-                        Auto-generated from video
+                    <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80">
+                      <div className="relative aspect-video bg-black">
+                        <img src={thumbnailDataUrl} alt="Video preview" className="h-full w-full object-cover" />
+
+                        {/* Play/Pause overlay */}
+                        <button
+                          onClick={() => setIsPlaying(!isPlaying)}
+                          className="absolute inset-0 flex items-center justify-center transition-opacity"
+                        >
+                          <motion.div
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm transition-colors hover:bg-white/20"
+                          >
+                            {isPlaying ? (
+                              <Pause className="h-6 w-6 text-white" fill="white" />
+                            ) : (
+                              <Play className="h-6 w-6 text-white ml-0.5" fill="white" />
+                            )}
+                          </motion.div>
+                        </button>
+
+                        {/* Bottom controls */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-8">
+                          <div className="relative mb-2 h-1 cursor-pointer rounded-full bg-white/20">
+                            <div className="absolute left-0 top-0 h-full w-[0%] rounded-full bg-xtube-red" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <button className="text-white/70 transition-colors hover:text-white">
+                                <Play className="h-4 w-4" />
+                              </button>
+                              <button className="text-white/70 transition-colors hover:text-white">
+                                <Volume2 className="h-4 w-4" />
+                              </button>
+                              <span className="text-xs text-white/50">0:00 / {videoMeta ? formatDuration(videoMeta.duration) : '0:00'}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button className="text-white/70 transition-colors hover:text-white">
+                                <Settings className="h-4 w-4" />
+                              </button>
+                              <button className="text-white/70 transition-colors hover:text-white">
+                                <Maximize className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Info note */}
-                  <div className="mt-3 flex items-start gap-2">
-                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-white/25" />
-                    <p className="text-[11px] text-white/30">
-                      Thumbnail is auto-generated from video. You can upload a custom one.
-                    </p>
+                  {/* Quality Options */}
+                  <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Settings className="h-4 w-4 text-white/40" />
+                      <span className="text-sm font-semibold text-white">Video Quality</span>
+                      {videoMeta && (
+                        <span className="ml-auto text-xs text-white/30">
+                          Detected: {getResolutionLabel(videoMeta.width, videoMeta.height)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      {qualityOptions.map((opt) => (
+                        <motion.button
+                          key={opt.value}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setQuality(opt.value)}
+                          className={`relative flex-1 rounded-lg border px-3 py-2.5 text-center transition-all ${
+                            quality === opt.value
+                              ? 'border-xtube-red/40 bg-xtube-red/10 text-white shadow-[0_0_12px_rgba(229,9,20,0.15)]'
+                              : 'border-white/10 bg-white/[0.02] text-white/50 hover:border-white/20 hover:text-white/70'
+                          }`}
+                        >
+                          <span className="text-sm font-semibold">{opt.label}</span>
+                          {opt.desc && (
+                            <span className="ml-1 text-[10px] text-xtube-red">{opt.desc}</span>
+                          )}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Thumbnail Section */}
+                  <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4 text-white/40" />
+                        <span className="text-sm font-semibold text-white">Thumbnail</span>
+                        {uploadedThumbnailUrl && (
+                          <span className="text-[10px] text-emerald-400">✓ Uploaded</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => thumbnailInputRef.current?.click()}
+                        className="text-sm font-medium text-xtube-red transition-colors hover:text-xtube-red-hover"
+                      >
+                        Upload Manually
+                      </button>
+                      <input
+                        ref={thumbnailInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleThumbnailUpload}
+                      />
+                    </div>
+
+                    {/* Thumbnail Preview */}
+                    {thumbnailDataUrl && (
+                      <div className="relative aspect-video overflow-hidden rounded-lg border border-white/5">
+                        <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
+                        <div className="absolute bottom-2 right-2 rounded bg-black/80 px-2 py-1 text-xs text-white/70 backdrop-blur-sm">
+                          Auto-generated from video
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Info note */}
+                    <div className="mt-3 flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-white/25" />
+                      <p className="text-[11px] text-white/30">
+                        Thumbnail is auto-generated from video. You can upload a custom one.
+                      </p>
+                    </div>
                   </div>
                 </motion.div>
-              )}
+              ) : null}
             </AnimatePresence>
           </div>
 
@@ -1134,7 +1148,7 @@ export function VideoUploadPage() {
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent className="border-white/10 bg-[#111111]">
-                        {categoryOptions.map((cat) => (
+                        {(categories.length > 0 ? categories.map((c) => c.name) : categoryOptions).map((cat) => (
                           <SelectItem key={cat} value={cat} className="text-white focus:bg-white/5 focus:text-white">
                             {cat}
                           </SelectItem>
