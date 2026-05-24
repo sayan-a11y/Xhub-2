@@ -437,19 +437,17 @@ export function AdminPanel() {
     if (isTablet) setAdminSidebarCollapsed(true)
   }, [isTablet])
 
-  // Expandable groups state
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['video-group', 'ads-group']))
+  // Expandable groups state — use Ref + counter for stable Set reference
+  const expandedRef = useRef(new Set<string>(['video-group', 'ads-group']))
+  const [, forceRender] = useState(0)
 
   const toggleGroup = useCallback((groupId: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(groupId)) {
-        next.delete(groupId)
-      } else {
-        next.add(groupId)
-      }
-      return next
-    })
+    if (expandedRef.current.has(groupId)) {
+      expandedRef.current.delete(groupId)
+    } else {
+      expandedRef.current.add(groupId)
+    }
+    forceRender(n => n + 1)
   }, [])
 
   // ─── Data Fetching ──────────────────────────────────────────────────────
@@ -652,6 +650,37 @@ export function AdminPanel() {
     sessionStorage.removeItem('admin_token')
   }, [setAdminUnlocked, setAdminLoggedIn])
 
+  // ─── Memoized data transforms ─────────────────────────────────────────
+
+  const adminVideosMapped = useMemo(() => adminVideos.map((v) => ({
+    id: v.id,
+    title: v.title,
+    thumbnail: v.thumbnail,
+    category: v.category,
+    views: v.views,
+    duration: v.duration,
+    isPublished: v.isPublished,
+    createdAt: v.createdAt,
+    description: v.description,
+    hlsUrl: v.hlsUrl,
+    storageKey: v.storageKey,
+    qualityLevels: v.qualityLevels,
+    durationSeconds: v.durationSeconds,
+  })), [adminVideos])
+
+  const adminAdsMapped = useMemo(() => adminAds.map((a) => ({
+    id: a.id,
+    type: a.type,
+    position: a.position,
+    title: a.title,
+    imageUrl: a.imageUrl,
+    impressions: a.impressions,
+    clicks: a.clicks,
+    revenue: a.revenue,
+    isActive: a.isActive,
+    createdAt: a.createdAt,
+  })), [adminAds])
+
   // ─── Content Rendering ─────────────────────────────────────────────────
 
   const adsSections: AdminSection[] = [
@@ -671,25 +700,11 @@ export function AdminPanel() {
     const content = (() => {
       switch (adminSection) {
         case 'dashboard':
-          return <AdminDashboard data={dashboardData} loading={dataLoading} />
+          return <AdminDashboard data={dashboardData} loading={dataLoading} videos={adminVideosMapped} />
         case 'all-videos':
         return (
           <VideoManager
-            videos={adminVideos.map((v) => ({
-              id: v.id,
-              title: v.title,
-              thumbnail: v.thumbnail,
-              category: v.category,
-              views: v.views,
-              duration: v.duration,
-              isPublished: v.isPublished,
-              createdAt: v.createdAt,
-              description: v.description,
-              hlsUrl: v.hlsUrl,
-              storageKey: v.storageKey,
-              qualityLevels: v.qualityLevels,
-              durationSeconds: v.durationSeconds,
-            }))}
+            videos={adminVideosMapped}
             onUpload={handleVideoUpload}
             onDelete={handleVideoDelete}
             onEdit={handleVideoEdit}
@@ -733,18 +748,7 @@ export function AdminPanel() {
         if (adsSections.includes(adminSection)) {
           return (
             <AdsManager
-              ads={adminAds.map((a) => ({
-                id: a.id,
-                type: a.type,
-                position: a.position,
-                title: a.title,
-                imageUrl: a.imageUrl,
-                impressions: a.impressions,
-                clicks: a.clicks,
-                revenue: a.revenue,
-                isActive: a.isActive,
-                createdAt: a.createdAt,
-              }))}
+              ads={adminAdsMapped}
               onCreate={handleAdCreate}
               onDelete={handleAdDelete}
               onToggle={handleAdToggle}
@@ -932,7 +936,7 @@ export function AdminPanel() {
                       depth={0}
                       activeSection={adminSection}
                       collapsed={adminSidebarCollapsed}
-                      expandedGroups={expandedGroups}
+                      expandedGroups={expandedRef.current}
                       onToggleGroup={toggleGroup}
                       onSelectSection={setAdminSection}
                       delay={idx * 0.04}

@@ -83,13 +83,12 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
   const client = useSupabase()
 
   const [data, setData] = useState<T[]>([])
-  const [isLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Throttle state updates to max once per 200ms
   const lastEmit = useRef(0)
   const pendingRef = useRef<T[]>([])
-  const rafRef = useRef<number | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const throttledSet = useCallback((next: T[]) => {
     const now = Date.now()
@@ -98,12 +97,12 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
       setData(next)
     } else {
       pendingRef.current = next
-      if (!rafRef.current) {
+      if (!timerRef.current) {
         const delay = 200 - (now - lastEmit.current)
-        setTimeout(() => {
+        timerRef.current = setTimeout(() => {
           lastEmit.current = Date.now()
           setData(pendingRef.current)
-          rafRef.current = null
+          timerRef.current = null
         }, delay)
       }
     }
@@ -134,7 +133,7 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
                 if (delIdx !== -1) next.splice(delIdx, 1)
               }
               throttledSet(next)
-              return next
+              return prev
             })
           }
         )
@@ -149,14 +148,14 @@ export function useRealtimeSubscription<T extends Record<string, unknown> = Reco
 
     return () => {
       if (channel && client) client.removeChannel(channel)
-      if (rafRef.current) {
-        clearTimeout(rafRef.current)
-        rafRef.current = null
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
       }
     }
   }, [table, filter, schema, client, throttledSet])
 
-  return { data, isLoading, error }
+  return { data, isLoading: false, error }
 }
 
 // ── useRealtimePresence ──────────────────────────────────────────

@@ -61,6 +61,7 @@ interface DashboardData {
 interface AdminDashboardProps {
   data: DashboardData | null
   loading?: boolean
+  videos?: Array<{ id: string; title: string; duration: string; thumbnail: string; createdAt: string; isPublished: boolean }>
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -217,7 +218,7 @@ function SectionCard({
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4 p-3 lg:p-5">
+    <div className="space-y-4 p-3 md:p-4 lg:p-5">
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="overflow-hidden rounded-xl border border-white/5 bg-[#111111] p-4">
@@ -267,7 +268,7 @@ function StatusBadge({ status }: { status: 'Published' | 'Processing' | 'Draft' 
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export const AdminDashboard = memo(function AdminDashboard({ data, loading }: AdminDashboardProps) {
+export const AdminDashboard = memo(function AdminDashboard({ data, loading, videos }: AdminDashboardProps) {
   const { ads: allAds } = useAdsManager()
 
   const d = data || {
@@ -275,9 +276,20 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
     viewsGraph: [], revenueGraph: [], deviceBreakdown: {}, categoryStats: [],
   }
 
-  const recentVideos: Array<{ id: string; title: string; duration: string; size: string; uploaded: string; status: 'Published' | 'Processing' | 'Draft'; thumbnail: string }> = []
+  const recentVideos = useMemo(() => {
+    if (!videos?.length) return []
+    return videos.slice(0, 5).map(v => ({
+      id: v.id,
+      title: v.title,
+      duration: v.duration,
+      size: '320 MB',
+      uploaded: new Date(v.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      status: (v.isPublished ? 'Published' : 'Draft') as 'Published' | 'Draft',
+      thumbnail: v.thumbnail,
+    }))
+  }, [videos])
 
-  const catalogCategories = (() => {
+  const catalogCategories = useMemo(() => {
     if (!d.categoryStats?.length) return [] as Array<{ name: string; icon: React.ElementType; items: number; color: string; iconColor: string; glow: string }>
     const categoryIcons: Record<string, { icon: React.ElementType; color: string; iconColor: string; glow: string }> = {
       'Action': { icon: Film, color: 'from-red-500/10 to-red-600/5', iconColor: 'text-red-400', glow: 'hover:shadow-red-500/10' },
@@ -292,7 +304,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
       const cfg = categoryIcons[c.category] || defaultIcon
       return { name: c.category, icon: cfg.icon, items: c.count, color: cfg.color, iconColor: cfg.iconColor, glow: cfg.glow }
     })
-  })()
+  }, [d.categoryStats])
 
   const videoAdsData = useMemo(() => {
     const typeGroups: Record<string, { totalAds: number; impressions: number; clicks: number; revenue: number }> = {}
@@ -334,15 +346,21 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
       }))
   }, [allAds])
 
-  const performanceData = d.viewsGraph?.length ? d.viewsGraph.map(v => ({ date: v.date, Views: v.views, Clicks: Math.round(v.views * 0.15), Revenue: Math.round(v.views * 0.02) })) : [
-    { date: 'Week 1', Views: 0, Clicks: 0, Revenue: 0 },
-    { date: 'Week 2', Views: 0, Clicks: 0, Revenue: 0 },
-    { date: 'Week 3', Views: 0, Clicks: 0, Revenue: 0 },
-  ]
+  const performanceData = useMemo(() => (
+    d.viewsGraph?.length ? d.viewsGraph.map(v => ({ date: v.date, Views: v.views, Clicks: Math.round(v.views * 0.15), Revenue: Math.round(v.views * 0.02) })) : [
+      { date: 'Week 1', Views: 0, Clicks: 0, Revenue: 0 },
+      { date: 'Week 2', Views: 0, Clicks: 0, Revenue: 0 },
+      { date: 'Week 3', Views: 0, Clicks: 0, Revenue: 0 },
+    ]
+  ), [d.viewsGraph])
 
-  const trafficSourceData = d.categoryStats?.length ? d.categoryStats.map(c => ({ name: c.category, value: c.views })) : [{ name: 'No Data', value: 1 }]
+  const trafficSourceData = useMemo(() => (
+    d.categoryStats?.length ? d.categoryStats.map(c => ({ name: c.category, value: c.views })) : [{ name: 'No Data', value: 1 }]
+  ), [d.categoryStats])
 
-  const userDeviceData = Object.entries(d.deviceBreakdown || {}).length ? Object.entries(d.deviceBreakdown).map(([name, value]) => ({ name, value: value as number })) : [{ name: 'No Data', value: 1 }]
+  const userDeviceData = useMemo(() => (
+    Object.entries(d.deviceBreakdown || {}).length ? Object.entries(d.deviceBreakdown).map(([name, value]) => ({ name, value: value as number })) : [{ name: 'No Data', value: 1 }]
+  ), [d.deviceBreakdown])
 
   const statCards: Array<Omit<StatCardProps, 'delay'>> = [
     { title: 'Total Videos', value: formatNumber(d.totalVideos), icon: Film, change: 12.5, gradientIdx: 0 },
@@ -358,7 +376,7 @@ export const AdminDashboard = memo(function AdminDashboard({ data, loading }: Ad
   }
 
   return (
-    <div className="space-y-4 p-3 lg:p-5">
+    <div className="space-y-4 p-3 md:p-4 lg:p-5">
 
       {/* ═══════════════════════════════════════════════════════════════════
           TOP STATISTICS ROW

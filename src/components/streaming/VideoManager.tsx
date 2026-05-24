@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search,
@@ -90,9 +90,11 @@ function formatDate(dateStr: string): string {
   })
 }
 
-function getRandomFileSize(): string {
-  const sizes = ['125 MB', '520 MB', '300 MB', '750 MB', '180 MB', '420 MB', '650 MB', '280 MB', '890 MB', '340 MB', '510 MB', '195 MB']
-  return sizes[Math.floor(Math.random() * sizes.length)]
+const FILE_SIZES = ['125 MB', '520 MB', '300 MB', '750 MB', '180 MB', '420 MB', '650 MB', '280 MB', '890 MB', '340 MB', '510 MB', '195 MB']
+
+function getFileSize(id: string): string {
+  const hash = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  return FILE_SIZES[hash % FILE_SIZES.length]
 }
 
 // ─── Default categories for video upload form ──────────────────────────────────
@@ -218,7 +220,7 @@ function UploadView({ onUpload }: { onUpload: (data: Record<string, unknown>) =>
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="space-y-4 p-3 lg:p-5"
+      className="space-y-4 p-3 md:p-4 lg:p-5"
     >
       <div>
         <h2 className="text-xl font-bold text-white">Upload Video</h2>
@@ -300,7 +302,7 @@ function UploadView({ onUpload }: { onUpload: (data: Record<string, unknown>) =>
    Video Card (Grid View)
    ──────────────────────────────────────────── */
 
-function VideoCard({
+const VideoCard = memo(function VideoCard({
   video,
   index,
   onDelete,
@@ -426,7 +428,7 @@ function VideoCard({
           </span>
           <span className="flex items-center gap-1">
             <HardDrive className="h-3 w-3" />
-            {video.fileSize || getRandomFileSize()}
+            {video.fileSize || getFileSize(video.id)}
           </span>
         </div>
 
@@ -460,13 +462,13 @@ function VideoCard({
       </div>
     </motion.div>
   )
-}
+})
 
 /* ────────────────────────────────────────────
    List Row View
    ──────────────────────────────────────────── */
 
-function VideoListRow({
+const VideoListRow = memo(function VideoListRow({
   video,
   index,
   onDelete,
@@ -513,7 +515,7 @@ function VideoListRow({
         <div className="flex items-center gap-3 text-[11px] text-white/40">
           <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{formatViews(video.views)}</span>
           <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(video.createdAt)}</span>
-          <span className="flex items-center gap-1"><HardDrive className="h-3 w-3" />{video.fileSize || getRandomFileSize()}</span>
+          <span className="flex items-center gap-1"><HardDrive className="h-3 w-3" />{video.fileSize || getFileSize(video.id)}</span>
         </div>
       </div>
 
@@ -541,13 +543,13 @@ function VideoListRow({
       </div>
     </motion.div>
   )
-}
+})
 
 /* ────────────────────────────────────────────
    All Videos View (Grid + List)
    ──────────────────────────────────────────── */
 
-function AllVideosView({
+const AllVideosView = memo(function AllVideosView({
   videos,
   onDelete,
   onEdit,
@@ -614,7 +616,7 @@ function AllVideosView({
 
   if (loading) {
     return (
-      <div className="space-y-4 p-3 lg:p-5">
+      <div className="space-y-4 p-3 md:p-4 lg:p-5">
         <div className="flex items-center justify-between">
           <div><Skeleton className="h-8 w-48 bg-xtube-card" /><Skeleton className="mt-2 h-4 w-60 bg-xtube-card" /></div>
           <Skeleton className="h-10 w-36 rounded-xl bg-xtube-card" />
@@ -641,7 +643,7 @@ function AllVideosView({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="space-y-4 p-3 lg:p-5"
+      className="space-y-4 p-3 md:p-4 lg:p-5"
     >
       {/* ═══════════════════════════════════════════════════════════════════
           TOP HEADER
@@ -891,7 +893,7 @@ function AllVideosView({
       )}
     </motion.div>
   )
-}
+})
 
 /* ────────────────────────────────────────────
    Main VideoManager Component
