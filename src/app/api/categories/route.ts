@@ -100,6 +100,6 @@ export async function DELETE(request: Request) {
   } catch (error: any) {
     console.error('Error deleting category:', error)
     const message = error?.meta?.cause || error?.message || 'Failed to delete category'
-    return NextResponse.json({ error: message, details: error?.meta || error?.message }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
