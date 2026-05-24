@@ -454,7 +454,7 @@ export function FooterAdsPage() {
                   {uploadedFile.url && (
                     <div className="relative aspect-video overflow-hidden rounded-lg border border-white/10 bg-black">
                       {uploadedFile.mimeType.startsWith('video/') ? (
-                        <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                        <video src={uploadedFile.url} className="h-full w-full object-cover" autoPlay muted loop playsInline preload="auto" />
                       ) : (
                         <img src={uploadedFile.url} alt="Preview" className="h-full w-full object-cover" />
                       )}
@@ -763,7 +763,7 @@ export function FooterAdsPage() {
                           {uploadedFile?.url ? (
                             <>
                               {uploadedFile.mimeType.startsWith('video/') ? (
-                                <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                                <video src={uploadedFile.url} className="h-full w-full object-cover" autoPlay muted loop playsInline preload="auto" />
                               ) : (
                                 <img src={uploadedFile.url} alt="Ad preview" className="h-full w-full object-cover" />
                               )}

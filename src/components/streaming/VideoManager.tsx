@@ -602,9 +602,11 @@ const AllVideosView = memo(function AllVideosView({
   const paginatedVideos = filteredVideos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   const handleWatch = useCallback((id: string) => {
-    // Navigate to video watch page
-    useAppStore.getState().setSelectedVideoId(id)
-    useAppStore.getState().setView('video')
+    const store = useAppStore.getState()
+    store.setSelectedVideoId(id)
+    store.setView('video')
+    store.setAdminUnlocked(false)
+    store.setAdminLoggedIn(false)
   }, [])
 
   const resetFilters = useCallback(() => {

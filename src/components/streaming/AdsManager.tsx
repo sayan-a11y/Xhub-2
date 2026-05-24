@@ -662,9 +662,9 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45, duration: 0.4 }}
-        className="overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f]/80"
+        className="overflow-x-auto rounded-xl border border-white/5 bg-[#0f0f0f]/80"
       >
-        <div className="max-h-[600px] overflow-y-auto">
+        <div className="min-w-[800px]">
           <Table>
             <TableHeader>
               <TableRow className="border-xtube-border/50 hover:bg-transparent">

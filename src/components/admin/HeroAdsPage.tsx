@@ -935,6 +935,8 @@ export function HeroAdsPage() {
                               autoPlay
                               muted
                               loop
+                              playsInline
+                              preload="auto"
                               poster={editingAd?.thumbnailUrl || undefined}
                             />
                           ) : (

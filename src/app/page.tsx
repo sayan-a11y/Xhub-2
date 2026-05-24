@@ -224,16 +224,18 @@ export default function XtubeHome() {
   const mergeRealtime = <T extends { id: string }>(prev: T[], updates: T[], trackedRef: React.MutableRefObject<Set<string>>): T[] => {
     if (updates.length === 0) return prev
     const updateIds = new Set(updates.map(item => item.id))
-    // Remove from tracked set any IDs that are no longer in updates (they were deleted)
     const ids = trackedRef.current
+    // IDs in tracked set that are no longer in updates were deleted
     const deletedIds = new Set<string>()
     for (const id of ids) {
       if (!updateIds.has(id)) deletedIds.add(id)
     }
+    // Remove deleted IDs from tracked set (prevent unbounded growth)
+    for (const id of deletedIds) ids.delete(id)
     // Add new IDs to tracked set
     for (const id of updateIds) ids.add(id)
-    // Build result: keep prev items not seen by realtime, add/update from updates, remove deleted
-    const result = prev.filter(item => !deletedIds.has(item.id) && !updateIds.has(item.id))
+    // Keep prev items not touched by realtime, then append updates
+    const result = prev.filter(item => !updateIds.has(item.id))
     for (const item of updates) result.push(item)
     return result
   }

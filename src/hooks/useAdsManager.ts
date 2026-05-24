@@ -63,6 +63,8 @@ export function useAdsManager(options?: {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const fetchIdRef = useRef(0)
+  const adsRef = useRef(ads)
+  adsRef.current = ads
 
   const fetchAds = useCallback(async () => {
     const fetchId = ++fetchIdRef.current
@@ -155,7 +157,7 @@ export function useAdsManager(options?: {
   }, [fetchAds])
 
   const toggleAd = useCallback(async (id: string): Promise<boolean> => {
-    const ad = ads.find((a) => a.id === id)
+    const ad = adsRef.current.find((a) => a.id === id)
     if (!ad) return false
     try {
       const res = await fetch('/api/ads', {
@@ -172,7 +174,7 @@ export function useAdsManager(options?: {
       toast.error('Failed to toggle ad')
       return false
     }
-  }, [ads, fetchAds])
+  }, [fetchAds])
 
   return {
     ads,
@@ -230,6 +232,8 @@ export function useHeroAds() {
   const [ads, setAds] = useState<HeroAdItem[]>([])
   const [loading, setLoading] = useState(true)
   const { data: realtimeRows } = useRealtimeSubscription<Record<string, unknown>>('HeroAd')
+  const adsRef = useRef(ads)
+  adsRef.current = ads
 
   const fetchAds = useCallback(async () => {
     try {
@@ -302,7 +306,7 @@ export function useHeroAds() {
   }, [fetchAds])
 
   const toggleAd = useCallback(async (id: string) => {
-    const ad = ads.find(a => a.id === id)
+    const ad = adsRef.current.find(a => a.id === id)
     if (!ad) return false
     const res = await fetch('/api/hero-ads', {
       method: 'PUT',
@@ -316,7 +320,7 @@ export function useHeroAds() {
       toast.error('Failed to toggle hero ad')
     }
     return res.ok
-  }, [ads, fetchAds])
+  }, [fetchAds])
 
   return { ads, loading, refetch: fetchAds, createAd, updateAd, deleteAd, toggleAd }
 }
@@ -325,6 +329,8 @@ export function useFooterAds() {
   const [ads, setAds] = useState<FooterAdItem[]>([])
   const [loading, setLoading] = useState(true)
   const { data: realtimeRows } = useRealtimeSubscription<Record<string, unknown>>('FooterAd')
+  const adsRef = useRef(ads)
+  adsRef.current = ads
 
   const fetchAds = useCallback(async () => {
     try {
@@ -397,7 +403,7 @@ export function useFooterAds() {
   }, [fetchAds])
 
   const toggleAd = useCallback(async (id: string) => {
-    const ad = ads.find(a => a.id === id)
+    const ad = adsRef.current.find(a => a.id === id)
     if (!ad) return false
     const res = await fetch('/api/footer-ads', {
       method: 'PUT',
@@ -411,7 +417,7 @@ export function useFooterAds() {
       toast.error('Failed to toggle footer ad')
     }
     return res.ok
-  }, [ads, fetchAds])
+  }, [fetchAds])
 
   return { ads, loading, refetch: fetchAds, createAd, updateAd, deleteAd, toggleAd }
 }

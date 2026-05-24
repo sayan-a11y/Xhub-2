@@ -504,7 +504,10 @@ export function AdminPanel() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         })
-        if (res.ok) fetchAdminData()
+        if (res.ok) {
+          invalidateCache('admin:videos')
+          fetchAdminData()
+        }
       } catch (err) {
         console.error('Error uploading video:', err)
       }
@@ -603,7 +606,10 @@ export function AdminPanel() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         })
-        if (res.ok) fetchAdminData()
+        if (res.ok) {
+          invalidateCache('admin:ads')
+          fetchAdminData()
+        }
       } catch (err) {
         console.error('Error creating ad:', err)
       }
@@ -615,7 +621,10 @@ export function AdminPanel() {
     async (id: string) => {
       try {
         const res = await fetch(`/api/ads?id=${id}`, { method: 'DELETE' })
-        if (res.ok) fetchAdminData()
+        if (res.ok) {
+          invalidateCache('admin:ads')
+          fetchAdminData()
+        }
       } catch (err) {
         console.error('Error deleting ad:', err)
       }
@@ -633,7 +642,10 @@ export function AdminPanel() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, isActive: !ad.isActive }),
         })
-        if (res.ok) fetchAdminData()
+        if (res.ok) {
+          invalidateCache('admin:ads')
+          fetchAdminData()
+        }
       } catch (err) {
         console.error('Error toggling ad:', err)
       }
