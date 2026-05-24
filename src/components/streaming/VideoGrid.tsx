@@ -70,7 +70,7 @@ export const VideoGrid = memo(function VideoGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 content-visibility-auto">
       {videos.map((video) => (
         <VideoCard key={video.id} {...video} />
       ))}

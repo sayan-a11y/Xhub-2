@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+// framer-motion NOT imported — all animations replaced with CSS for zero runtime overhead
 import { useAppStore } from '@/lib/store'
 import { Sidebar } from '@/components/streaming/Sidebar'
 import { BottomNav } from '@/components/streaming/BottomNav'
@@ -269,13 +269,18 @@ export default function XtubeHome() {
   const heroAds = stableHeroAds
 
   // Progressive loading: show content as soon as ANY data arrives
-  // Max skeleton time: 800ms then show whatever we have
+  // Max skeleton time: 300ms then show whatever we have
   const [skeletonTimeout, setSkeletonTimeout] = useState(true)
   useEffect(() => {
-    const t = setTimeout(() => setSkeletonTimeout(false), 800)
+    const t = setTimeout(() => setSkeletonTimeout(false), 300)
     return () => clearTimeout(t)
   }, [])
   const loading = skeletonTimeout && !videos.length && !categories.length && !apiLoaded
+
+  // Preload VideoPlayer chunk in background (fastest possible video nav)
+  useEffect(() => {
+    import('@/components/streaming/VideoPlayer').catch(() => {})
+  }, [])
 
   // Seed only runs once EVER per browser (persisted via localStorage)
   // NOTE: Seed disabled — only real uploaded content is shown
@@ -574,19 +579,17 @@ export default function XtubeHome() {
       </div>
       <div className="mb-6 flex gap-2 overflow-x-auto no-scrollbar pb-2">
         {categories.map((cat) => (
-          <motion.button
+          <button
             key={cat.id}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
             onClick={() => useAppStore.getState().setSelectedCategory(cat.name)}
-            className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all active:scale-95 hover:scale-105 ${
               selectedCategory === cat.name
                 ? 'bg-xtube-red text-white'
                 : 'bg-xtube-card text-xtube-text-secondary hover:bg-xtube-card-hover hover:text-white'
             }`}
           >
             {cat.name}
-          </motion.button>
+          </button>
         ))}
       </div>
       <VideoGrid
@@ -719,7 +722,7 @@ export default function XtubeHome() {
         <BottomNav />
 
         {/* Main Content Area */}
-        <motion.main
+        <main
           className={`min-h-screen transition-all duration-300 ${
             sidebarCollapsed ? 'md:ml-[64px]' : 'md:ml-[180px]'
           }`}
@@ -747,28 +750,20 @@ export default function XtubeHome() {
           )}
 
           {/* Page Content */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView === 'video' ? 'video-inline' : currentView}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              {currentView === 'home' && renderHomeView()}
-              {currentView === 'trending' && renderTrendingView()}
-              {currentView === 'category' && renderCategoryView()}
-              {currentView === 'bookmarks' && renderBookmarksView()}
-              {currentView === 'history' && renderHistoryView()}
-              {currentView === 'search' && renderSearchView()}
-            </motion.div>
-          </AnimatePresence>
+          <div className="animate-fade-in">
+            {currentView === 'home' && renderHomeView()}
+            {currentView === 'trending' && renderTrendingView()}
+            {currentView === 'category' && renderCategoryView()}
+            {currentView === 'bookmarks' && renderBookmarksView()}
+            {currentView === 'history' && renderHistoryView()}
+            {currentView === 'search' && renderSearchView()}
+          </div>
 
           {/* Footer Ads Section */}
           <div className="pb-20 md:pb-6 pt-4">
             <FooterAds ads={footerAdsData} />
           </div>
-        </motion.main>
+        </main>
       </div>
 
       {/* ─── VIDEO VIEW: Full-page overlay (never replaces main tree) ──── */}
