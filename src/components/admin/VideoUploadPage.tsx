@@ -195,7 +195,14 @@ export function VideoUploadPage() {
 
   // Helper to render file info card consistently across states to prevent layout shifts
   const renderFileInfoCard = () => {
-    if (!videoMeta) return null
+    if (!selectedFile) return null
+    
+    const fileName = videoMeta?.name || selectedFile.name
+    const fileSize = videoMeta?.size || selectedFile.size
+    const fileType = videoMeta?.type || selectedFile.type
+    const duration = videoMeta ? formatDuration(videoMeta.duration) : null
+    const resolution = videoMeta ? `${videoMeta.width} × ${videoMeta.height}` : null
+
     return (
       <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80">
         <div className="flex items-center gap-3 p-3 lg:p-4">
@@ -205,19 +212,21 @@ export function VideoUploadPage() {
               <img src={thumbnailDataUrl} alt="Video thumbnail" className="h-full w-full object-cover" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-emerald-900/60 via-teal-800/40 to-cyan-900/30">
-                <Film className="h-6 w-6 text-white/25" />
+                <Loader2 className="h-5 w-5 animate-spin text-white/35" />
               </div>
             )}
-            <div className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-semibold text-white">
-              {formatDuration(videoMeta.duration)}
-            </div>
+            {duration && (
+              <div className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-semibold text-white">
+                {duration}
+              </div>
+            )}
           </div>
 
           {/* File Details */}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-white">{videoMeta.name}</p>
+            <p className="truncate text-sm font-semibold text-white">{fileName}</p>
             <p className="mt-0.5 text-xs text-white/40">
-              {videoMeta.width} × {videoMeta.height} &bull; {formatFileSize(videoMeta.size)} &bull; {formatDuration(videoMeta.duration)}
+              {resolution ? `${resolution} • ` : ''}{formatFileSize(fileSize)}{duration ? ` • ${duration}` : ''}
             </p>
           </div>
 
@@ -826,6 +835,23 @@ export function VideoUploadPage() {
               )}
             </div>
 
+            {/* ── File Info Card (Persistent, no exit/enter layout shift) ── */}
+            <AnimatePresence>
+              {selectedFile && (
+                <motion.div
+                  key="file-info"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  {renderFileInfoCard()}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Upload Stage Contents ── */}
             <AnimatePresence mode="wait">
               {uploadStage === 'idle' && !urlMode ? (
                 <motion.div
@@ -878,44 +904,42 @@ export function VideoUploadPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="space-y-4"
+                  className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4"
                 >
-                  {renderFileInfoCard()}
-                  <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80 p-3 lg:p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-white">
-                        {uploadStage === 'processing' ? 'Processing video...' : 'Uploading video...'}
-                      </span>
-                      <span className="text-sm font-bold text-xtube-red">
-                        {Math.round(uploadProgress)}%
-                      </span>
-                    </div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-white">
+                      {uploadStage === 'processing' ? 'Processing video...' : 'Uploading video...'}
+                    </span>
+                    <span className="text-sm font-bold text-xtube-red">
+                      {Math.round(uploadProgress)}%
+                    </span>
+                  </div>
 
-                    <div className="relative mb-4 h-2 overflow-hidden rounded-full bg-white/10">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${uploadProgress}%` }}
-                        transition={{ duration: 0.3, ease: 'easeOut' }}
-                        className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-xtube-red to-red-500"
-                      />
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${uploadProgress}%` }}
-                        transition={{ duration: 0.3, ease: 'easeOut' }}
-                        className="absolute left-0 top-0 h-full rounded-full bg-xtube-red blur-sm opacity-50"
-                      />
-                    </div>
+                  {/* Progress bar */}
+                  <div className="relative mb-4 h-2 overflow-hidden rounded-full bg-white/10">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-xtube-red to-red-500"
+                    />
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="absolute left-0 top-0 h-full rounded-full bg-xtube-red blur-sm opacity-50"
+                    />
+                  </div>
 
-                    <div className="flex items-center gap-2 text-sm text-white/60">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-xtube-red" />
-                      <span>
-                        {uploadStage === 'processing'
-                          ? 'Generating thumbnails and detecting quality...'
-                          : videoMeta
-                            ? `${formatFileSize(videoMeta.size)} — ${videoMeta.width}×${videoMeta.height}`
-                            : 'Preparing upload...'}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-2 text-sm text-white/60">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-xtube-red" />
+                    <span>
+                      {uploadStage === 'processing'
+                        ? 'Generating thumbnails and detecting quality...'
+                        : videoMeta
+                          ? `${formatFileSize(videoMeta.size)} — ${videoMeta.width}×${videoMeta.height}`
+                          : 'Preparing upload...'}
+                    </span>
                   </div>
                 </motion.div>
               ) : uploadStage === 'error' ? (
@@ -924,25 +948,22 @@ export function VideoUploadPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="space-y-4"
+                  className="overflow-hidden rounded-xl border border-red-500/20 bg-red-500/5 p-4"
                 >
-                  {renderFileInfoCard()}
-                  <div className="overflow-hidden rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                    <div className="flex items-start gap-3">
-                      <XCircle className="h-5 w-5 flex-shrink-0 text-red-400 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-red-400">Upload Failed</p>
-                        <p className="mt-1 text-sm text-white/50">{uploadError}</p>
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={handleResetUpload}
-                          className="mt-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          Try Again
-                        </motion.button>
-                      </div>
+                  <div className="flex items-start gap-3">
+                    <XCircle className="h-5 w-5 flex-shrink-0 text-red-400 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-400">Upload Failed</p>
+                      <p className="mt-1 text-sm text-white/50">{uploadError}</p>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleResetUpload}
+                        className="mt-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Try Again
+                      </motion.button>
                     </div>
                   </div>
                 </motion.div>
@@ -954,7 +975,6 @@ export function VideoUploadPage() {
                   exit={{ opacity: 0, y: -10 }}
                   className="space-y-4"
                 >
-                  {renderFileInfoCard()}
                   {thumbnailDataUrl && (
                     <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111111]/80">
                       <div className="relative aspect-video bg-black">
