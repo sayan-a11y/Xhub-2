@@ -382,11 +382,11 @@ export function VideoUploadPage() {
 
     if (!initRes.ok) {
       const err = await initRes.json().catch(() => ({ error: 'Initialization failed' }))
-      throw new Error(err.error || 'Failed to initialize video upload')
+      throw new Error(err.details || err.error || 'Failed to initialize video upload')
     }
 
     const { uploadId, key, parts, provider } = await initRes.json()
-    const CHUNK_SIZE = 5 * 1024 * 1024
+    const CHUNK_SIZE = 10 * 1024 * 1024
     const uploadedParts: Array<{ partNumber: number; etag: string }> = []
 
     const totalParts = parts.length
@@ -467,7 +467,7 @@ export function VideoUploadPage() {
       }
     }
 
-    const workers = Array.from({ length: Math.min(3, totalParts) }, () => uploadWorker())
+    const workers = Array.from({ length: Math.min(8, totalParts) }, () => uploadWorker())
     await Promise.all(workers)
 
     setUploadSpeed('')
@@ -485,7 +485,7 @@ export function VideoUploadPage() {
 
     if (!completeRes.ok) {
       const err = await completeRes.json().catch(() => ({ error: 'Completion failed' }))
-      throw new Error(err.error || 'Failed to assemble video files')
+      throw new Error(err.details || err.error || 'Failed to assemble video files')
     }
 
     const finalResult = await completeRes.json()
