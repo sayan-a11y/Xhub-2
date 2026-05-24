@@ -427,7 +427,7 @@ const HeroAdsSliderInner = ({ ads }: HeroAdsSliderProps) => {
                   muted={videoMuted}
                   loop
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                   onLoadedData={() => handleVideoLoaded(currentAd.id)}
                   className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
                     videoLoaded[currentAd.id] ? 'opacity-100' : 'opacity-0'
@@ -482,7 +482,7 @@ const HeroAdsSliderInner = ({ ads }: HeroAdsSliderProps) => {
                 src={visibleAds[nextIndex].mediaUrl}
                 poster={visibleAds[nextIndex].thumbnailUrl || undefined}
                 muted
-                preload="auto"
+                preload="metadata"
                 className="h-full w-full object-cover"
                 style={{ willChange: 'transform', transform: 'translateZ(0)' }}
               />

@@ -228,7 +228,7 @@ function FooterAdCard({ ad }: { ad: FooterAdItem }) {
             muted
             loop
             playsInline
-            preload="auto"
+            preload="metadata"
             onLoadedData={() => setMediaLoaded(true)}
             className="
               w-full
