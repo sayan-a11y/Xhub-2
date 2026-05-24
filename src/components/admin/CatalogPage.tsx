@@ -246,7 +246,7 @@ export function CatalogPage() {
       const res = await fetch(`/api/categories?id=${deletingCategory.id}`, { method: 'DELETE' })
       if (!res.ok) {
         const errData = await res.json().catch(() => ({ error: 'Delete failed' }))
-        throw new Error(errData.error || `Server error (${res.status})`)
+        throw new Error(errData.details || errData.error || `Server error (${res.status})`)
       }
       setCategories((prev) => prev.filter((c) => c.id !== deletingCategory.id))
       await loadCategories()

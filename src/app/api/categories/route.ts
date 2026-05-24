@@ -97,8 +97,9 @@ export async function DELETE(request: Request) {
 
     await db.category.delete({ where: { id } })
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting category:', error)
-    return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 })
+    const message = error?.meta?.cause || error?.message || 'Failed to delete category'
+    return NextResponse.json({ error: message, details: error?.meta || error?.message }, { status: 500 })
   }
 }
