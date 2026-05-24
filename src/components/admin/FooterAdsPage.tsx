@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useFooterAds, type FooterAdItem } from '@/hooks/useAdsManager'
-import { AdMediaUploader, type UploadedAdMedia } from '@/components/admin/AdMediaUploader'
+import { useAdUpload } from '@/hooks/useAdUpload'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CloudUpload,
@@ -30,6 +30,8 @@ import {
   RefreshCw,
   Play,
   Pause,
+  CheckCircle2,
+  X,
 } from 'lucide-react'
 import {
   Select,
@@ -147,9 +149,8 @@ export function FooterAdsPage() {
   // Real data hooks - FOOTER ONLY with full realtime
   const { ads: footerAds, loading: footerLoading, createAd: createFooterAd, deleteAd: deleteFooterAd, toggleAd: toggleFooterAd, refetch: refetchFooterAds } = useFooterAds()
 
-  // Media state (managed by AdMediaUploader)
-  const [uploadedMedia, setUploadedMedia] = useState<UploadedAdMedia | null>(null)
-  const [uploaderKey, setUploaderKey] = useState(0) // increment to reset uploader
+  // Upload state (useAdUpload hook)
+  const { uploadStage, uploadProgress, uploadedFile, isDragOver, fileInputRef, resetUpload, handleDragOver, handleDragLeave, handleDrop, handleFileSelect, openFilePicker } = useAdUpload('ads')
   const [saving, setSaving] = useState(false)
 
   // Ad settings state
@@ -187,11 +188,6 @@ export function FooterAdsPage() {
   const totalClicks = footerAds.reduce((sum, ad) => sum + ad.clicks, 0)
   const avgCtr = totalAds > 0 ? footerAds.reduce((sum, ad) => sum + ad.ctr, 0) / totalAds : 0
 
-  const handleResetUpload = useCallback(() => {
-    setUploadedMedia(null)
-    setUploaderKey(k => k + 1)
-  }, [])
-
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
   const filteredAds = footerAds.filter((ad) => {
@@ -219,9 +215,8 @@ export function FooterAdsPage() {
     setStatusActive(true)
     setAutoRotate(true)
     setEditingAd(null)
-    setUploadedMedia(null)
-    setUploaderKey(k => k + 1)
-  }, [])
+    resetUpload()
+  }, [resetUpload])
 
   // ─── Edit Ad ───────────────────────────────────────────────────────────
 
@@ -338,25 +333,141 @@ export function FooterAdsPage() {
                 <h2 className="text-base font-bold text-white">
                   {editingAd ? 'Edit Footer Ad' : 'Create Footer Ad'}
                 </h2>
-                {(uploadedMedia || editingAd) && (
+                {(uploadedFile || editingAd) && (
                   <button onClick={() => { resetForm() }} className="text-xs text-[#ff1e1e] hover:text-[#ff3e3e]">
                     {editingAd ? 'Cancel Edit' : 'Reset'}
                   </button>
                 )}
               </div>
 
-              {/* Upload Area — with auto thumbnail generation for image + video */}
-              {!editingAd && (
-                <AdMediaUploader
-                  key={uploaderKey}
-                  onMediaReady={setUploadedMedia}
-                  onReset={handleResetUpload}
-                  accentColor="text-[#ff1e1e]"
-                  accentBorderColor="border-[#ff1e1e]"
-                  uploadCategory="ads"
-                />
+              {/* Upload Area */}
+              <AnimatePresence mode="wait">
+                {uploadStage === 'idle' ? (
+                  <motion.div
+                    key="upload-idle"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={openFilePicker}
+                    className={`relative flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-all duration-200 ${
+                      isDragOver
+                        ? 'border-[#ff1e1e] bg-white/5 shadow-[0_0_20px_rgba(255,30,30,0.1)]'
+                        : 'border-white/10 bg-[#0a0a0a]/60 hover:border-white/20'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,video/mp4,video/webm,video/quicktime"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+                    <motion.div
+                      animate={isDragOver ? { scale: 1.1, y: -4 } : { scale: 1, y: 0 }}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5"
+                    >
+                      <CloudUpload className="h-6 w-6 text-[#ff1e1e]" />
+                    </motion.div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-white">Drag &amp; drop your ad media here</p>
+                      <p className="mt-0.5 text-xs text-white/40">
+                        or <span className="text-[#ff1e1e] underline underline-offset-2">browse files</span>
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] text-white/25">JPG, PNG, WEBP, SVG, GIF, MP4, WEBM, MOV</p>
+                      <p className="text-[10px] text-white/15">Cloudflare R2 Storage • Multipart Upload • Auto Retry</p>
+                    </div>
+                  </motion.div>
+                ) : uploadStage === 'uploading' || uploadStage === 'processing' ? (
+                  <motion.div
+                    key="upload-progress"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="rounded-xl border border-white/5 bg-[#0a0a0a]/60 p-3 lg:p-4"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-white">
+                          {uploadStage === 'processing' ? 'Processing...' : 'Uploading...'}
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold text-[#ff1e1e]">{Math.round(uploadProgress)}%</span>
+                    </div>
+                    <div className="relative mb-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        transition={{ duration: 0.3 }}
+                        className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#ff1e1e] to-red-400"
+                      />
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        transition={{ duration: 0.3 }}
+                        className="absolute left-0 top-0 h-full rounded-full bg-[#ff1e1e] blur-sm opacity-30"
+                      />
+                    </div>
+                  </motion.div>
+                ) : uploadStage === 'error' ? (
+                  <motion.div
+                    key="upload-error"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3"
+                  >
+                    <X className="h-4 w-4 flex-shrink-0 text-red-400 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-white">Upload Failed</p>
+                      <p className="text-[10px] text-white/40">Please try again</p>
+                    </div>
+                    <button onClick={resetUpload} className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300">
+                      <RefreshCw className="h-3 w-3" />
+                      Retry
+                    </button>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+
+              {/* Success state after upload */}
+              {uploadedFile && uploadStage === 'success' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-3 space-y-3"
+                >
+                  <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-white">{uploadedFile.fileName || 'Media uploaded'}</p>
+                      <p className="text-[10px] text-white/35">
+                        {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB • {uploadedFile.mimeType}
+                      </p>
+                    </div>
+                    <button onClick={resetUpload} className="text-xs text-[#ff1e1e] hover:opacity-70">Change</button>
+                  </div>
+                  {uploadedFile.url && (
+                    <div className="relative aspect-video overflow-hidden rounded-lg border border-white/10 bg-black">
+                      {uploadedFile.mimeType.startsWith('video/') ? (
+                        <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
+                      ) : (
+                        <img src={uploadedFile.url} alt="Preview" className="h-full w-full object-cover" />
+                      )}
+                      <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white/80">
+                        {uploadedFile.mimeType.startsWith('video/') ? 'VIDEO' : 'IMAGE'}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
               )}
-              {editingAd && (
+
+              {/* Edit mode: show existing media */}
+              {editingAd && !uploadedFile && (
                 <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
                   <div className="relative h-14 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-black">
                     {editingAd.thumbnailUrl ? (
@@ -367,15 +478,20 @@ export function FooterAdsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium text-white">{editingAd.mediaUrl.split('/').pop()}</p>
-                    <p className="text-[10px] text-white/30">Existing media — upload new to replace</p>
+                    <p className="text-[10px] text-white/30">Existing media</p>
                   </div>
-                  <AdMediaUploader
-                    key={`edit-${uploaderKey}`}
-                    onMediaReady={setUploadedMedia}
-                    onReset={handleResetUpload}
-                    accentColor="text-[#ff1e1e]"
-                    accentBorderColor="border-[#ff1e1e]"
-                    uploadCategory="ads"
+                  <button
+                    onClick={openFilePicker}
+                    className="rounded-lg border border-white/10 bg-[#0a0a0a] px-3 py-1.5 text-xs text-white/70 hover:border-white/20 hover:text-white"
+                  >
+                    Change
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,video/mp4,video/webm,video/quicktime"
+                    className="hidden"
+                    onChange={handleFileSelect}
                   />
                 </div>
               )}
@@ -527,10 +643,9 @@ export function FooterAdsPage() {
                           startDate: startDate || null,
                           endDate: endDate || null,
                         }
-                        if (uploadedMedia) {
-                          updateBody.mediaUrl = uploadedMedia.url
-                          updateBody.mediaFormat = uploadedMedia.mimeType
-                          if (uploadedMedia.thumbnailUrl) updateBody.thumbnailUrl = uploadedMedia.thumbnailUrl
+                        if (uploadedFile) {
+                          updateBody.mediaUrl = uploadedFile.url
+                          updateBody.mediaFormat = uploadedFile.mimeType
                         }
                         await fetch('/api/footer-ads', {
                           method: 'PUT',
@@ -540,14 +655,16 @@ export function FooterAdsPage() {
                         setEditingAd(null)
                       } else {
                         // Create new ad
-                        if (!uploadedMedia) return
+                        if (!uploadedFile) return
+                        const isVideo = uploadedFile.mimeType.startsWith('video/')
+                        const isGif = uploadedFile.mimeType === 'image/gif'
                         await createFooterAd({
                           title: adTitle,
                           linkUrl: adLink || undefined,
-                          adType: uploadedMedia.isVideo ? 'video' : uploadedMedia.isGif ? 'gif' : 'image',
-                          mediaUrl: uploadedMedia.url,
-                          thumbnailUrl: uploadedMedia.thumbnailUrl || undefined,
-                          mediaFormat: uploadedMedia.mimeType,
+                          adType: isVideo ? 'video' : isGif ? 'gif' : 'image',
+                          mediaUrl: uploadedFile.url,
+                          thumbnailUrl: uploadedFile.url,
+                          mediaFormat: uploadedFile.mimeType,
                           isActive: statusActive,
                           startDate: startDate || null,
                           endDate: endDate || null,
@@ -560,7 +677,7 @@ export function FooterAdsPage() {
                       setSaving(false)
                     }
                   }}
-                  disabled={saving || !adTitle.trim() || (!editingAd && !uploadedMedia)}
+                  disabled={saving || !adTitle.trim() || (!editingAd && !uploadedFile)}
                   className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e] disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {saving ? (
@@ -643,12 +760,12 @@ export function FooterAdsPage() {
                           className="relative overflow-hidden"
                           style={{ aspectRatio: '970/250' }}
                         >
-                          {uploadedMedia?.url ? (
+                          {uploadedFile?.url ? (
                             <>
-                              {uploadedMedia.isVideo ? (
-                                <video src={uploadedMedia.url} className="h-full w-full object-cover" muted />
+                              {uploadedFile.mimeType.startsWith('video/') ? (
+                                <video src={uploadedFile.url} className="h-full w-full object-cover" muted />
                               ) : (
-                                <img src={uploadedMedia.thumbnailUrl || uploadedMedia.url} alt="Ad preview" className="h-full w-full object-cover" />
+                                <img src={uploadedFile.url} alt="Ad preview" className="h-full w-full object-cover" />
                               )}
                               <div className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-md bg-[#ff1e1e]/80 px-1.5 py-0.5">
                                 <Megaphone className="h-2 w-2 text-white" />
