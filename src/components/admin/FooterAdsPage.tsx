@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useFooterAds, type FooterAdItem } from '@/hooks/useAdsManager'
 import { useAdUpload } from '@/hooks/useAdUpload'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -116,8 +116,8 @@ function StatCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-lg"
     >
@@ -182,28 +182,41 @@ export function FooterAdsPage() {
 
   // ─── Computed KPIs from realtime data ───────────────────────────────────
 
-  const totalAds = footerAds.length
-  const activeAds = footerAds.filter((ad) => ad.isActive).length
-  const totalImpressions = footerAds.reduce((sum, ad) => sum + ad.impressions, 0)
-  const totalClicks = footerAds.reduce((sum, ad) => sum + ad.clicks, 0)
-  const avgCtr = totalAds > 0 ? footerAds.reduce((sum, ad) => sum + ad.ctr, 0) / totalAds : 0
+  const { totalAds, activeAds, totalImpressions, totalClicks, avgCtr } = useMemo(() => {
+    const total = footerAds.length
+    const active = footerAds.filter((ad) => ad.isActive).length
+    const impressions = footerAds.reduce((sum, ad) => sum + ad.impressions, 0)
+    const clicks = footerAds.reduce((sum, ad) => sum + ad.clicks, 0)
+    const ctr = total > 0 ? footerAds.reduce((sum, ad) => sum + ad.ctr, 0) / total : 0
+    return { totalAds: total, activeAds: active, totalImpressions: impressions, totalClicks: clicks, avgCtr: ctr }
+  }, [footerAds])
 
   // ─── Filtered Ads ──────────────────────────────────────────────────────
 
-  const filteredAds = footerAds.filter((ad) => {
-    if (statusFilter !== 'all' && (ad.isActive ? 'active' : 'paused') !== statusFilter) return false
-    if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    return true
-  })
+  const filteredAds = useMemo(() => {
+    return footerAds.filter((ad) => {
+      if (statusFilter !== 'all' && (ad.isActive ? 'active' : 'paused') !== statusFilter) return false
+      if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
+      return true
+    })
+  }, [footerAds, statusFilter, searchQuery])
 
   // ─── Pagination ────────────────────────────────────────────────────────
 
   const totalPages = Math.max(1, Math.ceil(filteredAds.length / itemsPerPage))
   const safeCurrentPage = Math.min(currentPage, totalPages)
-  const paginatedAds = filteredAds.slice(
-    (safeCurrentPage - 1) * itemsPerPage,
-    safeCurrentPage * itemsPerPage
-  )
+  const paginatedAds = useMemo(() => {
+    return filteredAds.slice(
+      (safeCurrentPage - 1) * itemsPerPage,
+      safeCurrentPage * itemsPerPage
+    )
+  }, [filteredAds, safeCurrentPage])
+
+  // ─── Top Performing Ads ────────────────────────────────────────────────
+
+  const topPerformingAds = useMemo(() => {
+    return [...footerAds].sort((a, b) => b.ctr - a.ctr).slice(0, 5)
+  }, [footerAds])
 
   // ─── Reset Form ────────────────────────────────────────────────────────
 
@@ -231,26 +244,73 @@ export function FooterAdsPage() {
 
   // ─── Preview container width ───────────────────────────────────────────
 
-  const getPreviewWidth = () => {
+  const getPreviewWidth = useCallback(() => {
     if (previewMode === 'desktop') return '100%'
     if (previewMode === 'tablet') return '75%'
     return '45%'
-  }
+  }, [previewMode])
+
+  // ─── Save Handler ──────────────────────────────────────────────────────
+
+  const handleSave = useCallback(async () => {
+    if (!adTitle.trim()) return
+    setSaving(true)
+    try {
+      if (editingAd) {
+        const updateBody: Record<string, unknown> = {
+          id: editingAd.id,
+          title: adTitle,
+          linkUrl: adLink || null,
+          isActive: statusActive,
+          startDate: startDate || null,
+          endDate: endDate || null,
+        }
+        if (uploadedFile) {
+          updateBody.mediaUrl = uploadedFile.url
+          updateBody.mediaFormat = uploadedFile.mimeType
+        }
+        await fetch('/api/footer-ads', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateBody),
+        })
+        setEditingAd(null)
+      } else {
+        if (!uploadedFile) return
+        const isVideo = uploadedFile.mimeType.startsWith('video/')
+        const isGif = uploadedFile.mimeType === 'image/gif'
+        await createFooterAd({
+          title: adTitle,
+          linkUrl: adLink || undefined,
+          adType: isVideo ? 'video' : isGif ? 'gif' : 'image',
+          mediaUrl: uploadedFile.url,
+          thumbnailUrl: uploadedFile.url,
+          mediaFormat: uploadedFile.mimeType,
+          isActive: statusActive,
+          startDate: startDate || null,
+          endDate: endDate || null,
+        })
+      }
+      resetForm()
+    } catch (err) {
+      console.error('Error saving footer ad:', err)
+    } finally {
+      setSaving(false)
+    }
+  }, [adTitle, adLink, editingAd, statusActive, startDate, endDate, uploadedFile, createFooterAd, resetForm])
 
   // ─── Realtime indicator ────────────────────────────────────────────────
 
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const lastUpdatedRef = useRef(new Date())
   useEffect(() => {
-    if (footerAds.length > 0) {
-      setLastUpdated(new Date())
-    }
-  }, [footerAds.length])
+    lastUpdatedRef.current = new Date()
+  }, [footerAds])
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
       className="h-full overflow-y-auto no-scrollbar"
     >
@@ -275,15 +335,13 @@ export function FooterAdsPage() {
               <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Live</span>
             </div>
             {/* Refresh */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={() => refetchFooterAds()}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white"
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-all hover:border-white/20 hover:text-white hover:scale-105 active:scale-95"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
-            </motion.button>
+            </button>
             {/* Notification bell */}
             <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Bell className="h-4 w-4" />
@@ -294,15 +352,13 @@ export function FooterAdsPage() {
               <span className="text-xs font-bold text-white">A</span>
             </div>
             {/* Create button */}
-            <motion.button
-              whileHover={{ scale: 1.03, boxShadow: '0 0 25px rgba(255,30,30,0.4)' }}
-              whileTap={{ scale: 0.97 }}
+            <button
               onClick={() => { resetForm() }}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e]"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e] hover:scale-[1.03] hover:shadow-[0_0_25px_rgba(255,30,30,0.4)] active:scale-[0.97]"
             >
               <CloudUpload className="h-4 w-4" />
               Create Footer Ad
-            </motion.button>
+            </button>
           </div>
         </div>
 
@@ -323,8 +379,8 @@ export function FooterAdsPage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_300px] 2xl:grid-cols-[1fr_1fr_340px]">
           {/* ── LEFT: Create / Edit Footer Ad ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ delay: 0.25, duration: 0.4 }}
             className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
           >
@@ -437,8 +493,8 @@ export function FooterAdsPage() {
               {/* Success state after upload */}
               {uploadedFile && uploadStage === 'success' && (
                 <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="mt-3 space-y-3"
                 >
                   <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
@@ -454,9 +510,9 @@ export function FooterAdsPage() {
                   {uploadedFile.url && (
                     <div className="relative aspect-video overflow-hidden rounded-lg border border-white/10 bg-black">
                       {uploadedFile.mimeType.startsWith('video/') ? (
-                        <video src={uploadedFile.url} className="h-full w-full object-cover" autoPlay muted loop playsInline preload="auto" />
+                        <video src={uploadedFile.url} className="h-full w-full object-cover" muted loop playsInline preload="metadata" />
                       ) : (
-                        <img src={uploadedFile.url} alt="Preview" className="h-full w-full object-cover" />
+                        <img src={uploadedFile.url} alt="Preview" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                       )}
                       <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white/80">
                         {uploadedFile.mimeType.startsWith('video/') ? 'VIDEO' : 'IMAGE'}
@@ -471,9 +527,9 @@ export function FooterAdsPage() {
                 <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
                   <div className="relative h-14 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-black">
                     {editingAd.thumbnailUrl ? (
-                      <img src={editingAd.thumbnailUrl} alt="thumbnail" className="h-full w-full object-cover" />
+                      <img src={editingAd.thumbnailUrl} alt="thumbnail" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                     ) : (
-                      <img src={editingAd.mediaUrl} alt="media" className="h-full w-full object-cover" />
+                      <img src={editingAd.mediaUrl} alt="media" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -626,59 +682,10 @@ export function FooterAdsPage() {
                 </div>
 
                 {/* Save button */}
-                <motion.button
-                  whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(255,30,30,0.4)' }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={async () => {
-                    if (!adTitle.trim()) return
-                    setSaving(true)
-                    try {
-                      if (editingAd) {
-                        // Update existing ad
-                        const updateBody: Record<string, unknown> = {
-                          id: editingAd.id,
-                          title: adTitle,
-                          linkUrl: adLink || null,
-                          isActive: statusActive,
-                          startDate: startDate || null,
-                          endDate: endDate || null,
-                        }
-                        if (uploadedFile) {
-                          updateBody.mediaUrl = uploadedFile.url
-                          updateBody.mediaFormat = uploadedFile.mimeType
-                        }
-                        await fetch('/api/footer-ads', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(updateBody),
-                        })
-                        setEditingAd(null)
-                      } else {
-                        // Create new ad
-                        if (!uploadedFile) return
-                        const isVideo = uploadedFile.mimeType.startsWith('video/')
-                        const isGif = uploadedFile.mimeType === 'image/gif'
-                        await createFooterAd({
-                          title: adTitle,
-                          linkUrl: adLink || undefined,
-                          adType: isVideo ? 'video' : isGif ? 'gif' : 'image',
-                          mediaUrl: uploadedFile.url,
-                          thumbnailUrl: uploadedFile.url,
-                          mediaFormat: uploadedFile.mimeType,
-                          isActive: statusActive,
-                          startDate: startDate || null,
-                          endDate: endDate || null,
-                        })
-                      }
-                      resetForm()
-                    } catch (err) {
-                      console.error('Error saving footer ad:', err)
-                    } finally {
-                      setSaving(false)
-                    }
-                  }}
+                <button
+                  onClick={handleSave}
                   disabled={saving || !adTitle.trim() || (!editingAd && !uploadedFile)}
-                  className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e] disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff1e1e] to-[#cc181e] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,30,30,0.3)] transition-all hover:from-[#ff2e2e] hover:to-[#dd282e] hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(255,30,30,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {saving ? (
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -686,15 +693,15 @@ export function FooterAdsPage() {
                     <CloudUpload className="h-4 w-4" />
                   )}
                   {saving ? 'Saving...' : editingAd ? 'Update Footer Ad' : 'Save Footer Ad'}
-                </motion.button>
+                </button>
               </div>
             </div>
           </motion.div>
 
           {/* ── CENTER: Ad Preview ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.4 }}
             className="space-y-4"
           >
@@ -755,17 +762,17 @@ export function FooterAdsPage() {
                       {/* FOOTER AD PLACEMENT */}
                       <div className="border-t border-white/5">
                         <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
                           className="relative overflow-hidden"
                           style={{ aspectRatio: '970/250' }}
                         >
                           {uploadedFile?.url ? (
                             <>
                               {uploadedFile.mimeType.startsWith('video/') ? (
-                                <video src={uploadedFile.url} className="h-full w-full object-cover" autoPlay muted loop playsInline preload="auto" />
+                        <video src={uploadedFile.url} className="h-full w-full object-cover" muted loop playsInline preload="metadata" />
                               ) : (
-                                <img src={uploadedFile.url} alt="Ad preview" className="h-full w-full object-cover" />
+                                <img src={uploadedFile.url} alt="Ad preview" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                               )}
                               <div className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-md bg-[#ff1e1e]/80 px-1.5 py-0.5">
                                 <Megaphone className="h-2 w-2 text-white" />
@@ -774,7 +781,7 @@ export function FooterAdsPage() {
                             </>
                           ) : editingAd?.mediaUrl ? (
                             <>
-                              <img src={editingAd.mediaUrl} alt="Ad preview" className="h-full w-full object-cover" />
+                              <img src={editingAd.mediaUrl} alt="Ad preview" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                               <div className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-md bg-[#ff1e1e]/80 px-1.5 py-0.5">
                                 <Megaphone className="h-2 w-2 text-white" />
                                 <span className="text-[7px] font-bold uppercase tracking-wider text-white">AD</span>
@@ -812,11 +819,8 @@ export function FooterAdsPage() {
               <div className="p-3 lg:p-4">
                 <h2 className="mb-3 text-base font-bold text-white">Top Performing Ads</h2>
                 <div className="space-y-2">
-                  {footerAds.length > 0 ? (
-                    [...footerAds]
-                      .sort((a, b) => b.ctr - a.ctr)
-                      .slice(0, 5)
-                      .map((ad, i) => (
+                  {topPerformingAds.length > 0 ? (
+                    topPerformingAds.map((ad, i) => (
                         <div key={ad.id} className="flex items-center gap-3 rounded-lg bg-white/[0.02] px-3 py-2">
                           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#ff1e1e]/10 text-[10px] font-bold text-[#ff1e1e]">
                             {i + 1}
@@ -841,8 +845,8 @@ export function FooterAdsPage() {
 
           {/* ── RIGHT: Ads Table / List ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ delay: 0.35, duration: 0.4 }}
             className="space-y-4"
           >
@@ -912,6 +916,7 @@ export function FooterAdsPage() {
                               alt={ad.title}
                               className="h-full w-full object-cover"
                               loading="lazy"
+                              decoding="async"
                             />
                             {/* Active indicator */}
                             <div className={`absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full ${ad.isActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />
@@ -1032,7 +1037,7 @@ export function FooterAdsPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-white/40">Last Updated</span>
-                    <span className="text-xs text-white/60">{lastUpdated.toLocaleTimeString()}</span>
+                    <span className="text-xs text-white/60">{lastUpdatedRef.current.toLocaleTimeString()}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-white/40">Total Footer Ads</span>

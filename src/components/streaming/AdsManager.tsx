@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search,
@@ -139,7 +139,14 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
-export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsManagerProps) {
+const headerFadeIn = { initial: { opacity: 0, y: -10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.3 } }
+const fadeSlideUp03 = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.3, duration: 0.4 } }
+const fadeSlideUp035 = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.35, duration: 0.4 } }
+const fadeSlideUp04 = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.4, duration: 0.4 } }
+const fadeSlideUp045 = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.45, duration: 0.4 } }
+const fadeScaleInOut = { initial: { opacity: 0, scale: 0.9 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.9 } }
+
+export const AdsManager = React.memo(function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsManagerProps) {
   const adminSection = useAppStore((s) => s.adminSection)
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [positionFilter, setPositionFilter] = useState<string>('all')
@@ -202,36 +209,49 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
   }, [sectionFilteredAds, searchQuery, typeFilter, positionFilter])
 
   // Overview stats based on filtered set
-  const totalImpressions = filteredAds.reduce((sum, ad) => sum + ad.impressions, 0)
-  const totalClicks = filteredAds.reduce((sum, ad) => sum + ad.clicks, 0)
-  const overallCTR = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0'
-  const totalRevenue = filteredAds.reduce((sum, ad) => sum + ad.revenue, 0)
+  const {
+    totalImpressions,
+    totalClicks,
+    overallCTR,
+    totalRevenue,
+    chartData,
+    avgCTR,
+    totalWatchTime,
+    watchTimeUnit,
+    skipRate,
+    revenuePerImpression,
+  } = useMemo(() => {
+    const totalImpressions = filteredAds.reduce((sum, ad) => sum + ad.impressions, 0)
+    const totalClicks = filteredAds.reduce((sum, ad) => sum + ad.clicks, 0)
+    const overallCTR = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0'
+    const totalRevenue = filteredAds.reduce((sum, ad) => sum + ad.revenue, 0)
 
-  // Chart data - ad performance
-  const chartData = filteredAds.map((ad) => ({
-    name: ad.title.length > 15 ? ad.title.substring(0, 15) + '...' : ad.title,
-    Impressions: ad.impressions,
-    Clicks: ad.clicks,
-  }))
+    const chartData = filteredAds.map((ad) => ({
+      name: ad.title.length > 15 ? ad.title.substring(0, 15) + '...' : ad.title,
+      Impressions: ad.impressions,
+      Clicks: ad.clicks,
+    }))
 
-  // Simulated analytics metrics for the filtered ad type
-  const avgCTR = filteredAds.length > 0
-    ? (filteredAds.reduce((sum, ad) => sum + (ad.impressions > 0 ? (ad.clicks / ad.impressions) * 100 : 0), 0) / filteredAds.length).toFixed(2)
-    : '0'
+    const avgCTR = filteredAds.length > 0
+      ? (filteredAds.reduce((sum, ad) => sum + (ad.impressions > 0 ? (ad.clicks / ad.impressions) * 100 : 0), 0) / filteredAds.length).toFixed(2)
+      : '0'
 
-  const isVideoAd = ['pre-roll-ads', 'mid-roll-ads', 'post-roll-ads'].includes(adminSection)
-  const totalWatchTime = isVideoAd
-    ? formatNumber(filteredAds.reduce((sum, ad) => sum + ad.impressions * 15, 0))
-    : formatNumber(filteredAds.reduce((sum, ad) => sum + ad.impressions * 3, 0))
-  const watchTimeUnit = isVideoAd ? 'hrs' : 'hrs'
+    const isVideoAd = ['pre-roll-ads', 'mid-roll-ads', 'post-roll-ads'].includes(adminSection)
+    const totalWatchTime = isVideoAd
+      ? formatNumber(filteredAds.reduce((sum, ad) => sum + ad.impressions * 15, 0))
+      : formatNumber(filteredAds.reduce((sum, ad) => sum + ad.impressions * 3, 0))
+    const watchTimeUnit = isVideoAd ? 'hrs' : 'hrs'
 
-  const skipRate = isVideoAd
-    ? (Math.min(85, Math.max(20, 100 - parseFloat(avgCTR) * 10))).toFixed(1) + '%'
-    : '--'
+    const skipRate = isVideoAd
+      ? (Math.min(85, Math.max(20, 100 - parseFloat(avgCTR) * 10))).toFixed(1) + '%'
+      : '--'
 
-  const revenuePerImpression = totalImpressions > 0
-    ? '$' + (totalRevenue / totalImpressions).toFixed(4)
-    : '$0.0000'
+    const revenuePerImpression = totalImpressions > 0
+      ? '$' + (totalRevenue / totalImpressions).toFixed(4)
+      : '$0.0000'
+
+    return { totalImpressions, totalClicks, overallCTR, totalRevenue, chartData, avgCTR, totalWatchTime, watchTimeUnit, skipRate, revenuePerImpression }
+  }, [filteredAds, adminSection])
 
   // Get section display info
   const sectionInfo = sectionConfig[adminSection] || sectionConfig['all-ads']
@@ -276,9 +296,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
     <div className="space-y-4 p-3 lg:p-5">
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        {...headerFadeIn}
         className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
@@ -486,9 +504,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
 
       {/* Ad Performance Chart */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.4 }}
+        {...fadeSlideUp03}
         className="rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 md:p-6"
       >
         <h3 className="mb-4 text-lg font-semibold text-white">Ad Performance</h3>
@@ -516,9 +532,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
 
       {/* Ad Analytics Section */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35, duration: 0.4 }}
+        {...fadeSlideUp035}
       >
         <h3 className="mb-3 text-lg font-semibold text-white">Analytics</h3>
         <motion.div
@@ -587,9 +601,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
 
       {/* Filters */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.4 }}
+        {...fadeSlideUp04}
         className="flex flex-col gap-3 rounded-xl border border-white/5 bg-[#0f0f0f]/80 p-4 md:flex-row md:items-center"
       >
         <div className="relative flex-1">
@@ -633,9 +645,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
         <AnimatePresence>
           {(searchQuery || typeFilter !== 'all' || positionFilter !== 'all') && (
             <motion.button
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
+              {...fadeScaleInOut}
               onClick={resetFilters}
               className="flex items-center gap-1 text-sm text-xtube-red hover:text-xtube-red-hover"
             >
@@ -649,9 +659,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
       {/* Video Ads Analytics Section - shown on all video ad sections */}
       {['pre-roll-ads', 'mid-roll-ads', 'post-roll-ads', 'overlay-ads'].includes(adminSection) && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45, duration: 0.4 }}
+          {...fadeSlideUp045}
         >
           <VideoAdsAnalytics />
         </motion.div>
@@ -659,9 +667,7 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
 
       {/* Ads Table */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45, duration: 0.4 }}
+        {...fadeSlideUp045}
         className="overflow-x-auto rounded-xl border border-white/5 bg-[#0f0f0f]/80"
       >
         <div className="min-w-[800px]">
@@ -815,4 +821,4 @@ export function AdsManager({ ads, onCreate, onDelete, onToggle, loading }: AdsMa
       </motion.div>
     </div>
   )
-}
+})

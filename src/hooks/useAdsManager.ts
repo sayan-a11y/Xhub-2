@@ -65,8 +65,16 @@ export function useAdsManager(options?: {
   const fetchIdRef = useRef(0)
   const adsRef = useRef(ads)
   adsRef.current = ads
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const realtimeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const fetchAds = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     const fetchId = ++fetchIdRef.current
     setError(null)
     try {
@@ -76,7 +84,7 @@ export function useAdsManager(options?: {
       if (position) params.set('position', position)
       params.set('limit', '200')
 
-      const res = await fetch(`/api/ads?${params.toString()}`)
+      const res = await fetch(`/api/ads?${params.toString()}`, { signal: controller.signal })
       if (!res.ok) throw new Error('Failed to fetch ads')
       const data = await res.json()
       if (fetchId === fetchIdRef.current) {
@@ -84,6 +92,7 @@ export function useAdsManager(options?: {
         setLoading(false)
       }
     } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return
       if (fetchId === fetchIdRef.current) {
         setError(err instanceof Error ? err.message : 'Failed to fetch ads')
         setLoading(false)
@@ -93,7 +102,6 @@ export function useAdsManager(options?: {
 
   // Initial fetch - use queueMicrotask to avoid synchronous setState in effect
   useEffect(() => {
-    setLoading(true)
     queueMicrotask(() => { fetchAds() })
   }, [fetchAds])
 
@@ -101,10 +109,27 @@ export function useAdsManager(options?: {
   const prevRealtimeCount = useRef(0)
   useEffect(() => {
     if (realtimeRows.length !== prevRealtimeCount.current && prevRealtimeCount.current > 0) {
-      queueMicrotask(() => { fetchAds() })
+      if (realtimeTimeoutRef.current) {
+        clearTimeout(realtimeTimeoutRef.current)
+      }
+      realtimeTimeoutRef.current = setTimeout(() => {
+        queueMicrotask(() => { fetchAds() })
+      }, 500)
     }
     prevRealtimeCount.current = realtimeRows.length
   }, [realtimeRows, fetchAds])
+
+  // Cleanup timeout and abort on unmount
+  useEffect(() => {
+    return () => {
+      if (realtimeTimeoutRef.current) {
+        clearTimeout(realtimeTimeoutRef.current)
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
 
   const createAd = useCallback(async (data: Record<string, unknown>): Promise<boolean> => {
     try {

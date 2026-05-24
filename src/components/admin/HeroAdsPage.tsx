@@ -116,7 +116,7 @@ function StatCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80 p-3 lg:p-4 transition-all duration-300 hover:border-white/10 hover:shadow-lg"
@@ -149,6 +149,18 @@ function formatNumber(num: number): string {
   if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M'
   if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K'
   return num.toString()
+}
+
+// ─── Status & Type Style Maps ─────────────────────────────────────────────────
+
+const statusStyles: Record<string, string> = {
+  active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  paused: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+}
+
+const typeStyles: Record<string, string> = {
+  image: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  video: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -196,25 +208,25 @@ export function HeroAdsPage() {
 
   // ─── Computed KPI Values ───────────────────────────────────────────────
 
-  const totalAds = heroAds.length
-  const activeAds = heroAds.filter((ad) => ad.isActive).length
-  const totalImpressions = heroAds.reduce((sum, ad) => sum + ad.impressions, 0)
-  const avgCtr = totalAds > 0 ? heroAds.reduce((sum, ad) => sum + ad.ctr, 0) / totalAds : 0
-  const totalClicks = heroAds.reduce((sum, ad) => sum + ad.clicks, 0)
+  const totalAds = useMemo(() => heroAds.length, [heroAds])
+  const activeAds = useMemo(() => heroAds.filter((ad) => ad.isActive).length, [heroAds])
+  const totalImpressions = useMemo(() => heroAds.reduce((sum, ad) => sum + ad.impressions, 0), [heroAds])
+  const avgCtr = useMemo(() => totalAds > 0 ? heroAds.reduce((sum, ad) => sum + ad.ctr, 0) / totalAds : 0, [heroAds])
+  const totalClicks = useMemo(() => heroAds.reduce((sum, ad) => sum + ad.clicks, 0), [heroAds])
 
-  const imageCount = heroAds.filter((ad) => ad.adType === 'image').length
-  const videoCount = heroAds.filter((ad) => ad.adType === 'video').length
+  const imageCount = useMemo(() => heroAds.filter((ad) => ad.adType === 'image').length, [heroAds])
+  const videoCount = useMemo(() => heroAds.filter((ad) => ad.adType === 'video').length, [heroAds])
 
   // ─── Donut data ────────────────────────────────────────────────────────
 
-  const donutData = [
+  const donutData = useMemo(() => [
     { name: 'Image Ads', value: imageCount },
     { name: 'Video Ads', value: videoCount },
-  ]
+  ], [heroAds])
 
   // ─── Top performing ads (by CTR) ──────────────────────────────────────
 
-  const topAds = [...heroAds].sort((a, b) => b.ctr - a.ctr).slice(0, 5)
+  const topAds = useMemo(() => [...heroAds].sort((a, b) => b.ctr - a.ctr).slice(0, 5), [heroAds])
 
   // ─── Upload File to Server (chunked for videos, simple for images) ────
 
@@ -316,9 +328,6 @@ export function HeroAdsPage() {
       // Processing stage
       setUploadStage('processing')
       setUploadProgress(95)
-
-      // Small delay for "processing" feel
-      await new Promise(r => setTimeout(r, 600))
 
       setUploadProgress(100)
       setUploadStage('success')
@@ -465,43 +474,33 @@ export function HeroAdsPage() {
 
   // ─── Filtered & Paginated Ads ──────────────────────────────────────────
 
-  const filteredAds = heroAds.filter((ad) => {
+  const filteredAds = useMemo(() => heroAds.filter((ad) => {
     if (statusFilter !== 'all') {
       if (statusFilter === 'active' && !ad.isActive) return false
       if (statusFilter === 'paused' && ad.isActive) return false
     }
     if (searchQuery && !ad.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
-  })
+  }), [heroAds, searchQuery, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(filteredAds.length / itemsPerPage))
   const safeCurrentPage = Math.min(currentPage, totalPages)
-  const paginatedAds = filteredAds.slice(
+  const paginatedAds = useMemo(() => filteredAds.slice(
     (safeCurrentPage - 1) * itemsPerPage,
     safeCurrentPage * itemsPerPage
-  )
-
-  const statusStyles: Record<string, string> = {
-    active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    paused: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  }
-
-  const typeStyles: Record<string, string> = {
-    image: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    video: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  }
+  ), [filteredAds, safeCurrentPage])
 
   // ─── Preview container width ───────────────────────────────────────────
 
-  const getPreviewWidth = () => {
+  const getPreviewWidth = useCallback(() => {
     if (previewMode === 'desktop') return '100%'
     if (previewMode === 'tablet') return '75%'
     return '45%'
-  }
+  }, [previewMode])
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.3 }}
@@ -528,15 +527,13 @@ export function HeroAdsPage() {
               <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Live</span>
             </div>
             {/* Refresh */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={() => refetchHeroAds()}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white"
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:border-white/20 hover:text-white active:scale-95"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
-            </motion.button>
+            </button>
             {/* Notification bell */}
             <button className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-[#0B0B0F]/60 px-2.5 py-2 text-white/60 transition-colors hover:border-white/20 hover:text-white">
               <Bell className="h-4 w-4" />
@@ -579,10 +576,10 @@ export function HeroAdsPage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_300px] 2xl:grid-cols-[1fr_1fr_340px]">
           {/* ── LEFT: Create / Edit Hero Ad Form ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.4 }}
-            className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.4 }}
+          className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
           >
             <div className="p-3 lg:p-4">
               <div className="mb-4 flex items-center justify-between">
@@ -739,6 +736,8 @@ export function HeroAdsPage() {
                           <img
                             src={uploadedFileUrl}
                             alt="Uploaded preview"
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                           />
                         )}
@@ -877,7 +876,7 @@ export function HeroAdsPage() {
 
           {/* ── CENTER: Ad Preview ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.4 }}
             className="space-y-4"
@@ -935,14 +934,16 @@ export function HeroAdsPage() {
                               autoPlay
                               muted
                               loop
-                              playsInline
-                              preload="auto"
-                              poster={editingAd?.thumbnailUrl || undefined}
+                               playsInline
+                               preload="metadata"
+                               poster={editingAd?.thumbnailUrl || undefined}
                             />
                           ) : (
                             <img
                               src={uploadedFileUrl || editingAd?.mediaUrl}
                               alt="Ad preview"
+                              loading="lazy"
+                              decoding="async"
                               className="h-full w-full object-cover"
                             />
                           )}
@@ -953,7 +954,7 @@ export function HeroAdsPage() {
                         </div>
                       ) : (
                         <motion.div
-                          initial={{ opacity: 0, y: -10 }}
+                          initial={{ opacity: 0 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="relative overflow-hidden"
                           style={{ aspectRatio: '1920/600' }}
@@ -977,13 +978,11 @@ export function HeroAdsPage() {
                                   <span className="text-[8px] text-white/50">Video Ad</span>
                                 </div>
                               )}
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="mt-2 rounded bg-[#ff1e1e] px-4 py-1 text-[9px] font-bold text-white shadow-[0_0_10px_rgba(255,30,30,0.4)]"
+                              <button
+                                className="mt-2 rounded bg-[#ff1e1e] px-4 py-1 text-[9px] font-bold text-white shadow-[0_0_10px_rgba(255,30,30,0.4)] hover:scale-105 active:scale-95 transition-transform"
                               >
                                 LEARN MORE
-                              </motion.button>
+                              </button>
                             </div>
                           </div>
                           <div className="absolute top-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[7px] text-white/40">
@@ -1037,10 +1036,10 @@ export function HeroAdsPage() {
 
           {/* ── RIGHT: Analytics Sidebar ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.4 }}
-            className="space-y-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35, duration: 0.4 }}
+          className="space-y-4"
           >
             {/* Donut Chart: Image vs Video Distribution */}
             <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80">
@@ -1175,7 +1174,7 @@ export function HeroAdsPage() {
             HERO ADS TABLE
             ═══════════════════════════════════════════════════════════════════ */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.4 }}
           className="overflow-hidden rounded-xl border border-white/5 bg-[#0B0B0F]/80"
@@ -1205,15 +1204,13 @@ export function HeroAdsPage() {
                     className="h-8 w-40 rounded-lg border border-white/10 bg-[#0a0a0a] pl-8 pr-3 text-xs text-white placeholder:text-white/25 outline-none focus:border-[#ff1e1e]/40"
                   />
                 </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <button
                   onClick={refetchHeroAds}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#0a0a0a] text-white/40 transition-colors hover:bg-white/5 hover:text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#0a0a0a] text-white/40 transition-colors hover:bg-white/5 hover:text-white active:scale-95"
                   title="Refresh"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
-                </motion.button>
+                </button>
               </div>
             </div>
 
@@ -1435,14 +1432,12 @@ export function HeroAdsPage() {
                   >
                     Cancel
                   </button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                  <button
                     onClick={() => handleDelete(deletingAdId)}
-                    className="rounded-lg bg-red-500 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-600"
+                    className="rounded-lg bg-red-500 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-600 active:scale-98"
                   >
                     Delete Ad
-                  </motion.button>
+                  </button>
                 </div>
               </motion.div>
             </motion.div>

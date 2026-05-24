@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import {
   SkipForward,
@@ -92,9 +92,9 @@ const skipButtonVariants: Variants = {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function VideoAdsPlayer({
-  isPlaying,
-  currentTime,
+export const VideoAdsPlayer = memo(function VideoAdsPlayer({
+  isPlaying: _isPlaying,
+  currentTime: _currentTime,
   duration,
   preRollAds,
   midRollAds,
@@ -134,6 +134,11 @@ export function VideoAdsPlayer({
   const adTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Time-sync refs (avoid re-renders from parent's currentTime/isPlaying)
+  const currentTimeRef = useRef(_currentTime)
+  const isPlayingRef = useRef(_isPlaying)
+  const durationRef = useRef(duration)
+
   // Track pre-roll phase
   const preRollQueueRef = useRef<AdData[]>([])
   const preRollIndexRef = useRef(0)
@@ -152,6 +157,11 @@ export function VideoAdsPlayer({
 
   // Store the currentTime when mid-roll ad starts, so we can resume
   const midrollResumeTimeRef = useRef<number>(0)
+
+  // Sync time-sensitive refs (runs every render without triggering re-render)
+  currentTimeRef.current = _currentTime
+  isPlayingRef.current = _isPlaying
+  durationRef.current = duration
 
   // ─── Clear ad timer ────────────────────────────────────────────────────────
 
@@ -179,9 +189,9 @@ export function VideoAdsPlayer({
       // Mark as played
       playedAdsRef.current.add(ad.id)
 
-      // If this is a mid-roll, save the resume time
+      // If this is a mid-roll, save the resume time (use ref to avoid prop dep)
       if (phase === 'mid-roll') {
-        midrollResumeTimeRef.current = currentTime
+        midrollResumeTimeRef.current = currentTimeRef.current
       }
 
       // Pause the main video
@@ -208,10 +218,8 @@ export function VideoAdsPlayer({
           elapsed += 0.1
           setAdElapsed(elapsed)
 
-          // Check skip availability
-          if (elapsed >= ad.skipAfter && !canSkip) {
-            setCanSkip(true)
-          }
+          // Check skip availability (use functional updater to avoid stale closure)
+          setCanSkip((prev) => prev || elapsed >= ad.skipAfter)
 
           // Auto-advance when ad duration is reached
           if (elapsed >= ad.adDuration) {
@@ -231,7 +239,7 @@ export function VideoAdsPlayer({
         }, 100)
       }
     },
-    [isPlaying, currentTime, onRequestPause, onRequestPlay, onRequestSeek, onAdStart, onAdEnd, onAdComplete, canSkip, clearAdTimer]
+    [onRequestPause, onRequestPlay, onRequestSeek, onAdStart, onAdEnd, onAdComplete, clearAdTimer]
   )
 
   // ─── Handle video ad time update ──────────────────────────────────────────
@@ -243,10 +251,10 @@ export function VideoAdsPlayer({
     const elapsed = vid.currentTime
     setAdElapsed(elapsed)
 
-    if (elapsed >= activeAd.ad.skipAfter && !canSkip) {
-      setCanSkip(true)
+    if (elapsed >= activeAd.ad.skipAfter) {
+      setCanSkip((prev) => prev || true)
     }
-  }, [activeAd, canSkip])
+  }, [activeAd])
 
   // ─── Handle video ad ended ─────────────────────────────────────────────────
 
@@ -319,40 +327,30 @@ export function VideoAdsPlayer({
     }
   }, [activeOverlay, onAdClick])
 
-  // ─── Pre-roll detection ────────────────────────────────────────────────────
-  // Pre-roll ads play when the component first mounts and video is about to play
+  // ─── Pre-roll first play ────────────────────────────────────────────────────
 
   const preRollStartedRef = useRef(false)
 
+  // Effect for pre-roll (triggered once when preRollAds arrive)
   useEffect(() => {
     if (preRollAds.length === 0 || preRollStartedRef.current || activeAd || activeOverlay) return
+    preRollStartedRef.current = true
+    preRollQueueRef.current = [...preRollAds]
+    preRollIndexRef.current = 0
+    const timer = setTimeout(() => {
+      startAd(preRollAds[0], 'pre-roll', 0, preRollAds.length)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [preRollAds, activeAd, activeOverlay, startAd])
 
-    // Start pre-roll when the video first starts playing
-    if (isPlaying && currentTime < 1 && !preRollStartedRef.current) {
-      preRollStartedRef.current = true
-      preRollQueueRef.current = [...preRollAds]
-      preRollIndexRef.current = 0
-
-      // Schedule the first pre-roll ad (deferred to avoid set-state-in-effect)
-      const timer = setTimeout(() => {
-        startAd(preRollAds[0], 'pre-roll', 0, preRollAds.length)
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-  }, [isPlaying, currentTime, preRollAds, activeAd, activeOverlay, startAd])
-
-  // ─── Sequential pre-roll: after one pre-roll ends, start next ──────────────
-  // This is handled by watching activeAd become null while pre-roll queue has more
+  // ─── Sequential pre-roll (when activeAd becomes null, play next in queue) ──
 
   useEffect(() => {
     if (activeAd || !preRollStartedRef.current) return
-
-    // Check if there are more pre-roll ads to play
     const nextIndex = preRollIndexRef.current + 1
     if (nextIndex < preRollQueueRef.current.length && preRollQueueRef.current.length > 0) {
       preRollIndexRef.current = nextIndex
       const nextAd = preRollQueueRef.current[nextIndex]
-      // Small delay for transition
       const timer = setTimeout(() => {
         startAd(nextAd, 'pre-roll', nextIndex, preRollQueueRef.current.length)
       }, 300)
@@ -360,98 +358,78 @@ export function VideoAdsPlayer({
     }
   }, [activeAd, startAd])
 
-  // ─── Mid-roll detection ────────────────────────────────────────────────────
-  // Detect when currentTime crosses a midroll timing point
+  // ─── Polling effect: mid-roll / post-roll / overlay detection (every 1s) ──
 
   useEffect(() => {
-    if (!isPlaying || activeAd || midRollAds.length === 0) return
+    const checkTimings = () => {
+      const ct = currentTimeRef.current
+      const playing = isPlayingRef.current
+      const dur = durationRef.current
 
-    // Check each mid-roll timing
-    for (const timing of midrollTimings) {
-      // Use 1-second tolerance for detection
-      if (
-        currentTime >= timing &&
-        currentTime <= timing + 1 &&
-        !triggeredMidrollTimingsRef.current.has(timing)
-      ) {
-        triggeredMidrollTimingsRef.current.add(timing)
+      // Mid-roll
+      if (playing && !activeAd && midRollAds.length > 0) {
+        for (const timing of midrollTimings) {
+          if (ct >= timing && ct <= timing + 1 && !triggeredMidrollTimingsRef.current.has(timing)) {
+            triggeredMidrollTimingsRef.current.add(timing)
+            const midRollAd = midRollAds.find(
+              (ad) => ad.timing && Math.abs(ad.timing - timing) < 2
+            )
+            if (midRollAd && !playedAdsRef.current.has(midRollAd.id)) {
+              setTimeout(() => startAd(midRollAd, 'mid-roll', 0, 1), 0)
+              return
+            }
+          }
+        }
+      }
 
-        // Find the mid-roll ad for this timing
-        const midRollAd = midRollAds.find(
-          (ad) => ad.timing && Math.abs(ad.timing - timing) < 2
-        )
+      // Post-roll
+      if (postRollAds.length > 0 && dur > 0 && ct >= dur - 0.5 && !postRollTriggeredRef.current && !activeAd) {
+        postRollTriggeredRef.current = true
+        setTimeout(() => startAd(postRollAds[0], 'post-roll', 0, postRollAds.length), 0)
+        return
+      }
 
-        if (midRollAd && !playedAdsRef.current.has(midRollAd.id)) {
-          // Defer to avoid set-state-in-effect
-          const timer = setTimeout(() => {
-            startAd(midRollAd, 'mid-roll', 0, 1)
-          }, 0)
-          return () => clearTimeout(timer)
+      // Overlay
+      if (playing && !activeOverlay && overlayAds.length > 0) {
+        for (const overlayAd of overlayAds) {
+          const timing = overlayAd.timing
+          if (timing === undefined || timing === null) continue
+          const adKey = `${overlayAd.id}-${timing}`
+          if (ct >= timing && ct <= timing + 1.5 && !triggeredOverlayTimingsRef.current.has(adKey) && !playedAdsRef.current.has(overlayAd.id)) {
+            triggeredOverlayTimingsRef.current.add(adKey)
+            playedAdsRef.current.add(overlayAd.id)
+            const adToShow = overlayAd
+            setTimeout(() => {
+              onAdStart(adToShow.id)
+              setActiveOverlay(adToShow)
+              clearOverlayTimer()
+              overlayTimerRef.current = setTimeout(() => {
+                onAdComplete(adToShow.id)
+                onAdEnd(adToShow.id)
+                setActiveOverlay(null)
+              }, (adToShow.adDuration || 10) * 1000)
+            }, 0)
+            return
+          }
         }
       }
     }
-  }, [currentTime, isPlaying, activeAd, midRollAds, midrollTimings, startAd])
 
-  // ─── Post-roll detection ───────────────────────────────────────────────────
-  // Post-roll plays when the video ends (currentTime >= duration - 0.5)
-
-  useEffect(() => {
-    if (
-      postRollAds.length > 0 &&
-      duration > 0 &&
-      currentTime >= duration - 0.5 &&
-      !postRollTriggeredRef.current &&
-      !activeAd
-    ) {
-      postRollTriggeredRef.current = true
-      // Defer to avoid set-state-in-effect
-      const timer = setTimeout(() => {
-        startAd(postRollAds[0], 'post-roll', 0, postRollAds.length)
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-  }, [currentTime, duration, postRollAds, activeAd, startAd])
-
-  // ─── Overlay ad detection ──────────────────────────────────────────────────
-  // Overlay ads show at scheduled times without pausing the video
-
-  useEffect(() => {
-    if (!isPlaying || activeOverlay || overlayAds.length === 0) return
-
-    for (const overlayAd of overlayAds) {
-      const timing = overlayAd.timing
-      if (timing === undefined || timing === null) continue
-
-      // Check if we've crossed the timing point
-      const adKey = `${overlayAd.id}-${timing}`
-      if (
-        currentTime >= timing &&
-        currentTime <= timing + 1.5 &&
-        !triggeredOverlayTimingsRef.current.has(adKey) &&
-        !playedAdsRef.current.has(overlayAd.id)
-      ) {
-        triggeredOverlayTimingsRef.current.add(adKey)
-        playedAdsRef.current.add(overlayAd.id)
-
-        // Defer state update to avoid set-state-in-effect
-        const adToShow = overlayAd
-        const timer = setTimeout(() => {
-          // Show overlay ad (does NOT pause the video)
-          onAdStart(adToShow.id)
-          setActiveOverlay(adToShow)
-
-          // Auto-dismiss after adDuration
-          clearOverlayTimer()
-          overlayTimerRef.current = setTimeout(() => {
-            onAdComplete(adToShow.id)
-            onAdEnd(adToShow.id)
-            setActiveOverlay(null)
-          }, (adToShow.adDuration || 10) * 1000)
-        }, 0)
-        return () => clearTimeout(timer)
-      }
-    }
-  }, [currentTime, isPlaying, activeOverlay, overlayAds, onAdStart, onAdComplete, onAdEnd, clearOverlayTimer])
+    const interval = setInterval(checkTimings, 1000)
+    return () => clearInterval(interval)
+  }, [
+    activeAd,
+    activeOverlay,
+    midRollAds,
+    midrollTimings,
+    postRollAds,
+    overlayAds,
+    onAdStart,
+    onAdComplete,
+    onAdEnd,
+    clearOverlayTimer,
+    startAd,
+  ])
 
   // ─── Cleanup on unmount ────────────────────────────────────────────────────
 
@@ -818,4 +796,4 @@ export function VideoAdsPlayer({
       </AnimatePresence>
     </>
   )
-}
+})
