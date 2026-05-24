@@ -910,6 +910,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
 
         hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
           setAvailableLevels(data.levels)
+          vid.play().catch(() => {})
         })
 
         hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
@@ -943,9 +944,11 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
         })
       } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
         vid.src = url
+        vid.play().catch(() => {})
       }
     } else {
       vid.src = url
+      vid.play().catch(() => {})
     }
 
     return () => {
@@ -1176,10 +1179,12 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                 ref={videoRef}
                 className="h-full w-full cursor-pointer aspect-video bg-black"
                 preload="metadata"
-                onClick={togglePlay}
-                onDoubleClick={toggleFullscreen}
+                autoPlay
+                muted
                 playsInline
                 poster={video.thumbnail}
+                onClick={togglePlay}
+                onDoubleClick={toggleFullscreen}
                 style={{ transform: 'translateZ(0)', willChange: 'transform' }}
               >
                 {subtitleTracks.map((track) => (

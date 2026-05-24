@@ -45,7 +45,7 @@ export function getQualityConfig(name: QualityName) {
 // Produces a standard HLS master playlist that lists all available renditions.
 // Each rendition points to a media playlist URL served by our API.
 
-export function generateMasterManifest(qualities: QualityName[]): string {
+export function generateMasterManifest(qualities: QualityName[], videoId?: string): string {
   const lines: string[] = [
     '#EXTM3U',
     '#EXT-X-VERSION:6',
@@ -60,9 +60,10 @@ export function generateMasterManifest(qualities: QualityName[]): string {
     const bandwidth = cfg.bitrate * 1000
     const resolution = `${cfg.width}x${cfg.height}`
 
+    const urlPrefix = videoId ? `/api/streaming/hls/${videoId}` : ''
     lines.push(
       `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},RESOLUTION=${resolution},CODECS="avc1.640028,mp4a.40.2",FRAME-RATE=30.000`,
-      `playlist?quality=${cfg.name}`
+      `${urlPrefix}?type=playlist&quality=${cfg.name}`
     )
   }
 
@@ -78,7 +79,8 @@ export function generateMasterManifest(qualities: QualityName[]): string {
 export function generateMediaPlaylist(
   quality: QualityName,
   segmentCount: number,
-  segmentDuration: number
+  segmentDuration: number,
+  videoId?: string
 ): string {
   const cfg = QUALITY_MAP.get(quality)
   const bandwidth = cfg ? cfg.bitrate * 1000 : 2500000
@@ -94,6 +96,7 @@ export function generateMediaPlaylist(
 
   const totalDuration = segmentCount * segmentDuration
 
+  const urlPrefix = videoId ? `/api/streaming/hls/${videoId}` : ''
   for (let i = 0; i < segmentCount; i++) {
     const isLast = i === segmentCount - 1
     const dur = isLast
@@ -101,7 +104,7 @@ export function generateMediaPlaylist(
       : segmentDuration
 
     lines.push(`#EXTINF:${dur.toFixed(3)},`)
-    lines.push(`segment?quality=${quality}&index=${i}`)
+    lines.push(`${urlPrefix}?type=segment&quality=${quality}&index=${i}`)
   }
 
   lines.push('#EXT-X-ENDLIST')
@@ -123,13 +126,14 @@ export function generatePseudoHlsManifest(
   const cfg = QUALITY_MAP.get(quality)
   const bandwidth = cfg ? cfg.bitrate * 1000 : 4500000
   const resolution = cfg ? `${cfg.width}x${cfg.height}` : '1920x1080'
+  const urlPrefix = `/api/streaming/hls/${videoId}`
 
   const masterLines: string[] = [
     '#EXTM3U',
     '#EXT-X-VERSION:6',
     '#EXT-X-INDEPENDENT-SEGMENTS',
     `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},RESOLUTION=${resolution},CODECS="avc1.640028,mp4a.40.2",FRAME-RATE=30.000`,
-    `playlist?quality=${quality}`,
+    `${urlPrefix}?type=playlist&quality=${quality}`,
   ]
 
   const playlistLines: string[] = [

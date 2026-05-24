@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Megaphone, Volume2, VolumeX, Play, Pause, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Megaphone, Volume2, VolumeX, Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -26,7 +26,6 @@ interface FooterAdsProps {
 
 const FooterAdsInner = ({ ads }: FooterAdsProps) => {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [isClosed, setIsClosed] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
 
   // Auto-rotate carousel every 8s
@@ -41,9 +40,6 @@ const FooterAdsInner = ({ ads }: FooterAdsProps) => {
     }, 8000)
     return () => clearInterval(timer)
   }, [ads.length])
-
-  // If closed by user, don't render
-  if (isClosed) return null
 
   // ── Empty State ──────────────────────────────────────────────────────────
   if (!ads.length) {
@@ -94,15 +90,6 @@ const FooterAdsInner = ({ ads }: FooterAdsProps) => {
           transition-all duration-300
         "
       >
-        {/* Close button */}
-        <button
-          onClick={() => setIsClosed(true)}
-          className="absolute top-2 right-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white/40 transition-all hover:bg-black/70 hover:text-white/80 hover:border-white/20"
-          aria-label="Close ad"
-        >
-          <X className="h-3 w-3" />
-        </button>
-
         {/* AD badge */}
         <div className="absolute top-2 left-2 z-30">
           <span className="inline-flex items-center gap-1 rounded-md bg-[#ff1e1e]/10 border border-[#ff1e1e]/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-[#ff1e1e]/70">

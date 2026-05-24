@@ -50,7 +50,7 @@ export async function GET(
       if (video.hlsUrl) {
         // Generate a master manifest referencing our playlist endpoint
         const qualities = resolveAvailableQualities(video.resolution, video.qualityLevels)
-        const manifest = generateMasterManifest(qualities)
+        const manifest = generateMasterManifest(qualities, video.id)
 
         return new NextResponse(manifest, {
           status: 200,
@@ -64,7 +64,7 @@ export async function GET(
 
       // Pseudo-HLS: generate a master manifest that wraps the raw MP4
       const qualities = resolveAvailableQualities(video.resolution, video.qualityLevels)
-      const manifest = generateMasterManifest(qualities)
+      const manifest = generateMasterManifest(qualities, video.id)
 
       return new NextResponse(manifest, {
         status: 200,
@@ -89,7 +89,7 @@ export async function GET(
 
         // For pseudo-HLS with raw MP4, we create a single-segment playlist
         const segmentDuration = duration
-        const playlist = generateMediaPlaylist(validQuality, 1, segmentDuration)
+        const playlist = generateMediaPlaylist(validQuality, 1, segmentDuration, video.id)
 
         return new NextResponse(playlist, {
           status: 200,
