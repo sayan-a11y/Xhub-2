@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Megaphone, Volume2, VolumeX, Play, Pause, X, ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -24,7 +24,7 @@ interface FooterAdsProps {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FooterAds({ ads }: FooterAdsProps) {
+const FooterAdsInner = ({ ads }: FooterAdsProps) => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isClosed, setIsClosed] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -303,3 +303,5 @@ function FooterAdCard({ ad }: { ad: FooterAdItem }) {
     </div>
   )
 }
+
+export const FooterAds = React.memo(FooterAdsInner)

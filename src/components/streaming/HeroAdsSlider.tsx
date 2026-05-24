@@ -1,6 +1,6 @@
 'use client'
 
-import {
+import React, {
   useState,
   useEffect,
   useCallback,
@@ -74,7 +74,7 @@ const contentItem: Variants = {
    Component
    ──────────────────────────────────────────── */
 
-export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
+const HeroAdsSliderInner = ({ ads }: HeroAdsSliderProps) => {
   // Limit to max 6 ads
   const visibleAds = useMemo(() => ads.slice(0, MAX_VISIBLE_ADS), [ads])
 
@@ -678,3 +678,5 @@ export function HeroAdsSlider({ ads }: HeroAdsSliderProps) {
     </div>
   )
 }
+
+export const HeroAdsSlider = React.memo(HeroAdsSliderInner)

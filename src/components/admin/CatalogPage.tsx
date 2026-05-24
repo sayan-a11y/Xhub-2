@@ -78,21 +78,6 @@ const iconMap: Record<string, React.ElementType> = {
 
 const iconOptions = Object.keys(iconMap)
 
-const initialCategories: CategoryItem[] = [
-  { id: '1', name: 'Trending', slug: 'trending', icon: 'flame', order: 1, videoCount: 48, viewCount: 284500 },
-  { id: '2', name: 'Popular', slug: 'popular', icon: 'sparkles', order: 2, videoCount: 36, viewCount: 198200 },
-  { id: '3', name: 'New Releases', slug: 'new-releases', icon: 'star', order: 3, videoCount: 22, viewCount: 45600 },
-  { id: '4', name: 'Gaming', slug: 'gaming', icon: 'gamepad', order: 4, videoCount: 31, viewCount: 156800 },
-  { id: '5', name: 'Music', slug: 'music', icon: 'music', order: 5, videoCount: 19, viewCount: 89300 },
-  { id: '6', name: 'Education', slug: 'education', icon: 'graduation', order: 6, videoCount: 27, viewCount: 67800 },
-  { id: '7', name: 'Fitness', slug: 'fitness', icon: 'dumbbell', order: 7, videoCount: 14, viewCount: 34500 },
-  { id: '8', name: 'Travel', slug: 'travel', icon: 'plane', order: 8, videoCount: 18, viewCount: 51200 },
-  { id: '9', name: 'Cooking', slug: 'cooking', icon: 'utensils', order: 9, videoCount: 12, viewCount: 29800 },
-  { id: '10', name: 'Art & Design', slug: 'art-design', icon: 'palette', order: 10, videoCount: 9, viewCount: 18600 },
-  { id: '11', name: 'News', slug: 'news', icon: 'newspaper', order: 11, videoCount: 24, viewCount: 72100 },
-  { id: '12', name: 'Podcasts', slug: 'podcasts', icon: 'mic', order: 12, videoCount: 16, viewCount: 41200 },
-]
-
 function formatViewCount(num: number): string {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K'

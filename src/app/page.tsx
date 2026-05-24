@@ -154,9 +154,25 @@ export default function XtubeHome() {
   const [apiAds, setApiAds] = useState<AdData[]>([])
   const [apiLoaded, setApiLoaded] = useState(false)
 
-  // Track whether realtime has ever fired for categories (so we know the channel is live)
-  const realtimeCategoriesActive = useRef(false)
+  // Merge API data as initial, then overlay realtime updates on top (stable merge)
+  // This prevents the toggle between API and realtime data that causes re-render cascades
+  const [stableVideos, setStableVideos] = useState<VideoData[]>([])
+  const [stableCategories, setStableCategories] = useState<CategoryData[]>([])
+  const [stableFooterAds, setStableFooterAds] = useState<FooterAdData[]>([])
+  const [stableHeroAds, setStableHeroAds] = useState<HeroAdData[]>([])
+  const [stableAds, setStableAds] = useState<AdData[]>([])
+  const [apiLoaded, setApiLoaded] = useState(false)
 
+  // Filter ads by date range
+  const isWithinSchedule = (ad: { isActive: boolean; startDate?: string | null; endDate?: string | null }) => {
+    if (!ad.isActive) return false
+    const now = new Date()
+    if (ad.startDate && new Date(ad.startDate) > now) return false
+    if (ad.endDate && new Date(ad.endDate) < now) return false
+    return true
+  }
+
+  // One-time initial API fetch
   useEffect(() => {
     let cancelled = false
     const fetchInitialData = async () => {
@@ -171,22 +187,27 @@ export default function XtubeHome() {
         if (cancelled) return
         if (videosRes.ok) {
           const data = await videosRes.json()
+          setStableVideos(data.videos || [])
           setApiVideos(data.videos || [])
         }
         if (categoriesRes.ok) {
           const data = await categoriesRes.json()
+          setStableCategories(data.categories || [])
           setApiCategories(data.categories || [])
         }
         if (footerAdsRes.ok) {
           const data = await footerAdsRes.json()
+          setStableFooterAds((data.footerAds || []).filter(isWithinSchedule))
           setApiFooterAds(data.footerAds || [])
         }
         if (heroAdsRes.ok) {
           const data = await heroAdsRes.json()
+          setStableHeroAds((data.heroAds || []).filter(isWithinSchedule))
           setApiHeroAds(data.heroAds || [])
         }
         if (adsRes.ok) {
           const data = await adsRes.json()
+          setStableAds(data.ads || [])
           setApiAds(data.ads || [])
         }
         setApiLoaded(true)
@@ -199,31 +220,31 @@ export default function XtubeHome() {
     return () => { cancelled = true }
   }, [])
 
-  // Filter ads by date range (realtime only filters by isActive, not scheduling)
-  const isWithinSchedule = (ad: { isActive: boolean; startDate?: string | null; endDate?: string | null }) => {
-    if (!ad.isActive) return false
-    const now = new Date()
-    if (ad.startDate && new Date(ad.startDate) > now) return false
-    if (ad.endDate && new Date(ad.endDate) < now) return false
-    return true
+  // Merge realtime updates into stable state (insert/update/delete by ID)
+  const mergeRealtime = <T extends { id: string }>(prev: T[], updates: T[]): T[] => {
+    if (updates.length === 0) return prev
+    const prevMap = new Map(prev.map((item) => [item.id, item]))
+    for (const item of updates) prevMap.set(item.id, item)
+    return Array.from(prevMap.values())
   }
 
-  // Merge: prefer realtime data if available, otherwise fall back to API data
-  // For categories: track if realtime has ever fired so that deleting ALL categories
-  // correctly empties the list (instead of falling back to stale apiCategories)
-  const prevRealtimeCategoriesLen = useRef(realtimeCategories.length)
+  useEffect(() => { setStableVideos((p) => mergeRealtime(p, realtimeVideos)) }, [realtimeVideos])
+  useEffect(() => { setStableCategories((p) => mergeRealtime(p, realtimeCategories)) }, [realtimeCategories])
   useEffect(() => {
-    if (realtimeCategories.length !== prevRealtimeCategoriesLen.current) {
-      realtimeCategoriesActive.current = true
-      prevRealtimeCategoriesLen.current = realtimeCategories.length
-    }
-  }, [realtimeCategories])
+    const valid = realtimeFooterAds.filter(isWithinSchedule)
+    setStableFooterAds((p) => mergeRealtime(p, valid))
+  }, [realtimeFooterAds])
+  useEffect(() => {
+    const valid = realtimeHeroAds.filter(isWithinSchedule)
+    setStableHeroAds((p) => mergeRealtime(p, valid))
+  }, [realtimeHeroAds])
+  useEffect(() => { setStableAds((p) => mergeRealtime(p, realtimeAds)) }, [realtimeAds])
 
-  const videos = (realtimeVideos.length > 0 ? realtimeVideos : apiVideos) as VideoData[]
-  const categories = (realtimeCategoriesActive.current ? realtimeCategories : apiCategories) as CategoryData[]
-  const ads = (realtimeAds.length > 0 ? realtimeAds : apiAds) as AdData[]
-  const footerAds = ((realtimeFooterAds.length > 0 ? realtimeFooterAds : apiFooterAds) as FooterAdData[]).filter(isWithinSchedule)
-  const heroAds = ((realtimeHeroAds.length > 0 ? realtimeHeroAds : apiHeroAds) as HeroAdData[]).filter(isWithinSchedule)
+  const videos = stableVideos
+  const categories = stableCategories
+  const ads = stableAds
+  const footerAds = stableFooterAds
+  const heroAds = stableHeroAds
 
   // Progressive loading: show content as soon as ANY data arrives
   // Max skeleton time: 800ms then show whatever we have
@@ -235,14 +256,7 @@ export default function XtubeHome() {
   const loading = skeletonTimeout && !videos.length && !categories.length && !apiLoaded
 
   // Seed only runs once EVER per browser (persisted via localStorage)
-  const seedRan = useRef(false)
-  useEffect(() => {
-    if (!seedRan.current && !localStorage.getItem('xtube_seeded')) {
-      seedRan.current = true
-      localStorage.setItem('xtube_seeded', '1')
-      fetch('/api/seed', { method: 'POST' }).catch(() => {})
-    }
-  }, [])
+  // NOTE: Seed disabled — only real uploaded content is shown
 
   // ─── Load video when selected ──────────────────────────────────────────────
 

@@ -929,6 +929,7 @@ export function VideoPlayer({ video, relatedVideos, comments, onAddComment }: Vi
                 onClick={togglePlay}
                 onDoubleClick={toggleFullscreen}
                 playsInline
+                poster={video.thumbnail}
                 style={{ transform: 'translateZ(0)', willChange: 'transform' }}
               />
 
