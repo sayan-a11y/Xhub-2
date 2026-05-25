@@ -268,14 +268,8 @@ export default function XtubeHome() {
   const footerAds = stableFooterAds
   const heroAds = stableHeroAds
 
-  // Progressive loading: show content as soon as ANY data arrives
-  // Max skeleton time: 300ms then show whatever we have
-  const [skeletonTimeout, setSkeletonTimeout] = useState(true)
-  useEffect(() => {
-    const t = setTimeout(() => setSkeletonTimeout(false), 300)
-    return () => clearTimeout(t)
-  }, [])
-  const loading = skeletonTimeout && !videos.length && !categories.length && !apiLoaded
+  // Progressive loading: show content as soon as ANY video data arrives — zero delay
+  const loading = !videos.length
 
   // Preload VideoPlayer chunk in background (fastest possible video nav)
   useEffect(() => {
