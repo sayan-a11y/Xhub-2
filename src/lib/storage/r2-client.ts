@@ -447,8 +447,8 @@ async function initMultipartUploadR2(
   }
   const uploadId = uploadIdMatch[1]
 
-  // Larger chunks (10MB) for better throughput, each part must be >= 5MB
-  const chunkSize = 10 * 1024 * 1024 // 10MB
+  // Larger chunks (50MB) for faster large-file uploads, each part must be >= 5MB
+  const chunkSize = 50 * 1024 * 1024 // 50MB
   const partCount = Math.max(1, Math.ceil(fileSize / chunkSize))
 
   // Generate presigned PUT URLs for each part
@@ -475,7 +475,7 @@ async function initMultipartUploadLocal(
   _fileName: string
 ): Promise<InitUploadResult> {
   const uploadId = `local_${randomUUID()}`
-  const chunkSize = 10 * 1024 * 1024 // 10MB
+  const chunkSize = 50 * 1024 * 1024 // 50MB
   const partCount = Math.max(1, Math.ceil(fileSize / chunkSize))
 
   // For local mode, client still uploads parts through our API

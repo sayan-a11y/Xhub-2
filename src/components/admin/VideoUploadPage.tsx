@@ -389,7 +389,7 @@ export function VideoUploadPage() {
     }
 
     const { uploadId, key, parts, provider } = await initRes.json()
-    const CHUNK_SIZE = 10 * 1024 * 1024
+    const CHUNK_SIZE = 50 * 1024 * 1024
     const uploadedParts: Array<{ partNumber: number; etag: string }> = []
 
     const totalParts = parts.length
@@ -470,7 +470,7 @@ export function VideoUploadPage() {
       }
     }
 
-    const workers = Array.from({ length: Math.min(8, totalParts) }, () => uploadWorker())
+    const workers = Array.from({ length: Math.min(16, totalParts) }, () => uploadWorker())
     await Promise.all(workers)
 
     setUploadSpeed('')
@@ -527,20 +527,12 @@ export function VideoUploadPage() {
       setStorageKey(videoResult.key || null)
       setUploadProgress(80)
 
-      // Step 3: Upload all 10 thumbnails to R2
-      const uploadedUrls: string[] = []
-      for (let i = 0; i < thumbFiles.length; i++) {
-        const result = await uploadFileToServer(thumbFiles[i], 'thumbnail')
-        uploadedUrls.push(result.url)
-      }
-      setUploadedThumbnailsUrls(uploadedUrls)
+      // Step 3: Upload all thumbnails to R2 in parallel
+      const thumbResults = await Promise.all(
+        thumbFiles.map(f => uploadFileToServer(f, 'thumbnail'))
+      )
+      setUploadedThumbnailsUrls(thumbResults.map(r => r.url))
       setUploadProgress(95)
-
-      // Step 4: Processing
-      setUploadStage('processing')
-      setUploadProgress(95)
-
-      await new Promise(r => setTimeout(r, 800))
 
       setUploadProgress(100)
       setUploadStage('success')
