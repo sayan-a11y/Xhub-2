@@ -7,7 +7,7 @@ import React, {
   useRef,
   useMemo,
 } from 'react'
-import { motion, AnimatePresence, type Variants } from 'framer-motion'
+import { motion, type Variants } from 'framer-motion'
 import { Play, Info, ChevronLeft, ChevronRight, Volume2, VolumeX, Megaphone, Maximize2, Clock } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 
@@ -400,15 +400,9 @@ const HeroAdsSliderInner = ({ ads }: HeroAdsSliderProps) => {
     >
       {/* ── Slide area: responsive heights ── */}
       <div className="relative h-[55vh] sm:h-[55vh] md:h-[68vh] lg:h-[78vh] xl:h-[82vh]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentAd.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: TRANSITION_SPEED / 1000, ease: [0.4, 0, 0.2, 1] }}
-            className="absolute inset-0 will-change-transform"
-          >
+        <div
+          className="absolute inset-0 transition-opacity duration-500 ease-out will-change-transform"
+        >
             {/* ── Background media ── */}
             {currentAd.adType === 'video' ? (
               <>
@@ -463,8 +457,7 @@ const HeroAdsSliderInner = ({ ads }: HeroAdsSliderProps) => {
             <div className="absolute inset-0" style={{
               background: 'radial-gradient(ellipse at center, transparent 50%, rgba(5,5,5,0.4) 100%)',
             }} />
-          </motion.div>
-        </AnimatePresence>
+        </div>
 
         {/* ── Preload next slide (hidden) ── */}
         {hasMultipleAds && (
@@ -491,15 +484,7 @@ const HeroAdsSliderInner = ({ ads }: HeroAdsSliderProps) => {
         )}
 
         {/* ── Content overlay ── */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`content-${currentAd.id}`}
-            variants={contentVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="absolute inset-0 flex items-end"
-          >
+        <div className="absolute inset-0 flex items-end transition-opacity duration-500 ease-out">
             <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 md:px-8 pb-12 sm:pb-16 md:pb-24 lg:pb-32 xl:pb-40">
               <div className="max-w-xl space-y-3 sm:space-y-4">
                 {/* Sponsored badge */}
@@ -570,10 +555,9 @@ const HeroAdsSliderInner = ({ ads }: HeroAdsSliderProps) => {
                     More Info
                   </motion.button>
                 </motion.div>
-              </div>
             </div>
-          </motion.div>
-        </AnimatePresence>
+          </div>
+        </div>
 
         {/* ── Video controls (top right) ── */}
         {currentAd.adType === 'video' && videoLoaded[currentAd.id] && (

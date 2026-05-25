@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+// framer-motion not used — CSS transitions replace AnimatePresence for zero-remount rotation
 import { Megaphone, Volume2, VolumeX, Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -136,19 +136,10 @@ const FooterAdsInner = ({ ads }: FooterAdsProps) => {
           </>
         )}
 
-        {/* Ad content with loading state via key */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentAd.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isTransitioning ? 0 : 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="w-full"
-          >
-            <FooterAdCard ad={currentAd} />
-          </motion.div>
-        </AnimatePresence>
+        {/* Ad content with CSS transition (no key remount on rotation) */}
+        <div className="w-full transition-opacity duration-200" style={{ opacity: isTransitioning ? 0 : 1 }}>
+          <FooterAdCard ad={currentAd} />
+        </div>
       </div>
     </div>
   )
